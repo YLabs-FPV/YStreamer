@@ -1,0 +1,77 @@
+---
+title: Backup and reset
+description: Save and restore the settings, or go back to the defaults.
+order: 20
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+## Export and import
+
+Under **System → Configuration**:
+
+- **Export settings** downloads every setting as a `.json` file.
+- **Import settings** replaces all settings with the ones in a file. If the
+  Wi-Fi settings differ, the device may drop off your network.
+
+<Admonition type="warning">
+  The file holds Wi-Fi passwords and stream keys. Keep it private. It doesn't
+  hold the web interface password, the logo or a custom splash image.
+</Admonition>
+
+## Reset to defaults
+
+**System → Configuration → Reset to defaults** puts every setting back as it
+was, from the web interface. The password stays.
+
+## Reset over SSH
+
+```sh
+sudo ystreamer reset
+```
+
+This resets the settings and removes the web interface password, like the
+jumper and the file below. See [the command line](/docs/maintenance/command-line).
+
+## Reset without the web interface
+
+When you can't get in at all, for example after forgetting the password or
+locking yourself out of the network, reset from outside. This resets the
+settings **and removes the web interface password**. Recordings, the logo and
+the splash image are kept, and so are the old settings, as
+`settings.before-reset.json`, in case it was a mistake.
+
+### With a jumper
+
+1. Power the Pi off.
+2. Connect **pin 40** (GPIO21) to **pin 39** (ground), the last two pins of
+   the header, with a jumper or a wire.
+3. Power the Pi on and leave the jumper for at least 5 seconds.
+4. Remove the jumper.
+
+<Screenshot
+  themed="/images/docs/diagrams/{theme}/gpio-reset.svg"
+  alt="A jumper across the last two pins of the header, pin 39 (ground) and pin 40 (GPIO21), at the end by the USB ports"
+  width={791}
+  height={351}
+  scale={1}
+  frame={false}
+/>
+
+<Admonition type="warning">
+  Left in place, the jumper resets the settings at every start. The web
+  interface reminds you to remove it.
+</Admonition>
+
+### With a file
+
+1. Put the SD card in a computer. It shows a drive called `bootfs`.
+2. Create an empty file on it named `ystreamer-reset` (or
+   `ystreamer-reset.txt`).
+3. Put the card back in the Pi and power it on.
+
+The file is deleted once the reset is done.
+
+After either reset, the web interface shows that the settings were reset. On
+the image, the access point comes back with the default name and password.

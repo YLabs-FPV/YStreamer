@@ -1,0 +1,84 @@
+---
+title: OBS Studio
+description: Lleva el vídeo a OBS por SRT o RTSP.
+order: 20
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+OBS lee el vídeo con una **Fuente multimedia** (Media Source). Usa **SRT**:
+reenvía los paquetes que se pierden por el camino, así que la imagen se
+mantiene limpia por Wi-Fi y por internet, y se puede cifrar. RTSP no necesita
+nada en el dispositivo y va bien en una red local por cable o estable.
+
+## Por SRT
+
+1. En el dispositivo, ve a **Streaming → SRT**, activa **SRT** en modo
+   **Listener** (puerto 9000) y pulsa **Save**.
+2. En OBS, añade una fuente: **+ → Fuente multimedia**.
+3. Desmarca **Archivo local**.
+4. En **Entrada**, escribe:
+
+   ```
+   srt://ystreamer.local:9000
+   ```
+
+5. Pon **Almacenamiento en búfer de red** a 0 MB para el menor retraso.
+
+Si has puesto una frase de paso en el dispositivo, añade
+`?passphrase=<frase>` a la entrada.
+
+<Screenshot
+  src="/images/docs/other-software/obs.webp"
+  alt="Las propiedades de la fuente multimedia de OBS con la dirección SRT como entrada"
+  width={1424}
+  height={1488}
+/>
+
+<Admonition type="info" title="Latencia">
+  El lector SRT de OBS toma la latencia en microsegundos: añade
+  `?latency=200000` para 200 ms (o `&latency=200000` después de otra opción).
+  Usa lo mismo o más que **Latency (ms)** en el dispositivo: 200 en una red
+  local, de 500 a 2000 por internet.
+</Admonition>
+
+## Por SRT, con el dispositivo conectándose a OBS
+
+Para cuando el dispositivo puede llegar a OBS pero no al revés, como un
+ordenador en otra red o un servidor en internet.
+
+1. En OBS, añade una **Fuente multimedia**, desmarca **Archivo local** y
+   escribe:
+
+   ```
+   srt://0.0.0.0:9000?mode=listener
+   ```
+
+   `mode=listener` es lo que hace que OBS espere a que se conecte el
+   dispositivo.
+
+2. En el dispositivo, pon **SRT** en **Caller**, con la dirección de OBS como
+   **Receiver address** y `9000` como **Port**, y pulsa **Save**.
+
+El ordenador de OBS tiene que dejar entrar el puerto UDP 9000 en su
+cortafuegos, y también en el router si está en otra red.
+
+## Por RTSP
+
+La configuración más rápida: RTSP está activado por defecto, así que no hay
+nada que cambiar en el dispositivo.
+
+1. En OBS, añade una **Fuente multimedia** y desmarca **Archivo local**.
+2. En **Entrada**, escribe `rtsp://ystreamer.local:554/stream`.
+3. Pon **Almacenamiento en búfer de red** a 0 MB para el menor retraso.
+
+Por Wi-Fi, los paquetes perdidos se ven como manchas o congelaciones. Activar
+**TCP only** en **Streaming → RTSP** en el dispositivo lo evita, a cambio de
+más retraso. Ahí SRT suele ser mejor opción.
+
+## Reiniciar
+
+Si la imagen se congela después de reiniciar el dispositivo, haz clic derecho
+en la fuente y elige **Reiniciar**, o marca **Reiniciar la reproducción cuando
+la fuente se active**.

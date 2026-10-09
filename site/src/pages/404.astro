@@ -1,0 +1,277 @@
+---
+export const prerender = false;
+
+import MainLayout from "../layouts/MainLayout.astro";
+import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+Astro.response.status = 404;
+---
+
+<MainLayout title={t("notFound.pageTitle")}>
+  <section class="nf-wrap px-4 py-10 md:py-16">
+    <div class="nf-stack">
+      <div class="nf-feed" role="img" aria-label={t("notFound.linkLost")}>
+        <div class="nf-noise" aria-hidden="true"></div>
+        <div class="nf-vignette" aria-hidden="true"></div>
+
+        <div class="nf-osd" aria-hidden="true">
+          <span class="nf-osd-tl">
+            <span class="nf-rec"></span> REC 00:00
+          </span>
+          <span class="nf-osd-tr">
+            INPUT&nbsp;<b>NONE</b>
+          </span>
+          <span class="nf-osd-bl">HDMI&nbsp;--</span>
+          <span class="nf-osd-br">LINK 0%</span>
+        </div>
+
+        <span class="nf-bracket nf-bracket-tl" aria-hidden="true"></span>
+        <span class="nf-bracket nf-bracket-tr" aria-hidden="true"></span>
+        <span class="nf-bracket nf-bracket-bl" aria-hidden="true"></span>
+        <span class="nf-bracket nf-bracket-br" aria-hidden="true"></span>
+
+        <div class="nf-center">
+          <div class="nf-code">404</div>
+          <div class="nf-signal">{t("notFound.noSignal")}</div>
+        </div>
+      </div>
+
+      <div class="nf-info">
+        <h1 class="nf-title">{t("notFound.heading")}</h1>
+        <p class="nf-message">{t("notFound.message")}</p>
+        <div class="nf-actions">
+          <a href={getLocalizedUrl(lang, "/")} class="nf-btn nf-btn-primary">
+            {t("notFound.home")}
+          </a>
+          <a
+            href={getLocalizedUrl(lang, "/docs")}
+            class="nf-btn nf-btn-secondary"
+          >
+            {t("notFound.docs")}
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</MainLayout>
+
+<style>
+  .nf-wrap {
+    display: flex;
+    justify-content: center;
+  }
+  .nf-stack {
+    width: 100%;
+    max-width: 46rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .nf-feed {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 1rem;
+    overflow: hidden;
+    background: radial-gradient(120% 120% at 50% 40%, #10151f 0%, #05070b 100%);
+    border: 1px solid rgba(var(--color-brand), 0.35);
+    font-family: monospace;
+  }
+
+  .nf-noise {
+    position: absolute;
+    inset: -50%;
+    opacity: 0.14;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+
+  .nf-scan {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      rgba(255, 255, 255, 0) 0%,
+      rgba(124, 196, 255, 0.06) 48%,
+      rgba(124, 196, 255, 0.14) 50%,
+      rgba(255, 255, 255, 0) 52%
+    );
+    background-size: 100% 8px;
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
+
+  .nf-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      120% 100% at 50% 50%,
+      transparent 55%,
+      rgba(0, 0, 0, 0.55) 100%
+    );
+    pointer-events: none;
+  }
+
+  .nf-osd {
+    position: absolute;
+    inset: 0;
+    color: #eaf6ff;
+    font-size: clamp(0.7rem, 2.4vw, 0.95rem);
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+  }
+  .nf-osd > span {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+  }
+  .nf-osd-tl {
+    top: 0.85rem;
+    left: 1rem;
+  }
+  .nf-osd-tr {
+    top: 0.85rem;
+    right: 1rem;
+    color: #ff5a5a;
+  }
+  .nf-osd-bl {
+    bottom: 0.85rem;
+    left: 1rem;
+  }
+  .nf-osd-br {
+    bottom: 0.85rem;
+    right: 1rem;
+  }
+  .nf-rec {
+    flex: none;
+    width: 0.6em;
+    height: 0.6em;
+    border-radius: 9999px;
+    background: #ff3b3b;
+  }
+
+  .nf-bracket {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border: 2px solid rgba(234, 246, 255, 0.55);
+  }
+  .nf-bracket-tl {
+    top: 12px;
+    left: 12px;
+    border-right: 0;
+    border-bottom: 0;
+  }
+  .nf-bracket-tr {
+    top: 12px;
+    right: 12px;
+    border-left: 0;
+    border-bottom: 0;
+  }
+  .nf-bracket-bl {
+    bottom: 12px;
+    left: 12px;
+    border-right: 0;
+    border-top: 0;
+  }
+  .nf-bracket-br {
+    bottom: 12px;
+    right: 12px;
+    border-left: 0;
+    border-top: 0;
+  }
+
+  .nf-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    text-align: center;
+  }
+  .nf-code {
+    position: relative;
+    font-size: clamp(4rem, 18vw, 9rem);
+    font-weight: 800;
+    line-height: 1;
+    color: #eaf6ff;
+    letter-spacing: 0.06em;
+  }
+  .nf-signal {
+    display: inline-block;
+    padding: 0.25rem 0.7rem;
+    font-size: clamp(0.7rem, 2.6vw, 0.95rem);
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #ffd166;
+    border-radius: 9999px;
+  }
+
+  .nf-info {
+    text-align: center;
+    max-width: 34rem;
+  }
+  .nf-title {
+    font-size: clamp(1.75rem, 6vw, 2.75rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin: 0 0 0.75rem;
+    color: rgb(var(--color-text));
+  }
+  .nf-message {
+    color: rgb(var(--color-text-muted));
+    font-size: 1.05rem;
+    line-height: 1.7;
+    margin: 0 0 1.75rem;
+  }
+  .nf-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+  @media (min-width: 480px) {
+    .nf-actions {
+      flex-direction: row;
+    }
+  }
+
+  .nf-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.6875rem 1.625rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      transform 0.2s ease;
+  }
+  .nf-btn-primary {
+    background-color: rgb(var(--color-button));
+    color: #fff;
+  }
+  .nf-btn-primary:hover {
+    background-color: rgb(var(--color-button-hover));
+    color: #fff;
+  }
+  .nf-btn-secondary {
+    background-color: rgb(var(--color-card-bg));
+    color: rgb(var(--color-text));
+    border: 1px solid rgb(var(--color-border));
+  }
+  .nf-btn-secondary:hover {
+    background-color: rgb(var(--color-secondary));
+    color: rgb(var(--color-text));
+    border-color: rgba(var(--color-primary), 0.4);
+  }
+</style>

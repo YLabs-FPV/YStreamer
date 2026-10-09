@@ -1,0 +1,112 @@
+---
+title: Problemas habituales
+description: Qué comprobar cuando algo no funciona.
+order: 10
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Si nada de esto ayuda, ve a [Ayuda](/docs/help).
+
+## No se abre la interfaz web
+
+- **`ystreamer.local` no abre.** Algunos móviles y redes no resuelven los
+  nombres `.local`. Usa la dirección del dispositivo: está en la
+  [pantalla de inicio](/docs/using/splash-and-logo) del HDMI, o en la lista de
+  dispositivos de tu router.
+- **En el punto de acceso**, abre **http://10.0.0.1**.
+- **Después de unirse a una red Wi-Fi**, tu móvil o portátil tiene que estar
+  también en esa red. Si la Pi no pudo unirse, vuelve a crear su propia red
+  `YStreamer` en menos de un minuto (salvo que **Fallback** esté desactivado).
+- **¿Acabas de encenderla?** Dale un minuto para arrancar.
+- **Por SSH**, `ystreamer status` muestra si está funcionando y todas las
+  direcciones en las que responde.
+- **Instalación con el script**: si otro programa usa el puerto 80, la interfaz
+  web pasa al puerto 8080: prueba `http://<hostname>.local:8080`.
+
+## Has olvidado la contraseña
+
+- Con SSH: `sudo ystreamer password` pone una nueva.
+- Sin SSH: [restablece los ajustes](/docs/maintenance/backup-and-reset) con el
+  puente o con el archivo. También quita la contraseña.
+
+## No llega vídeo de las gafas
+
+- Usa un **cable USB-C de datos**. Un cable solo de carga alimenta las gafas
+  pero nunca conecta.
+- Conéctalo al puerto **USB-C** de la Pi. Las primeras FPV Goggles V1 / V2 van
+  en un puerto **USB-A**, y necesitan la fuente **FPV Goggles V1/V2**.
+- **¿Una Raspberry Pi 4 de la revisión 1.1?** Esas primeras placas, de 2019,
+  tienen un defecto en el USB-C que puede impedir que las gafas conecten con
+  un cable USB-C a USB-C. **System → About → Board** muestra la revisión. Usa
+  un adaptador OTG del **lado de las gafas**. Ver
+  [las primeras Raspberry Pi 4](/docs/getting-started/requirements#cables).
+- Comprueba que **Input → Video source** está puesto en las gafas que tienes.
+- Enciende la aeronave y espera a que haya imagen en las gafas.
+- Prueba **System → Service → Restart USB link**.
+- **Instalación con el script**: reinicia una vez después de instalar; el
+  puerto USB-C solo funciona con las gafas a partir de entonces.
+- Mira si la página **Performance** muestra un aviso de alimentación: una
+  fuente que se queda corta hace que se caiga el enlace USB.
+
+## El OSD sale en el vídeo
+
+Desactiva **Camera View Recording** en las gafas, en Settings → Camera →
+Advanced Camera Settings.
+
+## No hay vídeo en el HDMI
+
+- Comprueba que **Display → HDMI → Show video on HDMI** está activado.
+- Conecta la pantalla y luego elige la resolución **Automatic**.
+- **Instalación con el script** con escritorio: el escritorio se queda con el
+  HDMI. Usa Raspberry Pi OS Lite, o desactiva el escritorio con
+  `sudo raspi-config` (System Options → Boot).
+
+## El vídeo va a saltos o con retraso
+
+- Usa una fuente de alimentación más potente, y mira la página
+  **Performance**.
+- Baja el **Viewer limit** en **Streaming → Browser**: cada navegador consume
+  CPU.
+- Desactiva **Show video on HDMI** cuando no haya ninguna pantalla conectada.
+- En los navegadores, prueba el otro transporte: **WebRTC** para menos
+  latencia, **WebSocket** para una tasa de fotogramas más estable.
+- Para RTSP con un Wi-Fi malo, activa **TCP only**, o usa SRT.
+
+## La cámara USB va lenta o solo a 720p
+
+La página Input indica cuándo la codificación se hace en la CPU. Añade
+`gpu_mem=256` a `/boot/firmware/config.txt` y reinicia. Ver
+[entrada de vídeo](/docs/using/video-input).
+
+## No se une a una red Wi-Fi
+
+- Solo funcionan las redes de **2,4 GHz**. Un router con un mismo nombre para
+  las dos bandas normalmente sigue ofreciendo 2,4 GHz.
+- Elige el **Country** en **Network**.
+- Comprueba la contraseña: de 8 a 63 caracteres, o vacía para una red abierta.
+
+## No llega un stream
+
+- **RTSP / SRT en modo listener**: el reproductor tiene que llegar a la
+  dirección y al puerto del dispositivo (554 / 9000).
+- **UDP**: el destino tiene que ser la propia dirección del receptor, y su
+  cortafuegos tiene que dejar entrar el puerto.
+- **RTMP**: comprueba la clave de stream y que el dispositivo tiene internet.
+  La tarjeta muestra el error del servidor.
+
+## La grabación no empieza
+
+- La unidad elegida en **Save to** no está conectada.
+- Hay menos espacio libre que **Keep free**.
+- No se puede escribir en la carpeta: la pestaña **Files** lo indica.
+
+## No veo las grabaciones de la tarjeta SD desde un ordenador
+
+En la imagen lista para usar están en una partición Linux (ext4), que Windows
+y macOS no pueden leer. Cópialas a una memoria USB en **Recording → Files**, o
+descárgalas. Ver [grabación](/docs/using/recording).
+
+## Las grabaciones tienen la fecha mal
+
+La Pi pone su reloj desde internet. Sin conexión, la hora puede estar mal.

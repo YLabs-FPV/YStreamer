@@ -1,0 +1,48 @@
+---
+// The docs sidebar: each section's overview, with its pages beneath it
+import type { DocSection } from "../../lib/docs";
+
+interface Props {
+  sections: DocSection[];
+  currentId: string;
+  href: (id: string) => string;
+}
+
+const { sections, currentId, href } = Astro.props;
+
+const pageClass = (id: string) => [
+  "block pl-6 pr-3 py-1.5 rounded-lg text-sm transition-colors no-underline",
+  id === currentId
+    ? "font-semibold bg-[rgb(var(--color-secondary))] text-[rgb(var(--color-primary))]"
+    : "text-[rgb(var(--color-text-muted))] hover:bg-[rgb(var(--color-secondary))] hover:text-[rgb(var(--color-text))]",
+];
+const sectionClass = (id: string) => [
+  "block px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors no-underline",
+  id === currentId
+    ? "bg-[rgb(var(--color-secondary))] text-[rgb(var(--color-primary))]"
+    : "text-[rgb(var(--color-text))] hover:bg-[rgb(var(--color-secondary))]",
+];
+---
+
+<div class="flex flex-col gap-3">
+  {sections.map((s) => (
+    <div class="flex flex-col gap-0.5">
+      <a
+        href={href(s.index.id)}
+        class:list={sectionClass(s.index.id)}
+        aria-current={s.index.id === currentId ? "page" : undefined}
+      >
+        {s.index.data.title}
+      </a>
+      {s.pages.map((p) => (
+        <a
+          href={href(p.id)}
+          class:list={pageClass(p.id)}
+          aria-current={p.id === currentId ? "page" : undefined}
+        >
+          {p.data.title}
+        </a>
+      ))}
+    </div>
+  ))}
+</div>

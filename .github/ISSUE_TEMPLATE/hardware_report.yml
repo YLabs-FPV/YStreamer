@@ -1,0 +1,73 @@
+name: Hardware compatibility report
+description: Tell us how YStreamer worked with your goggles or camera - even if it all worked.
+title: "[Hardware] <model here>"
+labels: ["hardware", "compatibility-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! Reports like this build the list of
+        [supported inputs](https://ystreamer.yarosfpv.com/docs/getting-started/requirements).
+        Fill in what you can - a partial report is still useful.
+  - type: dropdown
+    id: source
+    attributes:
+      label: Video source
+      description: The source selected under Input.
+      options:
+        - DJI goggles (Goggles 2, Integra, Goggles 3, N3)
+        - DJI FPV Goggles V1 / V2
+        - USB camera or capture device
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Goggles, air unit or camera model
+      description: For goggles, include the air unit.
+      placeholder: "Goggles 3 + O4 Air Unit"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: YStreamer version tested
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: overall
+    attributes:
+      label: Overall result
+      options:
+        - Works fully
+        - Works with limitations
+        - Doesn't work
+    validations:
+      required: true
+  - type: checkboxes
+    id: features
+    attributes:
+      label: What worked?
+      description: Tick everything you were able to confirm.
+      options:
+        - label: Video arrives (Watch page)
+        - label: HDMI output
+        - label: Browser view
+        - label: Streams (RTSP / SRT / RTMP / UDP)
+        - label: Recording
+        - label: Camera settings (DJI goggles)
+        - label: Goggles battery and link quality (DJI goggles)
+        - label: Reconnects after unplugging the cable or power-cycling the aircraft
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes, quirks, or anything that didn't work
+      description: For a USB camera, the resolution and frame rate you used. Photos or video welcome.
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Consent
+      options:
+        - label: I'm OK with this report being used to update the public list of supported hardware.
+          required: true

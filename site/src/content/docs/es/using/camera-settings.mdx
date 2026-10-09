@@ -1,0 +1,53 @@
+---
+title: Ajustes de cámara
+description: Cambia los ajustes de cámara de la unidad aérea desde el navegador.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Con las **gafas DJI** como fuente, el panel **Camera** de la página Watch
+cambia los ajustes de cámara de la unidad aérea: los mismos que en el menú de
+las gafas, sin tener que ponértelas.
+
+Está disponible cuando la aeronave está enlazada con las gafas. Hasta
+entonces, indica que está esperando a la aeronave.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/camera-card.webp"
+  alt="El panel Camera: exposición, balance de blancos, formato de vídeo y procesado de imagen"
+  width={1062}
+  height={775}
+/>
+
+## Ajustes
+
+| Sección          | Ajustes                                                          |
+| ---------------- | ---------------------------------------------------------------- |
+| Exposure         | Automática o manual, ISO, obturación, compensación de exposición |
+| White balance    | Automático, o una temperatura de color en kelvin                 |
+| Video format     | Resolución, relación de aspecto, fotogramas por segundo          |
+| Image processing | Perfil de color, antiparpadeo, nitidez, reducción de ruido       |
+
+Son los ajustes de cámara de la unidad aérea, para la grabación que hace su
+propia cámara en la aeronave. El vídeo en directo que recibe YStreamer llega
+por el enlace de radio, y su calidad depende sobre todo de ese enlace.
+
+## Depende de la unidad aérea
+
+Lo que se ofrece depende de la unidad aérea. Por ejemplo:
+
+- **O4 Air Unit Pro**: 1080p, 2.7K y 4K a cualquier tasa de fotogramas. El 4:3
+  necesita 60 fps o menos. Perfil plano: D-Log.
+- **O4 Air Unit**: 1080p, y 4K a 30, 50 y 60 fps.
+- **O3 Air Unit**: 1080p, 2.7K y 4K. Sin 4:3 en 4K. Perfil plano:
+  D-Cinelike.
+
+Con una unidad aérea que no conoce, YStreamer lo ofrece todo y la unidad aérea
+rechaza lo que no puede hacer.
+
+<Admonition type="note">
+  Con la exposición manual, la velocidad de obturación no puede ser más lenta de
+  lo que permite la tasa de fotogramas; el panel muestra la más lenta.
+</Admonition>

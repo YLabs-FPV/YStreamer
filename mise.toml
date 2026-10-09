@@ -1,0 +1,149 @@
+[tools]
+rust = { version = "1.95.0", components = "rustfmt,clippy" }
+node = "24.21.0"
+pnpm = "12.4.2"
+"cargo:cargo-deb" = "3.8.0"
+
+# --- Backend ---
+
+[tasks."backend:deps"]
+description = "Install the GLib and GStreamer headers the backend builds against (Debian/Raspberry Pi OS)"
+run = """
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends \
+  pkg-config libglib2.0-dev libgstreamer1.0-dev \
+  libgstreamer-plugins-base1.0-dev libgstrtspserver-1.0-dev
+"""
+
+[tasks."backend:boot-config"]
+description = "Add the boot settings the package would (USB device mode, GPU memory) to this Pi's config.txt; reboot after"
+dir = "device/packaging"
+run = "sudo WANTED=config.txt sh debian/postinst configure"
+
+[tasks."backend:build"]
+description = "Build the backend"
+dir = "device/backend"
+run = "cargo build"
+
+[tasks."backend:run"]
+description = "Run the backend (ystreamer bin) as root, which the hardware and port 80 need"
+dir = "device/backend"
+run = ["cargo build", "sudo -E target/debug/ystreamer run"]
+
+[tasks."backend:test"]
+description = "Run the backend tests"
+dir = "device/backend"
+run = "cargo test"
+
+[tasks."backend:lint"]
+description = "Lint the backend with clippy"
+dir = "device/backend"
+run = "cargo clippy --all-targets -- -D warnings"
+
+[tasks."backend:fmt"]
+description = "Format the backend"
+dir = "device/backend"
+run = "cargo fmt"
+
+[tasks."backend:fmt-check"]
+description = "Check backend formatting"
+dir = "device/backend"
+run = "cargo fmt --check"
+
+# --- Frontend ---
+
+[tasks."frontend:install"]
+description = "Install frontend dependencies"
+dir = "device/frontend"
+run = "pnpm install"
+
+[tasks."frontend:dev"]
+description = "Run the frontend dev server"
+dir = "device/frontend"
+run = "pnpm dev"
+
+[tasks."frontend:build"]
+description = "Build the frontend"
+dir = "device/frontend"
+run = "pnpm build"
+
+[tasks."frontend:check"]
+description = "Type-check the frontend"
+dir = "device/frontend"
+run = "pnpm check"
+
+[tasks."frontend:format-check"]
+description = "Check frontend formatting"
+dir = "device/frontend"
+run = "pnpm format:check"
+
+# --- Site ---
+
+[tasks."site:install"]
+description = "Install the website's dependencies"
+dir = "site"
+run = "pnpm install"
+
+[tasks."site:dev"]
+description = "Run the website's dev server"
+dir = "site"
+run = "pnpm dev"
+
+[tasks."site:build"]
+description = "Build the website (Astro on Cloudflare Workers)"
+dir = "site"
+run = "pnpm build"
+
+# --- Both ---
+
+[tasks.lint]
+description = "Run all linters and checks"
+depends = ["backend:lint", "backend:fmt-check", "frontend:check"]
+
+# --- Device ---
+
+[tasks."device:release"]
+description = "Build what ships: the backend with the web interface compiled in"
+depends = ["frontend:build"]
+dir = "device/backend"
+run = "cargo build --release"
+
+[tasks."device:deb"]
+description = "Build the .deb"
+depends = ["frontend:build"]
+dir = "device/backend"
+run = "cargo deb"
+
+[tasks."device:sign"]
+description = "Sign the newest .deb for the web interface's updater (key: ~/ystreamer-signing-key.pem)"
+dir = "device"
+run = "packaging/sign.sh \"$(ls -t backend/target/debian/*.deb | head -1)\""
+
+[tasks."device:package"]
+description = "Build the .deb and sign it"
+depends = ["device:deb"]
+dir = "device"
+run = "packaging/sign.sh \"$(ls -t backend/target/debian/*.deb | head -1)\""
+
+[tasks."device:serve-release"]
+description = "Serve the newest signed .deb as a release on http://localhost:8099 for testing updates (run the device with YSTREAMER_UPDATE_URL=http://localhost:8099/manifest.json)"
+dir = "device"
+run = [
+    "packaging/manifest.sh \"$(ls -t backend/target/debian/*.deb | head -1)\" http://localhost:8099",
+    "python3 -m http.server 8099 --bind 127.0.0.1 --directory backend/target/debian",
+]
+
+# --- Image ---
+
+[tasks."image:build"]
+description = "Build the SD card image from the newest .deb (needs Docker; about half an hour on a Pi)"
+run = "image/build.sh"
+
+[tasks."image:test"]
+description = "Test the image's data-partition setup against simulated SD cards (needs Docker and a previous image build)"
+run = "image/tests/data-partition.sh"
+
+[tasks."image:full"]
+description = "Everything from source: build and sign the .deb, then build the SD card image from it"
+depends = ["device:package"]
+run = "image/build.sh"

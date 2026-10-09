@@ -1,0 +1,76 @@
+---
+title: QGroundControl y Mission Planner
+description: Muestra el vídeo en una estación de control de tierra.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Las estaciones de tierra suelen recibir H.264 sobre RTP en el puerto UDP 5600,
+que es lo que envía la salida UDP de YStreamer en el formato **RTP**.
+
+## Configura la salida UDP
+
+1. En el dispositivo, ve a **Streaming → UDP** y activa **UDP**.
+2. Elige **RTP**.
+3. En **Destinations**, escribe la dirección del ordenador de la estación de
+   tierra y el puerto 5600, por ejemplo `192.168.1.20:5600`.
+4. Pulsa **Save**.
+
+Puedes añadir varios destinos, hasta 8, por ejemplo una estación de tierra y
+un portátil.
+
+<Admonition type="tip">
+  Da al ordenador de la estación de tierra una dirección fija en tu red, o
+  tendrás que cambiar el destino cada vez que reciba una nueva.
+</Admonition>
+
+## QGroundControl
+
+1. Abre **Application Settings → General** y luego la sección **Video**.
+2. Pon **Source** en **UDP h.264 Video Stream** y el puerto en **5600**.
+
+El vídeo aparece en la vista Fly.
+
+<Screenshot
+  src="/images/docs/other-software/qgroundcontrol.webp"
+  alt="El vídeo en la vista Fly de QGroundControl"
+  width={2926}
+  height={1720}
+/>
+
+QGroundControl también puede leer RTSP, sin ningún destino que configurar en
+el dispositivo: pon **Source** en **RTSP Video Stream** y la URL en
+`rtsp://ystreamer.local:554/stream`.
+
+## Mission Planner
+
+1. Haz clic derecho en el HUD (el horizonte artificial) y elige
+   **Video → Set GStreamer Source**.
+2. Escribe este pipeline:
+
+```
+udpsrc port=5600 buffer-size=90000 ! application/x-rtp,media=video,clock-rate=90000,encoding-name=H264,payload=96 ! rtph264depay ! avdec_h264 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false
+```
+
+O por RTSP, sin nada que configurar en el dispositivo:
+
+```
+rtspsrc location=rtsp://ystreamer.local:554/stream latency=0 ! rtph264depay ! avdec_h264 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false
+```
+
+<Screenshot
+  src="/images/docs/other-software/missionplanner.webp"
+  alt="El vídeo en el HUD de Mission Planner"
+  width={1590}
+  height={1222}
+/>
+
+## ¿No hay imagen?
+
+- El cortafuegos del ordenador tiene que dejar entrar UDP 5600.
+- Los móviles y tablets no siempre encuentran `ystreamer.local`: usa la
+  dirección del dispositivo.
+- Mira si hay un error en **Streaming → UDP**, como un nombre que no consigue
+  resolver.

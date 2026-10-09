@@ -1,0 +1,81 @@
+---
+import { Icon } from "astro-icon/components";
+import { getLangFromUrl, useTranslations, useData } from "../../i18n";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const d = useData(lang);
+
+// Order matches features.items in the locale files
+const icons = [
+  "mdi:web",
+  "mdi:access-point",
+  "mdi:record-circle-outline",
+  "mdi:camera-iris",
+  "mdi:safety-goggles",
+  "mdi:image-outline",
+  "mdi:earth",
+  "mdi:update",
+];
+const chips: (string[] | undefined)[] = [
+  undefined,
+  ["RTSP", "SRT", "RTMP", "UDP"],
+  ["MP4", "MPEG-TS"],
+  undefined,
+  undefined,
+  undefined,
+  ["Tailscale", "WireGuard"],
+  undefined,
+];
+const items = d<{ title: string; text: string }[]>("features.items");
+---
+
+<section class="px-6 py-12" id="features">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto">
+      <span class="eyebrow">{t("features.eyebrow")}</span>
+      <h2 class="mt-3 text-3xl md:text-4xl font-bold">{t("features.title")}</h2>
+      <p class="mt-3 text-[rgb(var(--color-text-muted))] text-lg">
+        {t("features.subtitle")}
+      </p>
+    </div>
+
+    <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {items.map((item, i) => (
+        <article class="card feature p-6">
+          <span class="icon-tile">
+            <Icon name={icons[i]} class="w-6 h-6" />
+          </span>
+          <h3 class="mt-4 text-lg font-bold leading-snug">{item.title}</h3>
+          <p class="mt-2 text-sm text-[rgb(var(--color-text-muted))]">
+            {item.text}
+          </p>
+          {chips[i] && (
+            <div class="mt-4 flex flex-wrap gap-1.5">
+              {chips[i]!.map((c) => (
+                <span class="chip">{c}</span>
+              ))}
+            </div>
+          )}
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .feature {
+    transition: border-color 0.2s ease;
+  }
+  .feature:hover {
+    border-color: rgba(var(--color-brand), 0.5);
+  }
+  .chip {
+    padding: 0.1rem 0.55rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgb(var(--color-text-muted));
+    background: rgb(var(--color-secondary));
+  }
+</style>

@@ -1,0 +1,51 @@
+---
+title: Diagnostics
+description: Performance, logs, restarts and developer tools.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+## Performance
+
+The **Performance** page charts the last half hour, recorded every second:
+processor load and clock, memory, temperature, the video's frame rate and
+bitrate, network traffic, viewers and outputs, and the Wi-Fi signal.
+
+It warns when the power supply dipped below what the Pi needs. That causes
+glitches and USB drop-outs: use a stronger supply or a shorter cable.
+
+## Logs
+
+The **Logs** page shows the latest lines from the YStreamer service. With
+**Auto-refresh** on (the default), new lines appear every second, and the page
+keeps to the newest unless you've scrolled up to read. The choice is
+remembered in that browser. They're
+the first place to look when something doesn't work, and worth including when
+you report a problem.
+
+Over SSH, `ystreamer logs` shows them too, and `ystreamer logs -f` keeps
+following. See [the command line](/docs/maintenance/command-line).
+
+## About
+
+**System → About** shows the board, the system and kernel, the YStreamer
+version, the serial number, uptime, processor temperature and power. Its
+**Report an issue** link opens a new issue on GitHub.
+
+## Restarting
+
+Under **System → Service**:
+
+- **Restart YStreamer**: restarts the service. Video stops for a few seconds.
+- **Restart USB link**: makes the goggles connect again, as if the cable had
+  been replugged. Try it first when the goggles are plugged in but there's no
+  video.
+
+Under **System → General → Power**: **Reboot device** and **Power off
+device**. Power off before unplugging, especially while recording.
+
+## Developer mode
+
+For verbose logging, a terminal on the device and tools for looking into the
+link to the goggles, turn on [developer mode](/docs/maintenance/developer-mode).

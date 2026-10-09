@@ -1,0 +1,62 @@
+---
+title: VLC and ffplay
+description: Watch the video in VLC or ffplay, over RTSP, SRT or UDP.
+order: 10
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Replace `ystreamer.local` with the device's address if your computer can't
+find it by name.
+
+## VLC over RTSP
+
+The simplest way: RTSP is on by default.
+
+1. In VLC, open **Media → Open Network Stream** (on macOS: **File → Open
+   Network**).
+2. Enter `rtsp://ystreamer.local:554/stream` and press **Play**.
+
+With **Require password** on, put the user name and password in the address:
+`rtsp://admin:password@ystreamer.local:554/stream`.
+
+<Admonition type="tip" title="Less delay">
+  VLC buffers a second by default. Tick **Show more options** in the Open dialog
+  and lower **Caching** to about 200 ms.
+</Admonition>
+
+## VLC over SRT
+
+1. On the device, turn on **SRT** in **Listener** mode.
+2. In VLC, open `srt://ystreamer.local:9000`.
+
+With a passphrase, add `:srt-passphrase=<passphrase>` under **Show more
+options → Edit Options**.
+
+## VLC over UDP
+
+For sending to a computer without it asking for the stream.
+
+1. On the device, turn on **UDP** with the **MPEG-TS** format, and add
+   `<computer's IP>:1234` to **Destinations**.
+2. In VLC, open `udp://@:1234`.
+
+## ffplay
+
+ffplay comes with ffmpeg and starts faster than VLC:
+
+```sh
+ffplay -fflags nobuffer -flags low_delay rtsp://ystreamer.local:554/stream
+```
+
+Over SRT, with an optional passphrase:
+
+```sh
+ffplay "srt://ystreamer.local:9000?passphrase=<passphrase>"
+```
+
+To save a stream to a file without re-encoding it:
+
+```sh
+ffmpeg -i rtsp://ystreamer.local:554/stream -c copy flight.mp4
+```

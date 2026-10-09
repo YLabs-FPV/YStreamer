@@ -1,0 +1,51 @@
+---
+title: Actualizaciones
+description: Actualiza YStreamer desde la interfaz web, y vuelve atrás.
+order: 10
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Todo está en **System → Updates**.
+
+Actualizar conserva tus ajustes, la contraseña y las grabaciones.
+
+## Comprobar
+
+Con **Check automatically** activado (por defecto), el dispositivo pregunta
+al servidor de actualizaciones un minuto después de arrancar, y luego unas dos
+veces al día. Sin internet, lo vuelve a intentar cada 15 minutos. No se descarga ni se
+instala nada sin ti. **Check for updates** pregunta al momento.
+
+## Instalar
+
+1. Cuando hay una versión nueva, se muestran sus notas. Pulsa **Download**.
+2. Pulsa **Install**.
+
+El vídeo, los streams y cualquier grabación se detienen mientras YStreamer se
+reinicia. No desconectes el dispositivo hasta que se recargue la página.
+
+<Admonition type="info" title="Seguro por diseño">
+  Cada actualización está firmada, y el dispositivo comprueba la firma antes de
+  instalarla. Si la versión nueva no arranca, el dispositivo vuelve a poner la
+  anterior por sí solo.
+</Admonition>
+
+## Sin internet
+
+**Install from files** acepta el archivo `.deb` de una versión junto con su
+archivo `.sig`, los dos de la
+[página de versiones](https://github.com/YLabs-FPV/YStreamer/releases).
+Descárgalos en un ordenador y luego elige los dos a la vez.
+
+## Volver a una versión anterior
+
+**Previous version → Roll back** instala la versión que funcionaba antes.
+Volver atrás otra vez regresa a la más nueva.
+
+## El script de instalación
+
+Ejecutar de nuevo el [script de instalación](/docs/getting-started/install-script)
+también actualiza a la última versión, y guarda la anterior para poder volver
+a ella. Ver
+[Ejecutarlo de nuevo](/docs/getting-started/install-script#ejecutarlo-de-nuevo).

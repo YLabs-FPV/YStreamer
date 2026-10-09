@@ -1,0 +1,111 @@
+---
+title: Common issues
+description: What to check when something doesn't work.
+order: 10
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+When nothing here helps, see [Help](/docs/help).
+
+## Can't open the web interface
+
+- **`ystreamer.local` doesn't open.** Some phones and networks don't resolve
+  `.local` names. Use the device's address instead: it's on the HDMI
+  [splash screen](/docs/using/splash-and-logo), or in your router's list of
+  devices.
+- **On the access point**, open **http://10.0.0.1**.
+- **After joining a Wi-Fi network**, your phone or laptop has to be on that
+  network too. If the Pi couldn't join, it starts its own `YStreamer` network
+  again within a minute (unless **Fallback** is off).
+- **Just powered on?** Give it a minute to start.
+- **Over SSH**, `ystreamer status` shows whether it's running and every
+  address it answers on.
+- **Script install**: another program on port 80 moves the web interface to
+  port 8080: try `http://<hostname>.local:8080`.
+
+## Forgot the password
+
+- With SSH: `sudo ystreamer password` sets a new one.
+- Without: [reset the settings](/docs/maintenance/backup-and-reset) with the
+  jumper or the file. It also removes the password.
+
+## No video from the goggles
+
+- Use a **USB-C data cable**. A charge-only cable powers the goggles but never
+  connects.
+- Plug it into the Pi's **USB-C** port. The first FPV Goggles V1 / V2 go in a
+  **USB-A** port instead, and need the **FPV Goggles V1/V2** source.
+- **A revision 1.1 Raspberry Pi 4?** Those first boards, from 2019, have a
+  USB-C defect that can stop the goggles connecting over a USB-C to USB-C
+  cable. **System → About → Board** shows the revision. Use an OTG
+  adapter on the **goggles' side** instead. See
+  [early Raspberry Pi 4 boards](/docs/getting-started/requirements#cables).
+- Check **Input → Video source** is set to the goggles you have.
+- Power the aircraft and wait for the picture in the goggles.
+- Try **System → Service → Restart USB link**.
+- **Script install**: reboot once after installing; the USB-C port only works
+  for the goggles after that.
+- Check the **Performance** page for a power warning: an undersized supply
+  makes the USB link drop.
+
+## The OSD shows in the video
+
+Turn off **Camera View Recording** in the goggles, under Settings → Camera →
+Advanced Camera Settings.
+
+## No video on HDMI
+
+- Check **Display → HDMI → Show video on HDMI** is on.
+- Plug the screen in, then choose **Automatic** resolution.
+- **Script install** with a desktop: the desktop keeps HDMI for itself. Use
+  Raspberry Pi OS Lite, or switch the desktop off with `sudo raspi-config`
+  (System Options → Boot).
+
+## Choppy video or delay
+
+- Use a stronger power supply, and check the **Performance** page.
+- Lower the **Viewer limit** under **Streaming → Browser**: every browser
+  costs CPU.
+- Turn off **Show video on HDMI** when no screen is plugged in.
+- In browsers, try the other transport: **WebRTC** for lower latency,
+  **WebSocket** for a steadier frame rate.
+- For RTSP over poor Wi-Fi, turn on **TCP only**, or use SRT.
+
+## USB camera is slow or only 720p
+
+The Input page says when encoding runs on the CPU. Add `gpu_mem=256` to
+`/boot/firmware/config.txt` and reboot. See [video input](/docs/using/video-input).
+
+## Can't join a Wi-Fi network
+
+- Only **2.4 GHz** networks work. A router with one name for both bands
+  usually still offers 2.4 GHz.
+- Set the **Country** under **Network**.
+- Check the password: 8 to 63 characters, or empty for an open network.
+
+## A stream doesn't arrive
+
+- **RTSP / SRT listener**: the player has to reach the device's address and
+  port (554 / 9000).
+- **UDP**: the destination must be the receiver's own address, and its
+  firewall must let the port in.
+- **RTMP**: check the stream key and that the device has internet. The card
+  shows the error from the server.
+
+## Recording doesn't start
+
+- The drive chosen under **Save to** isn't plugged in.
+- Less free space than **Keep free**.
+- The folder can't be written to: the **Files** tab says so.
+
+## Can't see the recordings on the SD card from a computer
+
+On the ready-made image they're on a Linux (ext4) partition, which Windows and
+macOS can't read. Copy them to a USB drive under **Recording → Files**, or
+download them. See [recording](/docs/using/recording).
+
+## Recordings have the wrong date
+
+The Pi sets its clock from the internet. Without a connection, the time can
+be off.

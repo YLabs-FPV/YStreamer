@@ -1,0 +1,81 @@
+---
+title: OBS Studio
+description: Bring the video into OBS over SRT or RTSP.
+order: 20
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+OBS reads the video with a **Media Source**. Use **SRT**: it re-sends packets
+lost on the way, so the picture stays clean over Wi-Fi and the internet, and
+it can be encrypted. RTSP needs no setup on the device and is fine on a wired
+or solid local network.
+
+## Over SRT
+
+1. On the device, go to **Streaming → SRT**, turn **SRT** on in **Listener**
+   mode (port 9000) and **Save**.
+2. In OBS, add a source: **+ → Media Source**.
+3. Untick **Local File**.
+4. In **Input**, enter:
+
+   ```
+   srt://ystreamer.local:9000
+   ```
+
+5. Set **Network Buffering** to 0 MB for the least delay.
+
+With a passphrase set on the device, add `?passphrase=<passphrase>` to the
+input.
+
+<Screenshot
+  src="/images/docs/other-software/obs.webp"
+  alt="OBS Media Source properties with the SRT address as the input"
+  width={1424}
+  height={1488}
+/>
+
+<Admonition type="info" title="Latency">
+  OBS's SRT reader takes the latency in microseconds: add `?latency=200000` for
+  200 ms (or `&latency=200000` after another option). Use the same or more than
+  **Latency (ms)** on the device: 200 on a local network, 500 to 2000 over the
+  internet.
+</Admonition>
+
+## Over SRT, the device connecting to OBS
+
+For when OBS is somewhere the device can reach but not the other way round,
+such as a computer on another network or a server on the internet.
+
+1. In OBS, add a **Media Source**, untick **Local File**, and enter:
+
+   ```
+   srt://0.0.0.0:9000?mode=listener
+   ```
+
+   `mode=listener` is what makes OBS wait for the device to connect.
+
+2. On the device, set **SRT** to **Caller**, with OBS's address as **Receiver
+   address** and `9000` as **Port**, then **Save**.
+
+OBS's computer has to let UDP port 9000 in through its firewall, and through
+the router if it's on another network.
+
+## Over RTSP
+
+The quickest setup: RTSP is on by default, so there's nothing to change on the
+device.
+
+1. In OBS, add a **Media Source** and untick **Local File**.
+2. In **Input**, enter `rtsp://ystreamer.local:554/stream`.
+3. Set **Network Buffering** to 0 MB for the least delay.
+
+Over Wi-Fi, lost packets show up as smearing or freezes. Turning on **TCP
+only** under **Streaming → RTSP** on the device avoids that, at the cost of
+more delay. SRT is usually the better choice there.
+
+## Restarting
+
+If the picture freezes after the device restarts, right-click the source and
+choose **Restart**, or tick **Restart playback when source becomes active**.

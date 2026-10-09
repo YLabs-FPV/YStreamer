@@ -1,0 +1,61 @@
+---
+// A short summary of getting started; the Download page has the details
+import { Icon } from "astro-icon/components";
+import {
+  getLangFromUrl,
+  useTranslations,
+  useData,
+  getLocalizedUrl,
+} from "../../i18n";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const d = useData(lang);
+
+const icons = ["mdi:micro-sd", "mdi:safety-goggles", "mdi:web"];
+const steps = d<{ title: string; text: string }[]>("install.steps");
+---
+
+<section class="px-6 py-12" id="install">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto">
+      <span class="eyebrow">{t("install.eyebrow")}</span>
+      <h2 class="mt-3 text-3xl md:text-4xl font-bold">{t("install.title")}</h2>
+    </div>
+
+    <ol class="mt-10 grid gap-5 md:grid-cols-3">
+      {
+        steps.map((s, i) => (
+          <li class="card p-6 flex gap-4 items-start">
+            <span class="icon-tile shrink-0">
+              <Icon name={icons[i]} class="w-6 h-6" />
+            </span>
+            <div>
+              <h3 class="font-bold leading-snug">
+                <span class="text-[rgb(var(--color-primary))]">{i + 1}.</span>
+                {s.title}
+              </h3>
+              <p
+                class="mt-1 text-sm text-[rgb(var(--color-text-muted))]"
+                set:html={s.text}
+              />
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+
+    <div class="mt-8 flex flex-col items-center gap-3 text-center">
+      <a href={getLocalizedUrl(lang, "/download")} class="btn btn-primary">
+        <Icon name="mdi:download" class="w-5 h-5" />
+        {t("install.cta")}
+      </a>
+      <p class="text-sm text-[rgb(var(--color-text-muted))]">
+        {t("install.scriptHint")}
+        <a href={getLocalizedUrl(lang, "/download#script")}>
+          {t("install.scriptLink")}
+        </a>
+      </p>
+    </div>
+  </div>
+</section>

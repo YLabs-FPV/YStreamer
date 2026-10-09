@@ -1,0 +1,131 @@
+---
+import { HERO_VIDEO } from "../../consts";
+import { getLangFromUrl, useTranslations } from "../../i18n";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+---
+
+<div class="frame">
+  <div class="frame-bar" aria-hidden="true">
+    <span class="frame-dots">
+      <i></i>
+      <i></i>
+      <i></i>
+    </span>
+    <span class="frame-url">ystreamer.local</span>
+    <span class="frame-dots"></span>
+  </div>
+
+  <div
+    class="frame-body"
+    style={`--poster-light: url(${HERO_VIDEO.lightPoster}); --poster-dark: url(${HERO_VIDEO.darkPoster})`}
+  >
+    <!-- The script below picks the source, so only one video is downloaded -->
+    <video
+      id="hero-video"
+      data-light={HERO_VIDEO.light}
+      data-dark={HERO_VIDEO.dark}
+      autoplay
+      loop
+      muted
+      playsinline
+      preload="auto"
+      aria-label={t("hero.mediaAlt")}
+    ></video>
+  </div>
+</div>
+
+<script>
+  const video = document.getElementById(
+    "hero-video",
+  ) as HTMLVideoElement | null;
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  const root = document.documentElement;
+
+  // A theme picked in the menu wins over the system's
+  const isDark = () =>
+    root.classList.contains("dark") ||
+    (!root.classList.contains("light") && media.matches);
+
+  function pick() {
+    if (!video) return;
+    const src = isDark() ? video.dataset.dark : video.dataset.light;
+    if (!src || video.getAttribute("src") === src) return;
+    // Carry on from the same moment in the other theme's video
+    const at = video.currentTime;
+    video.src = src;
+    if (at) {
+      video.addEventListener("loadedmetadata", () => (video.currentTime = at), {
+        once: true,
+      });
+    }
+    video.play().catch(() => {
+      // Autoplay refused (data saver, low power): the first frame stays
+    });
+  }
+
+  pick();
+  media.addEventListener("change", pick);
+  new MutationObserver(pick).observe(root, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+</script>
+
+<style>
+  .frame {
+    border-radius: 0.875rem;
+    overflow: hidden;
+    border: 1px solid rgb(var(--color-border));
+    background: rgb(var(--color-card-bg));
+  }
+  .frame-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: rgb(var(--color-secondary));
+    border-bottom: 1px solid rgb(var(--color-border));
+  }
+  .frame-dots {
+    display: flex;
+    gap: 0.4rem;
+    width: 3rem;
+  }
+  .frame-dots i {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 9999px;
+    background: rgb(var(--color-border));
+  }
+  .frame-url {
+    padding: 0.1rem 0.9rem;
+    border-radius: 9999px;
+    background: rgb(var(--color-card-bg));
+    color: rgb(var(--color-text-muted));
+    font-size: 0.72rem;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  /* The first frame as a backdrop, in CSS so it's there before any script
+     runs; the video covers it once it plays */
+  .frame-body {
+    aspect-ratio: 16 / 9;
+    background: rgb(var(--color-card-bg)) var(--poster-light) center / cover
+      no-repeat;
+  }
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not(.light)) .frame-body {
+      background-image: var(--poster-dark);
+    }
+  }
+  :global(:root.dark) .frame-body {
+    background-image: var(--poster-dark);
+  }
+  .frame-body > video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+</style>

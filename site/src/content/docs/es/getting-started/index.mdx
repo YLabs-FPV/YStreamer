@@ -1,0 +1,68 @@
+---
+title: Primeros pasos
+description: Qué es YStreamer y cómo ponerlo en marcha.
+order: 10
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+YStreamer es software para una **Raspberry Pi 4** que toma el vídeo en directo
+de unas gafas DJI FPV, o de una cámara USB, y lo envía a una pantalla, a
+navegadores, a streams y a grabaciones, todo a la vez. Se configura desde una
+interfaz web en el propio dispositivo.
+
+Es libre y de código abierto bajo la licencia GPL-3.0.
+
+<Screenshot
+  themed="/images/docs/diagrams/{theme}/ystreamer-setup.svg"
+  alt="Una instalación completa. Hacia la Pi: gafas DJI por USB-C, o una cámara USB, capturadora, receptor analógico o FPV Goggles V1/V2 por USB-A. Alimentación: una fuente de 5V 3A en los pines GPIO 4 y 6. Desde la Pi: una TV por micro-HDMI, móviles y portátiles por Wi-Fi, una memoria USB opcional para las grabaciones, y Ethernet hacia tu red, donde OBS, VLC, YouTube y las estaciones de tierra reciben streams RTSP, SRT, RTMP y UDP"
+  width={1980}
+  height={1248}
+  scale={1}
+  frame={false}
+/>
+
+## Entradas
+
+| Fuente                                               | Puerto | Notas                                                  |
+| ---------------------------------------------------- | ------ | ------------------------------------------------------ |
+| DJI Goggles 2, Integra, Goggles 3, N3                | USB-C  | Vídeo, ajustes de cámara, batería y calidad del enlace |
+| DJI FPV Goggles V1 / V2                              | USB-A  | Solo vídeo. Experimental                               |
+| Cámaras USB, capturadoras USB, receptores analógicos | USB-A  | Codificado a H.264 en la Pi                            |
+
+Se usa una fuente a la vez; la eliges en **Input**.
+
+## Salidas
+
+Todas pueden funcionar a la vez:
+
+- **HDMI**: el puerto HDMI de la Pi, hacia una TV, un monitor o un proyector.
+- **Navegador**: vista en directo en la interfaz web, en cualquier móvil u
+  ordenador que llegue al dispositivo.
+- **RTSP**: un servidor al que se conectan reproductores como VLC y OBS.
+- **SRT**: espera a un receptor, o envía a uno.
+- **RTMP**: envía a YouTube, Twitch, Facebook o cualquier servidor RTMP.
+- **UDP**: envía RTP o MPEG-TS a hasta 8 receptores, como QGroundControl o
+  Mission Planner.
+- **Grabación**: archivos MP4 o MPEG-TS en la tarjeta SD o en una memoria USB.
+
+## Además
+
+- Los ajustes de cámara de la unidad aérea desde el navegador: exposición,
+  balance de blancos, formato de vídeo, perfil de color y más.
+- La batería de las gafas y la calidad del enlace, junto al vídeo.
+- Un logo en la imagen HDMI, y una pantalla de inicio mientras no hay vídeo.
+- Un botón físico de grabación, con una luz opcional.
+- Acceso remoto con Tailscale o WireGuard.
+- Actualizaciones firmadas desde la interfaz web, con vuelta atrás.
+
+## Ponerlo en marcha
+
+Comprueba lo que necesitas, instala YStreamer de una de las dos formas y sigue
+el primer arranque. Estas páginas, en orden:
+
+<Admonition type="note">
+  YStreamer es un proyecto independiente. No está afiliado, respaldado ni
+  patrocinado por DJI.
+</Admonition>

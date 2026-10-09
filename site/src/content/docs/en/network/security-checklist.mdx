@@ -1,0 +1,65 @@
+---
+title: Security checklist
+description: What the device opens up on the network, and how to lock it down.
+order: 40
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Out of the box, YStreamer is set up to be easy to reach. That's fine on your
+own network, but before taking it somewhere shared, like an event, a club
+field or a venue's Wi-Fi, go through this list.
+
+## What's open by default
+
+| What                | Port | Default                                          |
+| ------------------- | ---- | ------------------------------------------------ |
+| Web interface       | 80   | No password: anyone who reaches it can change settings |
+| Browser view        | 80   | Anyone can watch, even once a password is set    |
+| RTSP                | 554  | On, no password                                  |
+| SRT                 | 9000 | Off; unencrypted unless it has a passphrase      |
+| Access point        | -    | On a fresh image, password `ystreamer`, shown on the HDMI screen |
+| SSH (image only)    | 22   | Off; account `ystreamer`, password `ystreamer`   |
+
+RTMP and UDP only send video out, so they don't open anything on the device.
+
+## The checklist
+
+1. **Set a web interface password** under **System → General → Access**.
+   Without one, anyone on the network can change every setting, including the
+   Wi-Fi. See [password and SSH](/docs/network/security).
+2. **Decide who may watch.** Once a password is set, people can still watch in
+   the browser without logging in. Turn on **Require password to watch** if
+   they shouldn't.
+3. **Give RTSP its own password**, or turn it off. Under **Streaming → RTSP**,
+   turn on **Require password**. The web interface password doesn't cover
+   RTSP, and the RTSP password itself is sent unencrypted.
+4. **Use a passphrase for SRT**, under **Streaming → SRT**, especially over the
+   internet. Without one, the video travels unencrypted.
+5. **Change the access point's password** under **Network**, and turn off
+   **Show access point password on screen** under **Display → Splash screen**
+   when the screen is somewhere public.
+6. **Change the SSH password**, or leave SSH off. If you turn it on, the card
+   warns until the default password is changed.
+7. **Keep the terminal off.** [Developer mode](/docs/maintenance/developer-mode)
+   can turn on a **Terminal** that gives a root shell on the device from the
+   browser.
+8. **Keep remote access behind a password.** With Tailscale or WireGuard, the
+   web interface is reachable from that network too, so step 1 matters even
+   more.
+
+<Admonition type="warning" title="Exported settings hold secrets">
+  A settings export contains the Wi-Fi passwords, the RTMP stream key and the
+  RTSP and SRT passwords. Keep the file private.
+</Admonition>
+
+## Also good to know
+
+- **Updates are signed.** The device only installs a package signed by the
+  YStreamer release key, whether it's downloaded or uploaded by hand. See
+  [updates](/docs/maintenance/updates).
+- **A login lasts 30 days** in a browser. Setting a new password logs out every
+  other browser.
+- **Wrong passwords are slowed down**, so guessing the web interface password
+  takes a long time.
+- **Forgot the password?** See [backup and reset](/docs/maintenance/backup-and-reset).

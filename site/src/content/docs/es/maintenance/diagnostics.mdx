@@ -1,0 +1,54 @@
+---
+title: Diagnóstico
+description: Rendimiento, registros, reinicios y herramientas de desarrollo.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+## Rendimiento
+
+La página **Performance** muestra en gráficas la última media hora, registrada
+cada segundo: carga y frecuencia del procesador, memoria, temperatura, los
+fotogramas por segundo y la tasa de bits del vídeo, el tráfico de red, los
+espectadores y salidas, y la señal Wi-Fi.
+
+Avisa cuando la alimentación ha bajado de lo que necesita la Pi. Eso provoca
+fallos y cortes de USB: usa una fuente más potente o un cable más corto.
+
+## Registros
+
+La página **Logs** muestra las últimas líneas del servicio de YStreamer. Con
+**Auto-refresh** activado (por defecto), aparecen líneas nuevas cada segundo,
+y la página se mantiene en las más recientes salvo que hayas subido para leer.
+La elección se recuerda en ese navegador. Son lo primero que mirar cuando algo
+no funciona, y conviene incluirlos al informar de un problema.
+
+Por SSH, `ystreamer logs` también los muestra, y `ystreamer logs -f` los sigue
+en directo. Ver [la línea de comandos](/docs/maintenance/command-line).
+
+## Acerca de
+
+**System → About** muestra la placa, el sistema y el kernel, la versión de
+YStreamer, el número de serie, el tiempo encendido, la temperatura del
+procesador y la alimentación. Su enlace **Report an issue** abre una nueva
+incidencia en GitHub.
+
+## Reiniciar
+
+En **System → Service**:
+
+- **Restart YStreamer**: reinicia el servicio. El vídeo se detiene unos
+  segundos.
+- **Restart USB link**: hace que las gafas vuelvan a conectarse, como si se
+  hubiera desenchufado y enchufado el cable. Pruébalo primero cuando las
+  gafas están conectadas pero no hay vídeo.
+
+En **System → General → Power**: **Reboot device** y **Power off device**.
+Apágalo antes de desenchufarlo, sobre todo mientras graba.
+
+## Modo desarrollador
+
+Para registros detallados, un terminal en el dispositivo y herramientas para
+examinar el enlace con las gafas, activa el
+[modo desarrollador](/docs/maintenance/developer-mode).

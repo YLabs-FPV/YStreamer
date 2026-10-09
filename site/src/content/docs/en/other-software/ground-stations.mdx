@@ -1,0 +1,75 @@
+---
+title: QGroundControl and Mission Planner
+description: Show the video in a ground control station.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Ground stations usually take H.264 over RTP on UDP port 5600, which is what
+YStreamer's UDP output sends in the **RTP** format.
+
+## Set up the UDP output
+
+1. On the device, go to **Streaming → UDP** and turn **UDP** on.
+2. Choose **RTP**.
+3. In **Destinations**, enter the ground station computer's address and port
+   5600, for example `192.168.1.20:5600`.
+4. **Save**.
+
+You can add several destinations, up to 8, for example a ground station and a
+laptop.
+
+<Admonition type="tip">
+  Give the ground station computer a fixed address on your network, or the
+  destination has to change every time it gets a new one.
+</Admonition>
+
+## QGroundControl
+
+1. Open **Application Settings → General**, then the **Video** section.
+2. Set **Source** to **UDP h.264 Video Stream** and the port to **5600**.
+
+The video appears on the Fly view.
+
+<Screenshot
+  src="/images/docs/other-software/qgroundcontrol.webp"
+  alt="The video in QGroundControl's Fly view"
+  width={2926}
+  height={1720}
+/>
+
+Alternatively, QGroundControl can read RTSP, with no destination to set on
+the device: set **Source** to **RTSP Video Stream** and the URL to
+`rtsp://ystreamer.local:554/stream`.
+
+## Mission Planner
+
+1. Right-click the HUD (the artificial horizon) and choose **Video → Set
+   GStreamer Source**.
+2. Enter this pipeline:
+
+```
+udpsrc port=5600 buffer-size=90000 ! application/x-rtp,media=video,clock-rate=90000,encoding-name=H264,payload=96 ! rtph264depay ! avdec_h264 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false
+```
+
+Or over RTSP, with nothing to set on the device:
+
+```
+rtspsrc location=rtsp://ystreamer.local:554/stream latency=0 ! rtph264depay ! avdec_h264 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false
+```
+
+<Screenshot
+  src="/images/docs/other-software/missionplanner.webp"
+  alt="The video in Mission Planner's HUD"
+  width={1590}
+  height={1222}
+/>
+
+## No picture?
+
+- The computer's firewall has to let UDP 5600 in.
+- Phones and tablets don't always find `ystreamer.local`: use the device's
+  address instead.
+- Check **Streaming → UDP** for an error, such as a name it can't look up.

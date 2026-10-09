@@ -1,0 +1,80 @@
+[package]
+name = "ystreamer"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+description = "Video from DJI goggles or a USB camera to HDMI, streams, the browser and recordings"
+
+[[bin]]
+name = "ystreamer"
+path = "src/main.rs"
+
+[package.metadata.deb]
+maintainer = "YarosFPV <yaros@yarosfpv.com>"
+section = "video"
+assets = [
+    [
+        "target/release/ystreamer",
+        "usr/bin/",
+        "755",
+    ],
+    [
+        "../packaging/config.txt",
+        "usr/share/ystreamer/",
+        "644",
+    ],
+]
+maintainer-scripts = "../packaging/debian"
+systemd-units = { unit-scripts = "../packaging", restart-after-upgrade = true }
+depends = """$auto,
+    gstreamer1.0-plugins-base,
+    gstreamer1.0-plugins-good,
+    gstreamer1.0-plugins-bad,
+    gstreamer1.0-plugins-ugly,
+    gstreamer1.0-libav,
+    network-manager, dnsmasq-base, wpasupplicant, iw, iproute2, avahi-daemon,
+    udisks2, kmod, util-linux, passwd, systemd, curl, ca-certificates, tzdata"""
+recommends = "raspi-utils-core, openssh-server"
+suggests = "wireguard-tools, tailscale, usbmuxd"
+
+[dependencies]
+# async runtime (used by the web server thread)
+tokio = { version = "1", features = ["full"] }
+bytes = "1"
+tokio-util = { version = "0.7", features = ["io"] }
+
+# web server
+axum = { version = "0.8", features = ["ws"] }
+tower-http = { version = "0.6", features = ["compression-gzip"] }
+serde = { version = "1", features = ["derive"] }
+
+# webrtc
+webrtc = "0.17"
+
+# gstreamer pipeline
+gstreamer = "0.22"
+gstreamer-app = "0.22"
+gstreamer-video = "0.22"
+gstreamer-rtsp-server = "0.22"
+
+# misc
+anyhow = "1"
+base64 = "0.22"
+hex = "0.4.3"
+libc = "0.2"
+serde_json = "1"
+futures-util = "0.3"
+hmac = "0.12"
+sha2 = "0.10"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+rand = "0.9"
+drm = "0.15"
+qrcode = { version = "0.14", default-features = false }
+gpiocdev = "0.8.0"
+nusb = "0.2.7"
+rust-embed = { version = "8.12.0", features = ["mime-guess"] }
+ed25519-dalek = "3.0.0"
+
+# Password hashing is far too slow unoptimized
+[profile.dev.package.sha2]
+opt-level = 3

@@ -1,0 +1,122 @@
+---
+title: Recording
+description: Record the video to the SD card or a USB drive.
+order: 60
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+YStreamer records the video exactly as it arrives: the goggles' own stream,
+or the USB camera's encoded picture.
+
+<Admonition type="info" title="The live view, not the air unit's recording">
+  With DJI goggles, YStreamer gets the live feed the goggles receive over the
+  air, and records it as it is. That's the picture you see in the goggles, with
+  its glitches and drop-outs, not the air unit's own recording, which is made on
+  the aircraft at a much higher quality. For your best footage, record on the
+  air unit too. YStreamer's recording is the live view, saved.
+</Admonition>
+
+## Start and stop
+
+- The **Recorder** on the Watch page, or `Shift`+`R`.
+- **Record automatically**: recording starts when video arrives and stops
+  10 seconds after it goes, so each flight gets its own file. Stopping by hand
+  sticks until the next video.
+- A [record button](/docs/using/record-button) wired to the Pi.
+
+## Settings
+
+Under **Recording → Settings**. They apply to the next recording you start.
+
+| Setting              | What it does                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| Save to              | The SD card, a plugged-in USB drive, or **Somewhere else…** for any folder.                  |
+| Format               | **MP4** plays anywhere. **MPEG-TS** is slightly bigger. Both survive a power cut mid-file.   |
+| New file             | One long file, or a new file every 5, 10, 15, 30 or 60 minutes. Every 10 minutes by default. |
+| File name prefix     | Letters, digits, `-` and `_`. `ystreamer` by default.                                        |
+| Record automatically | See above.                                                                                   |
+| Keep free            | Space to leave on the drive: 250 MB to 5 GB. 500 MB by default.                              |
+
+Files are named `<prefix>-<date>-<time>.mp4`, with `-000`, `-001` and so on
+added when they're split.
+
+<Admonition type="info" title="The clock">
+  The Pi has no clock of its own and sets the time from the internet. Without a
+  connection, file names can carry the wrong date. They use the timezone under
+  **System → General → Timezone**, UTC until you set it.
+</Admonition>
+
+## USB drives
+
+Plug a drive into a USB-A port and it's mounted by itself, then offered under
+**Save to** with its free space.
+
+- On a FAT32 drive, files are split at about 3.5 GB, below FAT32's 4 GB limit.
+- Before unplugging the drive, press **Eject** next to **Save to**, so
+  everything is written.
+- If the chosen drive isn't plugged in, recording doesn't start, rather than
+  filling the SD card instead.
+
+## Running out of space
+
+Recording won't start, and stops, when the free space drops below **Keep
+free**. The **Files** tab shows what the recordings take up and what's left.
+
+## Files
+
+**Recording → Files** lists the recordings, newest first, in grid or list
+view. You can play them in the browser, download them or delete them.
+
+With a USB drive plugged in, the menu at the top switches between the
+recordings on the SD card and on the drive.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/recordings-card.webp"
+  alt="Recording → Files: recordings with their date, size, download and delete buttons"
+  width={1524}
+  height={848}
+/>
+
+## Copying to a USB drive
+
+To take recordings off the device without downloading them one by one, plug in
+a USB drive and copy them across:
+
+1. Open **Recording → Files**. The bar above the recordings has **To** and the
+   drive's name.
+2. Tick the recordings you want and press **Copy** or **Move**, or press
+   **Copy everything new** for every recording the drive doesn't have yet.
+3. The bar shows the progress. When it's done, press **Eject** before
+   unplugging the drive.
+
+It works the other way round too: switch the menu at the top to the drive, and
+copy or move its recordings to the SD card.
+
+- **Move** removes each original once its copy is complete. If a copy fails,
+  nothing is removed.
+- Recordings already on the drive are skipped. A different recording with the
+  same name is copied as `name (2)`; nothing is overwritten.
+- **Cancel** stops right away. Recordings already copied stay on the drive;
+  the one halfway through is deleted, so a cut-short copy is never left behind
+  under a recording's name. The same goes for a drive pulled out or a power
+  cut mid-copy.
+- Copying can run while the device records. Recording comes first, so the
+  copy slows down meanwhile. The file being recorded is left out until it's
+  finished.
+- A FAT32 drive can't hold files over 4 GB. Use a drive formatted as exFAT for
+  long recordings in one file.
+- One transfer runs at a time, and recordings can't be deleted until it's done.
+  It carries on if you close the page.
+
+## Where the files are
+
+Without the web interface, they're in `/var/lib/ystreamer/recordings`, or on
+the USB drive.
+
+On the ready-made image, settings and recordings live on a partition of their
+own, so a power cut while recording can't damage the system. That partition is
+formatted for Linux (ext4): Windows and macOS can't read it if you put the SD
+card in a computer. Use a USB drive, or download the recordings, to get them
+onto a computer.

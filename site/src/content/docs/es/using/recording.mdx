@@ -1,0 +1,129 @@
+---
+title: Grabación
+description: Graba el vídeo en la tarjeta SD o en una memoria USB.
+order: 60
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+YStreamer graba el vídeo tal como llega: el propio stream de las gafas, o la
+imagen codificada de la cámara USB.
+
+<Admonition
+  type="info"
+  title="La vista en directo, no la grabación de la unidad aérea"
+>
+  Con gafas DJI, YStreamer recibe el vídeo en directo que las gafas reciben por
+  el aire, y lo graba tal cual. Es la imagen que ves en las gafas, con sus
+  fallos y cortes, no la grabación propia de la unidad aérea, que se hace en la
+  aeronave con mucha más calidad. Para tus mejores tomas, graba también en la
+  unidad aérea. La grabación de YStreamer es la vista en directo, guardada.
+</Admonition>
+
+## Iniciar y detener
+
+- El **Recorder** de la página Watch, o `Shift`+`R`.
+- **Record automatically**: la grabación empieza cuando llega vídeo y se
+  detiene 10 segundos después de que se vaya, así que cada vuelo tiene su
+  propio archivo. Si la detienes a mano, se queda detenida hasta el siguiente
+  vídeo.
+- Un [botón de grabación](/docs/using/record-button) conectado a la Pi.
+
+## Ajustes
+
+En **Recording → Settings**. Se aplican a la siguiente grabación que inicies.
+
+| Ajuste               | Qué hace                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Save to              | La tarjeta SD, una memoria USB conectada, o **Somewhere else…** para cualquier carpeta.                                     |
+| Format               | **MP4** se reproduce en cualquier sitio. **MPEG-TS** ocupa algo más. Ambos sobreviven a un corte de luz a mitad de archivo. |
+| New file             | Un único archivo largo, o uno nuevo cada 5, 10, 15, 30 o 60 minutos. Cada 10 minutos por defecto.                           |
+| File name prefix     | Letras, números, `-` y `_`. `ystreamer` por defecto.                                                                        |
+| Record automatically | Ver arriba.                                                                                                                 |
+| Keep free            | Espacio que dejar libre en la unidad: de 250 MB a 5 GB. 500 MB por defecto.                                                 |
+
+Los archivos se llaman `<prefijo>-<fecha>-<hora>.mp4`, y se añade `-000`,
+`-001`, etc. cuando se dividen.
+
+<Admonition type="info" title="El reloj">
+  La Pi no tiene reloj propio y pone la hora desde internet. Sin conexión, los
+  nombres de archivo pueden llevar una fecha equivocada. Usan la zona horaria de
+  **System → General → Timezone**, UTC hasta que la cambies.
+</Admonition>
+
+## Memorias USB
+
+Conecta una memoria a un puerto USB-A y se monta sola, y luego aparece en
+**Save to** con su espacio libre.
+
+- En una memoria FAT32, los archivos se dividen en unos 3,5 GB, por debajo del
+  límite de 4 GB de FAT32.
+- Antes de desconectar la memoria, pulsa **Eject** junto a **Save to**, para
+  que todo quede escrito.
+- Si la unidad elegida no está conectada, la grabación no empieza, en lugar de
+  llenar la tarjeta SD.
+
+## Quedarse sin espacio
+
+La grabación no empieza, y se detiene, cuando el espacio libre baja de
+**Keep free**. La pestaña **Files** muestra lo que ocupan las grabaciones y lo
+que queda.
+
+## Archivos
+
+**Recording → Files** muestra las grabaciones, de la más nueva a la más
+antigua, en cuadrícula o en lista. Puedes reproducirlas en el navegador,
+descargarlas o borrarlas.
+
+Con una memoria USB conectada, el menú de arriba cambia entre las grabaciones
+de la tarjeta SD y las de la memoria.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/recordings-card.webp"
+  alt="Recording → Files: grabaciones con su fecha, tamaño y botones de descarga y borrado"
+  width={1524}
+  height={848}
+/>
+
+## Copiar a una memoria USB
+
+Para sacar las grabaciones del dispositivo sin descargarlas una a una, conecta
+una memoria USB y cópialas:
+
+1. Abre **Recording → Files**. La barra encima de las grabaciones muestra
+   **To** y el nombre de la memoria.
+2. Marca las grabaciones que quieras y pulsa **Copy** o **Move**, o pulsa
+   **Copy everything new** para todas las que la memoria aún no tiene.
+3. La barra muestra el progreso. Cuando termine, pulsa **Eject** antes de
+   desconectar la memoria.
+
+También funciona al revés: cambia el menú de arriba a la memoria y copia o
+mueve sus grabaciones a la tarjeta SD.
+
+- **Move** borra cada original cuando su copia está completa. Si una copia
+  falla, no se borra nada.
+- Las grabaciones que ya están en la memoria se saltan. Una grabación distinta
+  con el mismo nombre se copia como `nombre (2)`; nunca se sobrescribe nada.
+- **Cancel** se detiene al momento. Las grabaciones ya copiadas se quedan en la
+  memoria; la que estaba a medias se borra, para que nunca quede una copia
+  incompleta con el nombre de una grabación. Lo mismo pasa si se desconecta la
+  memoria o se va la luz a mitad de la copia.
+- La copia puede hacerse mientras el dispositivo graba. La grabación tiene
+  prioridad, así que mientras tanto la copia va más lenta. El archivo que se
+  está grabando se deja fuera hasta que termina.
+- Una memoria FAT32 no admite archivos de más de 4 GB. Usa una memoria
+  formateada en exFAT para grabaciones largas en un solo archivo.
+- Solo se hace una transferencia a la vez, y no se pueden borrar grabaciones
+  hasta que termine. Sigue aunque cierres la página.
+
+## Dónde están los archivos
+
+Sin la interfaz web, están en `/var/lib/ystreamer/recordings`, o en la
+memoria USB.
+
+En la imagen lista para usar, los ajustes y las grabaciones están en una
+partición propia, así que un corte de luz mientras se graba no puede dañar el
+sistema. Esa partición está formateada para Linux (ext4): Windows y macOS no
+pueden leerla si pones la tarjeta SD en un ordenador. Usa una memoria USB, o
+descarga las grabaciones, para pasarlas a un ordenador.

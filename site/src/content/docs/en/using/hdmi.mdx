@@ -1,0 +1,23 @@
+---
+title: HDMI output
+description: Show the video on a TV, monitor or projector.
+order: 40
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Plug a screen into one of the Pi's micro-HDMI ports; YStreamer uses the first
+one with a screen connected. The settings are under **Display → HDMI**.
+
+| Setting            | What it does                                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Show video on HDMI | Turn it off when nothing's plugged in: it frees the decoder and some CPU for streaming.                                 |
+| Resolution         | **Automatic** picks the sharpest mode up to 1080p, as close to 60 Hz as the screen goes. Or pick one the screen offers. |
+| Scaling            | **Fit** shows the whole picture, with bars if the shapes differ. **Fill** fills the screen and crops the edges.         |
+| Rotate 180°        | For a screen mounted upside down.                                                                                       |
+| Mirror             | Flips the picture left to right.                                                                                        |
+
+The resolution list marks the screen's own choice, and modes that would be
+stretched.
+
+While there's no video, HDMI shows the [splash screen](/docs/using/splash-and-logo).

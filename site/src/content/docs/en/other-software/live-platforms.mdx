@@ -1,0 +1,50 @@
+---
+title: YouTube, Twitch and Facebook
+description: Go live on a streaming platform over RTMP.
+order: 40
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+The device sends straight to the platform over RTMP, without a computer in
+between. It needs internet: Wi-Fi, Ethernet or a
+[phone over USB](/docs/network/wifi-and-ethernet).
+
+## Get the stream key
+
+- **YouTube**: YouTube Studio → **Create → Go live → Stream**, then copy the
+  **Stream key**.
+- **Twitch**: Creator Dashboard → **Settings → Stream**, then copy the
+  **Primary Stream key**.
+- **Facebook**: **Live Producer**, choose **Streaming software**, then copy
+  the **Stream key**.
+
+<Admonition type="warning">
+  The stream key is a password: anyone with it can stream to your channel.
+</Admonition>
+
+## Set up the device
+
+1. Go to **Streaming → RTMP**.
+2. Pick the **Service**. The server URL fills itself in.
+3. Paste the **Stream key**.
+4. Keep **Silent audio track** on: some platforms refuse or flag streams
+   without sound.
+5. Turn **RTMP** on and **Save**.
+
+The card shows **Connecting…**, then **Live** with the time and bitrate. If
+the connection drops, the device tries again by itself.
+
+## Other platforms
+
+Choose **Custom server** and enter the platform's RTMP or RTMPS URL, without
+the key, for example `rtmp://live.example.com/app`. Then paste the key.
+
+## Bitrate
+
+With DJI goggles, the video is sent as the goggles make it, without encoding
+it again, so the stream's bitrate is the goggles'. Check it in the stats on the
+Watch page (`S`), and make sure your upload can carry it.
+
+With a USB camera, the bitrate is the one set under
+[Input](/docs/using/video-input).

@@ -1,0 +1,97 @@
+---
+title: Wi-Fi y Ethernet
+description: Unirse a una red, crear un punto de acceso y mantener el dispositivo accesible.
+order: 10
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Todo esto está en **Network → Connectivity**. La tarjeta **Status** muestra
+cada conexión, sus direcciones y si hay internet.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/network-page.webp"
+  alt="Network → Connectivity: el estado, el punto de acceso, el móvil por USB y Ethernet"
+  width={1390}
+  height={1893}
+/>
+
+## Wi-Fi
+
+El Wi-Fi de la Pi o crea su propia red o se une a una, no las dos cosas. Es
+**solo de 2,4 GHz**, a propósito: el enlace de vídeo de las gafas funciona en
+5 GHz.
+
+### País
+
+Elige el país en el que estás. Determina qué canales y qué potencia puede usar
+la radio. En la imagen, Raspberry Pi OS mantiene el Wi-Fi apagado hasta que se
+elige un país, y YStreamer lo enciende.
+
+### Punto de acceso
+
+Con **Access point** activado, el dispositivo emite siempre su propia red, y
+los móviles y portátiles se conectan a ella directamente.
+
+| Ajuste       | Por defecto | Notas                                           |
+| ------------ | ----------- | ----------------------------------------------- |
+| Network name | `YStreamer` |                                                 |
+| Password     | `ystreamer` | WPA2, de 8 a 63 caracteres. Cámbiala.           |
+| Channel      | 6           | De 1 a 11                                       |
+| Address      | `10.0.0.1`  | Los dispositivos de la red abren esta dirección |
+
+Una imagen recién grabada empieza con el punto de acceso activado.
+
+### Unirse a una red
+
+Activa **Join a network**, luego pulsa **Scan** y elige tu red, o escribe su
+nombre. Escribe la contraseña (vacía para una red abierta) y pulsa **Save**.
+
+Al guardar, tu navegador se desconecta de la red actual. Vuelve a conectarte a
+la red a la que se unió la Pi y abre **http://ystreamer.local**.
+
+### Red de respaldo
+
+Con el punto de acceso desactivado, **Fallback** (activado por defecto) lo
+enciende solo cuando no se puede llegar al dispositivo:
+
+- si no consigue unirse a la red en un minuto, o
+- tras unos segundos sin Ethernet ni Wi-Fi, por ejemplo desconectado en el
+  campo.
+
+Se vuelve a apagar cuando vuelve Ethernet y nadie ha usado el punto de acceso
+durante un rato. La tarjeta Status indica cuándo y por qué está encendido.
+
+<Admonition type="warning">
+  Con **Fallback** desactivado, sin cable y sin una red a la que unirse, no hay
+  forma de llegar a la interfaz web hasta que conectes Ethernet.
+</Admonition>
+
+## Ethernet
+
+| Modo      | Qué hace                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------ |
+| System    | Deja Ethernet al sistema operativo. Solo en instalaciones con el script.                         |
+| Automatic | Recibe una dirección del router (DHCP). El modo por defecto en la imagen.                        |
+| Static    | Una **Address** fija con el tamaño de su red (`192.168.1.50/24`), **Gateway** y **DNS servers**. |
+
+<Admonition type="warning">
+  Con una dirección estática en la red equivocada, necesitarás el Wi-Fi para
+  volver a entrar.
+</Admonition>
+
+## Móvil por USB
+
+Conecta un móvil a un puerto USB-A y activa en él el **anclaje por USB**
+(USB tethering). El dispositivo recibe internet a través del móvil, para RTMP
+o acceso remoto en el campo, y el móvil puede abrir la interfaz web en la
+dirección que muestra la [pantalla de inicio](/docs/using/splash-and-logo). No
+hay nada que configurar.
+
+Los iPhone necesitan `usbmuxd`; la tarjeta lo indica si falta.
+
+## Nombre del dispositivo
+
+**System → General → Device name** es también el nombre en la red: el
+dispositivo responde en `http://<nombre>.local`. `ystreamer` en la imagen.

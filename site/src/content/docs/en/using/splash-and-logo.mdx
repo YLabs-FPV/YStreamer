@@ -1,0 +1,60 @@
+---
+title: Splash screen and logo
+description: What shows while there's no video, and putting a logo on the picture.
+order: 50
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+## Splash screen
+
+While there's no video, YStreamer sends a splash screen instead: on HDMI, to
+browsers and to the streams. Recordings don't get it.
+
+By default it shows how to reach the device: its addresses, the access
+point's name and password, and a QR code to join it.
+
+<Screenshot
+  src="/images/docs/ystreamer-ui/default-splash.webp"
+  alt="The default splash screen"
+  width={1920}
+  height={1080}
+  scale={1}
+/>
+
+Under **Display → Splash screen**:
+
+| Setting                              | What it does                                                           |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| Upload image                         | Your own picture instead of the default. **Use default** goes back.    |
+| Image scaling                        | **Fit** or **Fill**, for your image.                                   |
+| Show status over custom image        | Keeps the addresses and connection status along the bottom.            |
+| Show access point password on screen | Off hides the password and the QR code.                                |
+| Freeze on last frame                 | When the video stops, keep the last picture instead.                   |
+| Grayscale frozen frame               | Shows the frozen picture in grey, so it can't be taken for live video. |
+
+<Admonition type="tip">
+  In a public place, turn off **Show access point password on screen**, or
+  change the password under **Network**.
+</Admonition>
+
+## Logo
+
+Under **Display → Logo**, drop in an image: PNG, WebP or JPEG, with
+transparency kept. Then drag it where you want it on the preview, and drag its
+corner to resize it, or use the **Size** slider. **Opacity** goes from 10 to
+100%, and **Show logo** turns it on and off without removing it.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/logo-card.webp"
+  alt="Display → Logo: a logo placed on the live preview, with the Show logo switch and the Size and Opacity sliders"
+  width={1175}
+  height={1230}
+/>
+
+Where the logo appears depends on the source:
+
+- **DJI goggles**: on **HDMI** only, and in the browser view. The streams and
+  recordings carry the goggles' own video, untouched.
+- **USB camera**: in the video itself, so on every output and in recordings.

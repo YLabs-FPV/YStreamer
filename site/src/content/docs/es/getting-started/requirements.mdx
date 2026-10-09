@@ -1,0 +1,121 @@
+---
+title: Qué necesitas
+description: Hardware, alimentación, cables y los límites que conviene conocer.
+order: 20
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+## Hardware
+
+- **Raspberry Pi 4 Model B.** Es la única placa compatible por ahora.
+- **Una tarjeta microSD** de 16 GB o más. Con la imagen lista para usar, el
+  sistema ocupa 8 GB y el resto de la tarjeta guarda los ajustes y las
+  grabaciones, en una partición propia. Una tarjeta de menos de unos 10 GB
+  funciona, pero lo guarda todo en una sola partición.
+- **Una forma de alimentar la Pi** que no use su puerto USB-C (ver abajo).
+- **Una fuente de vídeo**: unas gafas DJI compatibles con un **cable USB-C a
+  USB-C de datos**, o una cámara USB.
+- Opcional: una pantalla HDMI, una memoria USB para las grabaciones, un
+  [botón de grabación](/docs/using/record-button).
+
+## Alimentar la Pi
+
+La Pi 4 normalmente se alimenta por su puerto USB-C, pero YStreamer necesita
+ese puerto para las gafas. Aliméntala de otra forma:
+
+- **El conector GPIO**: una fuente de 5 V conectada a un pin de 5 V (pin 2 o 4) y a un pin de tierra (por ejemplo, el pin 6). Usa una fuente de al menos
+  3 A.
+- **Un HAT PoE**, que alimenta la Pi por Ethernet.
+- **Un divisor USB-C de alimentación y datos**, que mete corriente por el
+  puerto USB-C mientras deja pasar los datos hacia las gafas. Funciona, pero
+  no se recomienda.
+
+<Screenshot
+  themed="/images/docs/diagrams/{theme}/rpi-4b-power.svg"
+  alt="Una fuente de 5 V conectada al conector GPIO de la Pi: el positivo a un pin de 5 V y el negativo a un pin de tierra"
+  width={1233}
+  height={629}
+  scale={1}
+  frame={false}
+/>
+
+<Admonition type="warning" title="La alimentación importa">
+  Una fuente que no da lo suficiente provoca fallos y cortes de USB, incluido el
+  enlace con las gafas. La página **Performance** avisa cuando la tensión ha
+  caído.
+</Admonition>
+
+## Cables
+
+- **Gafas**: un cable USB-C a USB-C que transmita datos.
+- **DJI FPV Goggles V1 / V2** y las **cámaras USB** van en uno de los puertos
+  USB-A de la Pi.
+
+<Admonition type="warning" title="Las primeras Raspberry Pi 4">
+  Las primeras placas Raspberry Pi 4, la **revisión 1.1** de 2019, tienen un
+  [defecto de cableado en el USB-C](https://hackaday.com/2019/07/16/exploring-the-raspberry-pi-4-usb-c-issue-in-depth/):
+  los dos pines de configuración del puerto comparten una sola resistencia, en
+  contra del estándar USB-C. Con esas placas, puede que las gafas no conecten
+  con un cable USB-C a USB-C. La **revisión 1.2 y posteriores** están
+  corregidas. **System → About → Board** muestra la tuya, por ejemplo
+  "Raspberry Pi 4 Model B Rev 1.1".
+
+Si la tuya está afectada, usa un **adaptador OTG** (macho USB-C a hembra
+USB-A). Conecta el adaptador a las **gafas** y lleva un cable USB-A a USB-C
+desde él hasta el puerto USB-C de la Pi. El adaptador va siempre del lado de
+las gafas, nunca del de la Pi.
+
+</Admonition>
+
+## Tarjeta SD y memorias USB
+
+La tarjeta SD guarda el sistema, los ajustes y, si no grabas en otro sitio,
+todas las grabaciones, así que se escribe en ella constantemente. Las tarjetas
+baratas se desgastan o se vuelven lentas con ese uso.
+
+- **Una microSD de alta resistencia**, de las que se venden para cámaras de
+  coche y de vigilancia, dura mucho más grabando sin parar. Si no, elige una
+  con clase **A2**, o al menos **A1**, de una marca conocida.
+- **16 GB o más.** Con la imagen lista para usar, todo lo que pasa de los
+  primeros 8 GB es para ajustes y grabaciones.
+- **Para grabaciones largas, usa una memoria USB** en uno de los **puertos
+  USB 3 azules**. Suele ser más rápida que la tarjeta SD y le ahorra el
+  desgaste. Formatéala en **exFAT** para archivos de más de 4 GB; FAT32
+  funciona, pero corta las grabaciones en unos 3,5 GB.
+
+## Entradas compatibles
+
+| Dispositivo                                          | Puerto | Estado       |
+| ---------------------------------------------------- | ------ | ------------ |
+| DJI Goggles 2                                        | USB-C  | Compatible   |
+| DJI Goggles Integra                                  | USB-C  | Compatible   |
+| DJI Goggles 3                                        | USB-C  | Compatible   |
+| DJI Goggles N3                                       | USB-C  | Compatible   |
+| DJI FPV Goggles V1 / V2                              | USB-A  | Experimental |
+| Cámaras USB, capturadoras USB, receptores analógicos | USB-A  | Compatible   |
+
+Qué [ajustes de cámara](/docs/using/camera-settings) puedes cambiar depende de
+la unidad aérea.
+
+Para las combinaciones que se han probado de verdad, mira el
+[hardware probado](/docs/getting-started/tested-hardware).
+
+## Instalación
+
+- **La imagen lista para usar [Recomendada]**: Raspberry Pi OS Lite con
+  YStreamer ya instalado; grabar, conectar y listo.
+- **El script de instalación** necesita **Raspberry Pi OS Lite (64 bits)**:
+  sirve para instalar sobre un Debian 13 "Trixie" que ya tengas.
+
+## Límites
+
+- **Solo Raspberry Pi 4 Model B.** Se añadirán más placas en el futuro.
+- **El puerto USB-C queda reservado para las gafas** mientras YStreamer está
+  instalado.
+- **El Wi-Fi es solo de 2,4 GHz, a propósito.** El enlace de vídeo de las
+  gafas funciona en 5 GHz, y el Wi-Fi de la Pi en esa banda interferiría con
+  él.
+- **Sin escritorio.** Raspberry Pi OS con escritorio no es compatible: el
+  escritorio se queda con la salida HDMI. Usa la versión Lite.

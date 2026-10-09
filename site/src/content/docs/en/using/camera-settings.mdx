@@ -1,0 +1,53 @@
+---
+title: Camera settings
+description: Change the air unit's camera settings from the browser.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+With **DJI goggles** as the source, the **Camera** panel on the Watch page
+changes the air unit's camera settings: the same ones as in the goggles'
+menu, without putting the goggles on.
+
+It's available once the aircraft is linked to the goggles. Until then it says
+it's waiting for the aircraft.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/camera-card.webp"
+  alt="The Camera panel: exposure, white balance, video format and image processing"
+  width={1062}
+  height={775}
+/>
+
+## Settings
+
+| Section          | Settings                                                 |
+| ---------------- | -------------------------------------------------------- |
+| Exposure         | Auto or manual, ISO, shutter, exposure compensation      |
+| White balance    | Auto, or a colour temperature in kelvin                  |
+| Video format     | Resolution, aspect ratio, frame rate                     |
+| Image processing | Colour profile, anti-flicker, sharpness, noise reduction |
+
+These are the air unit's camera settings, for the recording its own camera
+makes on the aircraft. The live feed YStreamer receives comes over the radio
+link, and its quality depends mostly on that link.
+
+## Depends on the air unit
+
+What's offered follows the air unit. For example:
+
+- **O4 Air Unit Pro**: 1080p, 2.7K and 4K at every frame rate. 4:3 needs
+  60 fps or less. Flat profile: D-Log.
+- **O4 Air Unit**: 1080p, and 4K at 30, 50 and 60 fps.
+- **O3 Air Unit**: 1080p, 2.7K and 4K. No 4:3 in 4K. Flat profile:
+  D-Cinelike.
+
+For an air unit it doesn't know, YStreamer offers everything and the air unit
+refuses what it can't do.
+
+<Admonition type="note">
+  On manual exposure, the shutter speed can't be slower than the frame rate
+  allows; the panel shows the slowest one.
+</Admonition>

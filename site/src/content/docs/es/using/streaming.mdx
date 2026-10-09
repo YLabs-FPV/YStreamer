@@ -1,0 +1,101 @@
+---
+title: Streaming
+description: RTSP, SRT, RTMP y UDP, y cuál usar.
+order: 80
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Todas las salidas pueden funcionar a la vez, en **Streaming**. Cada una lleva
+el mismo vídeo H.264, sin sonido.
+
+Con gafas DJI, es el vídeo en directo que reciben las gafas, reenviado tal
+cual: la misma imagen que en las gafas, no la grabación a bordo de más calidad
+de la unidad aérea. Ver [grabación](/docs/using/recording).
+
+| Salida | Dirección                                    | Ideal para                                                   |
+| ------ | -------------------------------------------- | ------------------------------------------------------------ |
+| RTSP   | Los reproductores se conectan al dispositivo | VLC, OBS, la mayoría de reproductores. Activado por defecto. |
+| SRT    | En cualquier sentido                         | OBS, por Wi-Fi o internet: aguanta las pérdidas              |
+| RTMP   | El dispositivo envía                         | YouTube, Twitch, Facebook, servidores RTMP                   |
+| UDP    | El dispositivo envía                         | QGroundControl, Mission Planner, multicast                   |
+
+Para configuraciones paso a paso, mira [VLC](/docs/other-software/vlc),
+[OBS](/docs/other-software/obs),
+[estaciones de tierra](/docs/other-software/ground-stations) y
+[plataformas en directo](/docs/other-software/live-platforms).
+
+## RTSP
+
+Un servidor al que se conectan los reproductores. La tarjeta muestra la
+dirección que usar, con un botón **Copy**:
+
+```
+rtsp://ystreamer.local:554/stream
+```
+
+554 es el puerto estándar de RTSP, así que la mayoría de reproductores también
+la aceptan sin él: `rtsp://ystreamer.local/stream`.
+
+| Ajuste           | Qué hace                                                                  |
+| ---------------- | ------------------------------------------------------------------------- |
+| Port             | 554 por defecto, el puerto estándar de RTSP. 554, o de 1024 a 65535.      |
+| Path             | `/stream` por defecto.                                                    |
+| TCP only         | Más latencia, pero aguanta un Wi-Fi con pérdidas y los cortafuegos.       |
+| Require password | Un usuario y una contraseña para los reproductores. Se envían sin cifrar. |
+
+## SRT
+
+SRT envía MPEG-TS y recupera los paquetes perdidos, así que aguanta bien por
+Wi-Fi y por internet.
+
+- **Listener** (por defecto): el dispositivo espera en un puerto y los
+  receptores se conectan a `srt://ystreamer.local:9000`.
+- **Caller**: el dispositivo se conecta a un receptor en **Receiver address**
+  y **Port**. Úsalo para llegar a OBS o a un servidor en otro sitio. Algunos
+  servidores también piden un **Stream ID**.
+
+| Ajuste       | Qué hace                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------- |
+| Latency (ms) | Cuánto esperar a los paquetes perdidos. 200 en una red local, de 500 a 2000 por internet.      |
+| Passphrase   | Cifra el stream: de 10 a 79 caracteres, o vacía para no cifrar. El receptor necesita la misma. |
+
+La tarjeta muestra si hay un receptor conectado.
+
+## RTMP
+
+Envía el vídeo a una plataforma de streaming o a un servidor RTMP.
+
+1. Elige el **Service**: YouTube, Twitch, Facebook, o **Custom server**.
+2. Para un servidor propio, escribe su **Server URL** (`rtmp://` o
+   `rtmps://`, sin la clave).
+3. Pega la **Stream key** de la plataforma.
+4. Activa **RTMP** y pulsa **Save**.
+
+**Silent audio track** (activado por defecto) añade un sonido en silencio:
+algunas plataformas rechazan o marcan los streams sin audio.
+
+Si el servidor no responde, se reintenta una y otra vez. La tarjeta muestra
+**Live** con el tiempo en directo y la tasa de bits cuando conecta.
+
+Ver [plataformas en directo](/docs/other-software/live-platforms).
+
+## UDP
+
+Envía el vídeo a receptores fijos, sin establecer ninguna conexión.
+
+- **Format**: **RTP** (H.264 sobre RTP), lo que esperan QGroundControl y
+  Mission Planner, normalmente en el puerto 5600. **MPEG-TS** para VLC, ffmpeg
+  y OBS.
+- **Destinations**: `host:puerto` de cada receptor, separados por comas, hasta 8. También funcionan direcciones multicast, por ejemplo `239.0.0.1:1234`.
+
+<Admonition type="info">
+  UDP no puede saber si alguien lo recibe. Si no aparece nada, revisa la
+  dirección y el puerto del receptor, y su cortafuegos.
+</Admonition>
+
+## La pantalla de inicio en los streams
+
+Mientras no hay vídeo, los streams llevan la
+[pantalla de inicio](/docs/using/splash-and-logo), así que los reproductores
+siguen conectados y recuperan el vídeo cuando vuelve.

@@ -1,0 +1,25 @@
+---
+import { Icon } from "astro-icon/components";
+import { GITHUB_URL, YOUTUBE_URL } from "../consts";
+---
+
+<div class="flex items-center space-x-1">
+  <a
+    href={GITHUB_URL}
+    target="_blank"
+    rel="noopener"
+    class="p-2 text-[rgb(var(--color-text-muted))] rounded-full hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-secondary))] transition-colors"
+    aria-label="GitHub"
+  >
+    <Icon name="fa6-brands:github" size={20} />
+  </a>
+  <a
+    href={YOUTUBE_URL}
+    target="_blank"
+    rel="noopener"
+    class="p-2 text-[rgb(var(--color-text-muted))] rounded-full hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-secondary))] transition-colors"
+    aria-label="YouTube"
+  >
+    <Icon name="fa6-brands:youtube" size={20} />
+  </a>
+</div>

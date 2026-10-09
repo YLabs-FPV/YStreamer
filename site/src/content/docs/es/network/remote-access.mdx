@@ -1,0 +1,63 @@
+---
+title: Acceso remoto
+description: Llega al dispositivo desde cualquier sitio con Tailscale o WireGuard.
+order: 20
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+En **Network → Remote access**. La imagen lista para usar trae Tailscale y
+WireGuard instalados. Tras el script de instalación, la tarjeta indica qué
+instalar si faltan. Los dos necesitan que el dispositivo tenga internet: a
+través de tu red, Ethernet o un [móvil por USB](/docs/network/wifi-and-ethernet).
+
+<Admonition type="warning" title="Pon antes una contraseña">
+  Sin [contraseña](/docs/network/security), cualquiera de tu red Tailscale o de
+  tu VPN puede cambiar los ajustes.
+</Admonition>
+
+## Tailscale
+
+1. Pulsa **Set up**. La tarjeta muestra un enlace.
+2. Ábrelo en cualquier dispositivo e inicia sesión en Tailscale. La tarjeta se
+   actualiza sola.
+3. Una vez conectado, la tarjeta muestra la dirección Tailscale del
+   dispositivo. Ábrela desde cualquier dispositivo de tu red Tailscale.
+
+La tarjeta también muestra los dispositivos que lo usan, y si cada conexión es
+**Direct** o **Relayed**. Relayed añade retraso.
+
+**Disconnect** saca el dispositivo de Tailscale por ahora; **Sign out** lo
+quita de tu red Tailscale. Volver a configurarlo necesita una conexión desde
+la red local.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/tailscale.webp"
+  alt="La tarjeta de Tailscale, conectada"
+  width={1364}
+  height={624}
+/>
+
+## WireGuard
+
+Para tu propio servidor WireGuard.
+
+1. Crea en tu servidor una configuración para el dispositivo: un archivo
+   `.conf` con un `[Interface]` y un `[Peer]`.
+2. Pulsa **Upload configuration** y elige el archivo.
+3. Pulsa **Switch on**.
+
+La tarjeta muestra la dirección del dispositivo dentro del túnel, la última
+respuesta del servidor y los datos recibidos y enviados.
+
+<Admonition type="tip" title="PersistentKeepalive">
+  El dispositivo suele estar detrás de un router, así que el servidor solo puede
+  llegar a él mientras la línea se mantiene abierta. Añade `PersistentKeepalive
+  = 25` bajo `[Peer]`; la tarjeta avisa cuando falta.
+</Admonition>
+
+Una configuración con `AllowedIPs = 0.0.0.0/0` envía todo el tráfico de
+internet del dispositivo por el túnel, incluidos los streams RTMP y SRT.
+
+**Remove** borra la configuración y sus claves del dispositivo.

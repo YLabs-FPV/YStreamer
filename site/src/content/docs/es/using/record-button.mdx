@@ -1,0 +1,57 @@
+---
+title: Botón de grabación
+description: Conecta un botón o interruptor físico, y una luz, para iniciar y detener la grabación.
+order: 70
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Un botón o interruptor en el conector GPIO de la Pi puede iniciar y detener la
+[grabación](/docs/using/recording), con una luz opcional que se enciende
+mientras graba.
+
+## Conexión
+
+- **Botón o interruptor**: entre el pin GPIO elegido y cualquier pin de
+  tierra. No hace falta resistencia: se usa el pull-up interno de la Pi.
+- **Luz (opcional)**: un LED desde su pin GPIO, a través de una resistencia de
+  unos 330 Ω, hasta tierra. La resistencia puede ir a cualquier lado del LED,
+  pero el LED tiene que ir en el sentido correcto: su **pata más larga (+)**
+  hacia el pin GPIO y la más corta hacia tierra. Al revés, simplemente se
+  queda apagado.
+
+En este ejemplo, el botón está en GPIO17 (pin 11) con tierra en el pin 9, y la
+luz en GPIO18 (pin 12) con tierra en el pin 14.
+
+<Screenshot
+  themed="/images/docs/diagrams/{theme}/button-led-pinout.svg"
+  alt="El botón de grabación entre el pin 9 (tierra) y el pin 11 (GPIO17), y la luz desde el pin 12 (GPIO18) a través de una resistencia de 330 ohmios y el LED hasta el pin 14 (tierra)"
+  width={1068}
+  height={672}
+  scale={1}
+  frame={false}
+/>
+
+## Ajustes
+
+En **Recording → Settings → Record button**:
+
+| Ajuste                 | Qué hace                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------ |
+| Use a button or switch | Lo activa.                                                                                 |
+| Type                   | **Push button**: cada pulsación inicia o detiene. **Switch**: graba mientras esté cerrado. |
+| Pin                    | El GPIO del botón. GPIO17 (pin 11) por defecto.                                            |
+| Recording light        | El GPIO de la luz, o **No light**.                                                         |
+
+Cuando está activado, la tarjeta dice **Listening**. Pulsa el botón o
+acciona el interruptor para ver que se registra.
+
+Con un **interruptor** que ya está cerrado al encender, por ejemplo después de
+un corte de luz, la grabación vuelve a empezar sola.
+
+<Admonition type="warning">
+  No uses el pin 40, es el pin de restablecimiento: mantenerlo a tierra mientras
+  arranca la Pi restablece los ajustes.\ Ver [copia de seguridad y
+  restablecimiento](/docs/maintenance/backup-and-reset).
+</Admonition>

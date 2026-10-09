@@ -1,0 +1,81 @@
+---
+title: Modo desarrollador
+description: Las herramientas extra para resolver problemas y desarrollar, y cómo activarlas.
+order: 60
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+El modo desarrollador muestra herramientas que la mayoría nunca necesita:
+registros más detallados, una shell en el dispositivo y vistas de lo que pasa
+con las fuentes de vídeo. Está pensado para resolver problemas y para
+trabajar en el propio YStreamer.
+
+## Activarlo
+
+Ve a **System → About** y toca 7 veces la versión de **YStreamer**. Tras unos
+toques, un mensaje cuenta los que faltan. Cuando está activado, las
+herramientas están en **System → Developer**.
+
+Para desactivarlo, usa el interruptor **Developer mode** en
+**System → Developer**.
+
+<Admonition type="info" title="Es por navegador">
+  El modo desarrollador se recuerda en el navegador en el que lo activaste, no
+  en el dispositivo. Otros navegadores, y otras personas, no ven las
+  herramientas extra hasta que también lo activen. Los ajustes de abajo, en
+  cambio, son del dispositivo.
+</Admonition>
+
+## Qué añade
+
+### Registro detallado
+
+En **System → Developer**. El servicio escribe mucho más detalle en los
+[registros](/docs/maintenance/diagnostics), como cuánto vídeo llega de las
+gafas cada segundo. Actívalo mientras reproduces un problema y luego
+desactívalo: el resto del tiempo hace que los registros sean más difíciles de
+leer.
+
+### Terminal
+
+Una shell en el dispositivo, en el navegador, como **root** o como la cuenta
+de usuario propia del dispositivo (`ystreamer` en la imagen). Es una página
+propia en la barra lateral, en **Diagnostics**.
+
+1. [Pon una contraseña a la interfaz web](/docs/network/security) primero. El
+   terminal no funciona sin ella.
+2. Activa **Terminal** en **System → Developer** y pulsa **Save**.
+3. Abre **Terminal** en la barra lateral.
+
+Salir de la página cierra la shell y detiene lo que estuviera ejecutando. Usa
+**New shell** para empezar de nuevo.
+
+<Admonition type="warning" title="Acceso root">
+  Cualquiera con la sesión iniciada en la interfaz web puede entonces ejecutar
+  lo que sea en el dispositivo. Mantenlo desactivado salvo que lo necesites, y
+  mira la [lista de seguridad](/docs/network/security-checklist).
+</Admonition>
+
+### Monitor del enlace con las gafas
+
+**System → Developer** también muestra el **DUML monitor**: los mensajes de
+control que las gafas DJI intercambian con YStreamer por USB, una fila por
+tipo de mensaje, con la frecuencia con la que llega cada uno y su último
+contenido.
+
+- Activa **Live** para empezar a observar.
+- Pulsa **Mark** y luego cambia algo en la aeronave o en las gafas: las filas
+  que han cambiado desde la marca se resaltan.
+- **Clear** vacía la lista.
+
+También puede enviar un mensaje a las gafas. Hazlo solo si sabes lo que hace
+el mensaje.
+
+### Captura en bruto para FPV Goggles V1 / V2
+
+Con **FPV Goggles V1/V2** elegidas en **Input**, la tarjeta de esas gafas
+muestra **Capture the raw stream**. Guarda los siguientes 8 MB tal como los
+envían las gafas, y luego **Download** te da el archivo. Adjúntalo a un
+[informe de error](/docs/help) cuando esas gafas fallen: permite investigar el
+problema sin tener el hardware.

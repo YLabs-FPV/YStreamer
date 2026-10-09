@@ -1,0 +1,85 @@
+---
+interface Props {
+  lightSrc: string;
+  darkSrc: string;
+  alt: string;
+  class?: string;
+  maxWidth?: string;
+  width?: string;
+  height?: string;
+}
+
+const {
+  lightSrc,
+  darkSrc,
+  alt,
+  class: className = "",
+  maxWidth,
+  width,
+  height,
+} = Astro.props;
+
+const imgStyle = [
+  "width: 100%",
+  "height: auto",
+  maxWidth && `max-width: ${maxWidth}`,
+  width && `width: ${width}`,
+  height && `height: ${height}`,
+]
+  .filter(Boolean)
+  .join("; ");
+---
+
+<span class:list={["themed-image", className]}>
+  <img
+    src={lightSrc}
+    alt={alt}
+    class="light-only"
+    style={imgStyle || undefined}
+  />
+  <img
+    src={darkSrc}
+    alt={alt}
+    class="dark-only"
+    style={imgStyle || undefined}
+  />
+</span>
+
+<style>
+  .themed-image {
+    display: contents;
+  }
+
+  /* Default (auto): use system preference */
+  .light-only {
+    display: block;
+  }
+  .dark-only {
+    display: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .light-only {
+      display: none;
+    }
+    .dark-only {
+      display: block;
+    }
+  }
+
+  /* Explicit light mode */
+  :global(html.light) .light-only {
+    display: block !important;
+  }
+  :global(html.light) .dark-only {
+    display: none !important;
+  }
+
+  /* Explicit dark mode */
+  :global(html.dark) .light-only {
+    display: none !important;
+  }
+  :global(html.dark) .dark-only {
+    display: block !important;
+  }
+</style>

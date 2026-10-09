@@ -1,0 +1,358 @@
+---
+import MainLayout from "./MainLayout.astro";
+import DocsNav from "../components/docs/DocsNav.astro";
+import { Icon } from "astro-icon/components";
+import { getSections, docHref, docLang, docParts } from "../lib/docs";
+import { getLangFromUrl, useTranslations } from "../i18n";
+
+interface Props {
+  title: string;
+  description?: string;
+  currentId: string;
+}
+
+const { title, description, currentId } = Astro.props;
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const sections = await getSections(lang);
+const sorted = sections.flatMap((s) => [s.index, ...s.pages]);
+const href = (id: string) => docHref(lang, id, sorted);
+// Shown in English until it's translated
+const untranslated = docLang(currentId) !== lang;
+
+// An overview page lists the pages of its section after its own text
+const current = docParts(currentId);
+const overviewOf =
+  current.page === "index"
+    ? sections.find((s) => s.slug === current.section)
+    : undefined;
+
+const currentIndex = sorted.findIndex((d) => d.id === currentId);
+const prevDoc = currentIndex > 0 ? sorted[currentIndex - 1] : null;
+const nextDoc =
+  currentIndex >= 0 && currentIndex < sorted.length - 1
+    ? sorted[currentIndex + 1]
+    : null;
+const prev = prevDoc
+  ? { title: prevDoc.data.title, href: href(prevDoc.id) }
+  : null;
+const next = nextDoc
+  ? { title: nextDoc.data.title, href: href(nextDoc.id) }
+  : null;
+---
+
+<MainLayout
+  title={`${title} - ${t("site.docsTitleSuffix")}`}
+  description={description}
+>
+  <div class="px-6 py-10 max-w-6xl mx-auto lg:grid lg:grid-cols-[230px_1fr] lg:gap-12">
+    <aside class="hidden lg:block">
+      <nav class="docs-sidebar lg:sticky lg:top-24">
+        <DocsNav sections={sections} currentId={currentId} href={href} />
+      </nav>
+    </aside>
+
+    <button
+      id="docnav-open"
+      type="button"
+      class="lg:hidden inline-flex items-center gap-2 mb-6 px-3.5 py-2 rounded-lg border border-[rgb(var(--color-border))] bg-[rgb(var(--color-card-bg))] text-sm font-medium hover:bg-[rgb(var(--color-secondary))] transition-colors"
+    >
+      <Icon name="mdi:menu" class="w-5 h-5" />
+      {t("docs.menuButton")}
+      <span class="text-[rgb(var(--color-text-muted))] font-normal">
+        / {title}
+      </span>
+    </button>
+
+    <div id="docnav" class="lg:hidden">
+      <div
+        id="docnav-backdrop"
+        class="fixed inset-0 z-40 bg-black/50 opacity-0 invisible transition-opacity duration-200"
+      ></div>
+      <aside
+        id="docnav-panel"
+        class="fixed top-0 left-0 bottom-0 z-50 w-72 max-w-[80%] bg-[rgb(var(--color-header-bg))] border-r border-[rgb(var(--color-border))] shadow-xl -translate-x-full transition-transform duration-200 ease-in-out overflow-y-auto"
+      >
+        <div class="flex items-center justify-between px-4 py-4 border-b border-[rgb(var(--color-border))]">
+          <span class="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--color-text-light))]">
+            {t("docs.sidebar")}
+          </span>
+          <button
+            id="docnav-close"
+            type="button"
+            aria-label={t("docs.closeMenu")}
+            class="p-1 rounded-lg text-[rgb(var(--color-text))] hover:bg-[rgb(var(--color-secondary))] transition-colors"
+          >
+            <Icon name="mdi:close" class="w-6 h-6" />
+          </button>
+        </div>
+        <nav class="p-2">
+          <DocsNav sections={sections} currentId={currentId} href={href} />
+        </nav>
+      </aside>
+    </div>
+
+    <article
+      class="prose-doc min-w-0"
+      data-copy-label={t("common.copy")}
+      data-copied-label={t("common.copied")}
+    >
+      {untranslated && (
+        <p class="mb-4 text-sm text-[rgb(var(--color-text-muted))]">
+          {t("docs.untranslated")}
+        </p>
+      )}
+      <h1 class="text-4xl font-bold">{title}</h1>
+      {description && (
+        <p class="mt-3 text-lg text-[rgb(var(--color-text-muted))]">
+          {description}
+        </p>
+      )}
+      <div class="mt-6">
+        <slot />
+      </div>
+
+      {overviewOf && overviewOf.pages.length > 0 && (
+        <div class="section-pages mt-8 grid gap-3 sm:grid-cols-2">
+          {overviewOf.pages.map((p) => (
+            <a href={href(p.id)} class="section-page">
+              <span class="block font-semibold text-[rgb(var(--color-text))]">
+                {p.data.title}
+              </span>
+              {p.data.description && (
+                <span class="mt-1 block text-sm text-[rgb(var(--color-text-muted))]">
+                  {p.data.description}
+                </span>
+              )}
+            </a>
+          ))}
+        </div>
+      )}
+
+      {(prev || next) && (
+        <nav
+          class="page-nav mt-12 pt-6 border-t border-[rgb(var(--color-border))] grid gap-4 sm:grid-cols-2"
+          aria-label={t("docs.pageNav")}
+        >
+          {prev ? (
+            <a
+              href={prev.href}
+              class="group flex flex-col gap-1 p-4 rounded-xl border border-[rgb(var(--color-border))] no-underline hover:bg-[rgb(var(--color-secondary))] transition-colors"
+            >
+              <span class="inline-flex items-center gap-1 text-xs font-medium text-[rgb(var(--color-text-light))]">
+                <Icon name="mdi:chevron-left" class="w-4 h-4" />
+                {t("docs.previous")}
+              </span>
+              <span class="font-semibold text-[rgb(var(--color-primary))]">
+                {prev.title}
+              </span>
+            </a>
+          ) : (
+            <span />
+          )}
+          {next && (
+            <a
+              href={next.href}
+              class="group flex flex-col gap-1 p-4 rounded-xl border border-[rgb(var(--color-border))] no-underline text-right hover:bg-[rgb(var(--color-secondary))] transition-colors sm:col-start-2"
+            >
+              <span class="inline-flex items-center justify-end gap-1 text-xs font-medium text-[rgb(var(--color-text-light))]">
+                {t("docs.next")}
+                <Icon name="mdi:chevron-right" class="w-4 h-4" />
+              </span>
+              <span class="font-semibold text-[rgb(var(--color-primary))]">
+                {next.title}
+              </span>
+            </a>
+          )}
+        </nav>
+      )}
+    </article>
+  </div>
+</MainLayout>
+
+<script>
+  // A copy button on every code block
+  const article = document.querySelector<HTMLElement>(".prose-doc");
+  const copyLabel = article?.dataset.copyLabel ?? "Copy";
+  const copiedLabel = article?.dataset.copiedLabel ?? "Copied";
+  article?.querySelectorAll<HTMLPreElement>("pre").forEach((pre) => {
+    const wrap = document.createElement("div");
+    wrap.className = "code-block";
+    pre.replaceWith(wrap);
+    wrap.append(pre);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "code-copy";
+    button.textContent = copyLabel;
+    button.setAttribute("aria-label", copyLabel);
+    button.addEventListener("click", async () => {
+      const text = pre.querySelector("code")?.innerText ?? pre.innerText;
+      try {
+        await navigator.clipboard.writeText(text.replace(/\n$/, ""));
+      } catch {
+        return;
+      }
+      button.textContent = copiedLabel;
+      button.classList.add("is-copied");
+      setTimeout(() => {
+        button.textContent = copyLabel;
+        button.classList.remove("is-copied");
+      }, 1800);
+    });
+    wrap.append(button);
+  });
+
+  // Start the sidebar scrolled to the page being read
+  const sidebar = document.querySelector<HTMLElement>(".docs-sidebar");
+  const active = sidebar?.querySelector<HTMLElement>('[aria-current="page"]');
+  if (sidebar && active) {
+    const top =
+      active.getBoundingClientRect().top - sidebar.getBoundingClientRect().top;
+    if (top + active.offsetHeight > sidebar.clientHeight) {
+      sidebar.scrollTop = top - sidebar.clientHeight / 3;
+    }
+  }
+
+  const openBtn = document.getElementById("docnav-open");
+  const panel = document.getElementById("docnav-panel");
+  const backdrop = document.getElementById("docnav-backdrop");
+  const closeBtn = document.getElementById("docnav-close");
+  let open = false;
+
+  const set = (o: boolean) => {
+    open = o;
+    panel?.classList.toggle("-translate-x-full", !o);
+    backdrop?.classList.toggle("opacity-0", !o);
+    backdrop?.classList.toggle("invisible", !o);
+    document.documentElement.style.overflow = o ? "hidden" : "";
+  };
+
+  openBtn?.addEventListener("click", () => set(true));
+  closeBtn?.addEventListener("click", () => set(false));
+  backdrop?.addEventListener("click", () => set(false));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && open) set(false);
+  });
+</script>
+
+<style>
+  /* Scrolls on its own once it's taller than the window below the header */
+  .docs-sidebar {
+    max-height: calc(100vh - 7rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 1rem;
+    scrollbar-width: thin;
+  }
+  .prose-doc :global(.code-block) {
+    position: relative;
+    margin-bottom: 1rem;
+  }
+  /* Wrapped rather than scrolled, so a long command is visible in full and
+     never runs under the copy button */
+  .prose-doc :global(.code-block pre) {
+    margin: 0;
+    padding-right: 5rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .prose-doc :global(.code-block pre code) {
+    white-space: inherit;
+  }
+  .prose-doc :global(.code-copy) {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 0.375rem;
+    border: 1px solid rgb(var(--color-code-border));
+    background: rgb(var(--color-card-bg));
+    color: rgb(var(--color-text-muted));
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition:
+      color 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .prose-doc :global(.code-copy:hover) {
+    color: rgb(var(--color-text));
+    border-color: rgba(var(--color-brand), 0.5);
+  }
+  .prose-doc :global(.code-copy.is-copied) {
+    color: rgb(var(--color-success));
+  }
+  .section-page {
+    display: block;
+    padding: 1rem 1.1rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(var(--color-border));
+    text-decoration: none;
+    transition: border-color 0.2s ease;
+  }
+  .section-page:hover {
+    border-color: rgba(var(--color-brand), 0.5);
+  }
+  .prose-doc :global(h2) {
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    scroll-margin-top: 6rem;
+  }
+  .prose-doc :global(h3) {
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+  .prose-doc :global(p),
+  .prose-doc :global(ul),
+  .prose-doc :global(ol) {
+    margin-bottom: 1rem;
+  }
+  .prose-doc :global(ul) {
+    margin-left: 1.25rem;
+    list-style: disc;
+  }
+  .prose-doc :global(ol) {
+    margin-left: 1.25rem;
+    list-style: decimal;
+  }
+  .prose-doc :global(li) {
+    margin-bottom: 0.25rem;
+  }
+  .prose-doc :global(img) {
+    margin-top: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .prose-doc :global(a) {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .prose-doc :global(.page-nav a),
+  .prose-doc .section-page {
+    text-decoration: none;
+  }
+  .prose-doc :global(table) {
+    width: 100%;
+    margin-bottom: 1rem;
+    border-collapse: collapse;
+    font-size: 0.95em;
+  }
+  .prose-doc :global(th),
+  .prose-doc :global(td) {
+    border: 1px solid rgb(var(--color-border));
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+  }
+  .prose-doc :global(th) {
+    background: rgb(var(--color-secondary));
+  }
+  .prose-doc :global(blockquote) {
+    border-left: 3px solid rgb(var(--color-primary));
+    padding: 0.25rem 0 0.25rem 1rem;
+    margin: 0 0 1rem 0;
+    color: rgb(var(--color-text-muted));
+  }
+</style>

@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    name: What changed
+    runs-on: ubuntu-24.04
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            shared: &shared
+              - mise.toml
+              - .github/workflows/ci.yml
+            backend:
+              - *shared
+              - device/backend/**
+              # The tests read the signing key and the install script
+              - device/packaging/**
+            frontend:
+              - *shared
+              - device/frontend/**
+
+  backend:
+    name: Backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    # The same kind of CPU as the Raspberry Pi it ships on
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install GStreamer headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libglib2.0-dev libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev libgstrtspserver-1.0-dev
+      - uses: jdx/mise-action@v5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: device/backend
+      # The web interface is compiled into the backend, so its folder has to
+      # exist; what's in it is the frontend job's business
+      - run: mkdir -p device/frontend/dist
+      - run: mise run backend:fmt-check
+      - run: mise run backend:lint
+      - run: mise run backend:test
+
+  frontend:
+    name: Frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - run: mise run frontend:install
+      - run: mise run frontend:format-check
+      - run: mise run frontend:check
+      - name: Build
+        run: mise run frontend:build

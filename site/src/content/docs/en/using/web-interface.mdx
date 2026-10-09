@@ -1,0 +1,81 @@
+---
+title: The web interface
+description: Finding your way around, saving settings and the Watch page.
+order: 10
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Open **http://ystreamer.local**, or the device's address, in any browser.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/watch-page.webp"
+  alt="The web interface: the sidebar, and the Watch page with the live video, the recorder and the camera settings"
+  width={1973}
+  height={1501}
+/>
+
+## Layout
+
+The sidebar holds every page:
+
+| Group       | Pages                                                |
+| ----------- | ---------------------------------------------------- |
+|             | **Watch**: the live view                             |
+| Video       | **Input**, **Streaming**, **Recording**, **Display** |
+| Device      | **Network**, **System**                              |
+| Diagnostics | **Performance**, **Logs**                            |
+
+On a phone, the sidebar folds into a menu.
+
+## Saving settings
+
+Changes on a settings page aren't applied until you press **Save**.
+**Discard** throws them away. The sidebar marks pages with unsaved changes.
+
+Settings that would cut you off, like a different Wi-Fi mode, ask first.
+
+## The Watch page
+
+The live view, with:
+
+- **Stats**: the video's bitrate and the player's buffer.
+- **Reconnect**: starts the player again.
+- **Recorder**: start and stop recording on the device, and open the files.
+- **Camera**: the air unit's camera settings, with DJI goggles. See
+  [camera settings](/docs/using/camera-settings).
+- The air unit's own recording: whether it's recording, and to which card.
+
+### Keyboard shortcuts
+
+| Key         | Action                  |
+| ----------- | ----------------------- |
+| `S`         | Show or hide the stats  |
+| `P`         | Picture in picture      |
+| `T`         | Theater mode            |
+| `F`         | Full screen             |
+| `Shift`+`R` | Start or stop recording |
+
+### WebRTC or WebSocket
+
+The browser gets the video one of two ways, set under
+**Streaming → Browser**:
+
+- **WebSocket** (the default): steadier frame rate.
+- **WebRTC**: lowest latency.
+
+**Viewer limit** caps how many browsers can watch at once. Every viewer costs
+CPU, so a limit keeps HDMI and RTSP smooth.
+
+## Theme
+
+**System → General → Theme** switches between light and dark. It's remembered
+in that browser only.
+
+## Timezone
+
+**System → General → Timezone** sets the device's timezone, used for the date
+and time in [recording](/docs/using/recording) names. The image starts on UTC.
+While it is, the card offers your browser's timezone with one click, unless
+the browser is on UTC too. Press **Save** to apply it.

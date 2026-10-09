@@ -1,0 +1,28 @@
+---
+// Marks where a screenshot or photo still has to go. Shown only by the dev
+// server, so a forgotten one never reaches the live site.
+interface Props {
+  todo: string;
+}
+
+const { todo } = Astro.props;
+const show = import.meta.env.DEV;
+---
+
+{show && (
+  <div class="todo-image">
+    <strong>TODO image:</strong> {todo}
+  </div>
+)}
+
+<style>
+  .todo-image {
+    margin: 1.25rem 0;
+    padding: 1.5rem 1rem;
+    border: 2px dashed rgb(var(--color-accent));
+    border-radius: 0.5rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: rgb(var(--color-accent));
+  }
+</style>

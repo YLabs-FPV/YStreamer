@@ -1,0 +1,131 @@
+---
+// The tested-hardware table, from TESTED_HARDWARE in consts.ts
+import { TESTED_HARDWARE, type TestedResult } from "../../consts";
+import { getLangFromUrl, useTranslations, useData } from "../../i18n";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const d = useData(lang);
+
+const columns = d<string[]>("tested.columns");
+const results = d<Record<string, string>>("tested.results");
+const by = d<Record<string, string>>("tested.by");
+
+const tone: Record<TestedResult, string> = {
+  worksFull: "ok",
+  worksLimited: "warn",
+  worksPartial: "warn",
+  doesntWork: "bad",
+};
+const dash = "–";
+---
+
+{
+  TESTED_HARDWARE.length === 0 ? (
+    <p class="tested-empty">{t("tested.empty")}</p>
+  ) : (
+    <div class="tested-wrap">
+      <table class="tested">
+        <thead>
+          <tr>
+            {columns.map((c) => (
+              <th>{c}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {TESTED_HARDWARE.map((row) => (
+            <>
+              <tr class:list={{ "has-notes": !!row.notes }}>
+                <td class="font-medium">{row.device}</td>
+                <td>
+                  {row.airUnits?.length ? (
+                    <ul class="air-units">
+                      {row.airUnits.map((unit) => (
+                        <li>{unit}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    dash
+                  )}
+                </td>
+                <td>{row.piRevision ?? dash}</td>
+                <td>
+                  <span class:list={["result", tone[row.result]]}>
+                    {results[row.result]}
+                  </span>
+                </td>
+                <td>{by[row.by]}</td>
+              </tr>
+              {row.notes && (
+                <tr class="notes-row">
+                  <td colspan={columns.length}>{row.notes}</td>
+                </tr>
+              )}
+            </>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+<style>
+  .tested-wrap {
+    overflow-x: auto;
+    margin: 1.25rem 0;
+  }
+  /* Overrides the docs' general table margins */
+  .tested {
+    margin: 0 !important;
+  }
+  /* Overrides the docs' general list margins */
+  .air-units {
+    margin: 0 !important;
+    padding-left: 1rem;
+    list-style: disc;
+  }
+  .air-units li {
+    margin: 0 !important;
+  }
+  .result {
+    white-space: nowrap;
+  }
+  /* A row's notes sit under it, across the table */
+  .has-notes td {
+    border-bottom: 0 !important;
+  }
+  .notes-row td {
+    padding-top: 0 !important;
+    font-size: 0.85rem;
+    color: rgb(var(--color-text-muted));
+  }
+  .result {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+  }
+  .result::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: currentColor;
+  }
+  .ok {
+    color: rgb(var(--color-success));
+  }
+  .warn {
+    color: rgb(var(--color-accent));
+  }
+  .bad {
+    color: rgb(var(--color-danger));
+  }
+  .tested-empty {
+    padding: 1rem 1.25rem;
+    border: 1px dashed rgb(var(--color-border));
+    border-radius: 0.75rem;
+    color: rgb(var(--color-text-muted));
+  }
+</style>

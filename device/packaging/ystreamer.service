@@ -1,0 +1,22 @@
+[Unit]
+Description=YStreamer
+# ystreamer-data only exists on the image, where it puts the settings and
+# recordings on their own partition first
+After=NetworkManager.service systemd-modules-load.service ystreamer-data.service
+Wants=NetworkManager.service
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/usr/bin/ystreamer run
+# Re-reads the login, after `ystreamer password`
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=2
+# Settings and recordings; created if missing, kept on removal
+ConfigurationDirectory=ystreamer
+StateDirectory=ystreamer
+# Finishing an open recording can take a few seconds
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

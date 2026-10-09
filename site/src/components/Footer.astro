@@ -1,0 +1,39 @@
+---
+import Socials from "./Socials.astro";
+import { Icon } from "astro-icon/components";
+import { AUTHOR, GITHUB_URL } from "../consts";
+import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const year = new Date().getFullYear();
+---
+
+<footer class="w-full py-10 px-6 bg-[rgb(var(--color-footer-bg))] border-t border-[rgb(var(--color-border))] text-[rgb(var(--color-text-muted))] mt-auto">
+  <div class="max-w-6xl mx-auto">
+    <div class="flex flex-col md:flex-row md:justify-between items-center gap-6 text-center md:text-left">
+      <div class="flex items-center gap-3">
+        <Icon name="logo" class="h-7 w-7" />
+        <div class="text-sm leading-snug">
+          <div class="font-semibold text-[rgb(var(--color-text))]">
+            YStreamer
+          </div>
+          <div>
+            &copy; {year} {AUTHOR}
+          </div>
+        </div>
+      </div>
+      <nav class="flex flex-wrap justify-center gap-x-5 gap-y-1 text-sm">
+        <a href={getLocalizedUrl(lang, "/download")}>{t("nav.download")}</a>
+        <a href={getLocalizedUrl(lang, "/docs")}>{t("nav.docs")}</a>
+        <a href={GITHUB_URL} target="_blank" rel="noopener">
+          {t("footer.source")}
+        </a>
+      </nav>
+      <Socials />
+    </div>
+    <p class="mt-6 text-xs text-center md:text-left opacity-80">
+      {t("footer.disclaimer")}
+    </p>
+  </div>
+</footer>

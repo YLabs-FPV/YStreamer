@@ -1,0 +1,55 @@
+---
+title: Contraseña y SSH
+description: Protege la interfaz web, y entra por SSH.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+## Contraseña de la interfaz web
+
+La interfaz web no tiene contraseña hasta que pongas una. Hasta entonces,
+cualquiera que llegue al dispositivo puede cambiar sus ajustes.
+
+En **System → General → Access**:
+
+- **Set password…**: al menos 6 caracteres.
+- **Change…** y **Remove…** piden antes la contraseña actual.
+
+Con una contraseña puesta:
+
+- Cambiar ajustes requiere iniciar sesión. Una sesión dura 30 días en ese
+  navegador.
+- Sin iniciar sesión, se puede seguir **viendo** el vídeo, salvo que actives
+  **Require password to watch**.
+- Poner una contraseña nueva cierra la sesión en todos los demás navegadores.
+
+<Admonition type="tip" title="¿Has olvidado la contraseña?">
+  Por SSH, pon una nueva con `sudo ystreamer password`. Sin SSH, restablece los
+  ajustes, lo que también quita la contraseña: ver [copia de seguridad y
+  restablecimiento](/docs/maintenance/backup-and-reset).
+</Admonition>
+
+La [línea de comandos](/docs/maintenance/command-line) también puede poner o
+quitar la contraseña: `sudo ystreamer password`, o `--clear` para quitarla.
+
+## SSH
+
+En la imagen lista para usar, SSH está desactivado. Activa **Allow SSH** en
+**System → General → SSH**.
+
+- **Usuario:** `ystreamer`
+- **Contraseña:** `ystreamer` hasta que la cambies
+
+La tarjeta avisa mientras la contraseña siga siendo la predeterminada:
+cámbiala en **Password**, con al menos 8 caracteres. Es la contraseña de
+inicio de sesión del propio dispositivo, no la de la interfaz web.
+
+```sh
+ssh ystreamer@ystreamer.local
+```
+
+<Admonition type="info">
+  Con el script de instalación, SSH y tu cuenta de usuario se quedan como los
+  configuraste, y estos controles no aparecen.
+</Admonition>

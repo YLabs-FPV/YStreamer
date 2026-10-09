@@ -1,0 +1,52 @@
+---
+title: Performance tips
+description: What costs the Pi the most, and how to keep the video smooth.
+order: 90
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+A Raspberry Pi 4 can run several outputs at once, but not everything is free.
+When the video stutters or lags, it's usually one of the things below. The
+**Performance** page shows what's happening: processor load, temperature, frame
+rate, bitrate and how many viewers and outputs are running.
+
+## What costs what
+
+With **DJI goggles**, the video arrives already compressed, and most outputs
+only repackage it:
+
+| Output                         | Cost     | Why                                               |
+| ------------------------------ | -------- | ------------------------------------------------- |
+| RTSP, SRT, UDP, recording      | Low      | The video is passed on without being re-encoded   |
+| RTMP                           | Low      | The same, plus a small silent audio track if it's on |
+| HDMI                           | Moderate | The Pi's hardware decoder turns the video into a picture |
+| Each browser watching          | Moderate | Every viewer gets their own copy of the stream    |
+
+With a **USB camera**, YStreamer first has to compress its picture, which is
+the heaviest job of all. The Pi's hardware encoder normally does it. Without
+it, the CPU does it and is limited to 720p. See [video input](/docs/using/video-input).
+
+## Keeping it smooth
+
+- **Turn off what you don't use.** UDP, SRT and RTMP keep working while
+  they're on, whether or not anyone receives them.
+- **Turn off HDMI** under **Display → HDMI** when no screen is plugged in. It
+  frees the decoder.
+- **Cap the browser viewers** under **Streaming → Browser → Viewer limit**.
+  For a crowd, stream to a server or platform and let it serve them instead.
+- **Use a strong power supply.** An undersized one makes the Pi slow down and
+  drops the USB link to the goggles. The Performance page warns when the
+  voltage dipped. See [what you need](/docs/getting-started/requirements).
+- **Keep it cool.** The Pi slows itself down when it gets too hot. A heatsink
+  or a small fan helps, especially in a case or in the sun; the Performance
+  page shows the temperature.
+- **Prefer Ethernet for streams.** The Pi's Wi-Fi is 2.4 GHz only and shared
+  with everything on it, including the access point's clients.
+- **For a USB camera**, a lower resolution or bitrate under **Input** lightens
+  the encoder's load.
+
+<Admonition type="tip">
+  Open the **Performance** page in one browser tab while you try something in
+  another: the charts show straight away what each change costs.
+</Admonition>

@@ -1,0 +1,109 @@
+---
+title: Primer arranque
+description: Conéctate al dispositivo y configúralo.
+order: 50
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+<Admonition type="info" title="El primer arranque tarda más">
+  Con la imagen lista para usar, el primer arranque prepara la tarjeta SD: crea
+  una partición para los ajustes y las grabaciones con el resto de la tarjeta.
+  En una tarjeta grande puede tardar unos minutos. Los siguientes arranques son
+  rápidos.
+</Admonition>
+
+## 1. Conéctate al dispositivo
+
+Hay dos formas de entrar. En ambos casos, la interfaz web está en
+**http://ystreamer.local**.
+
+### Por Ethernet
+
+Conecta la Pi a tu router con un cable. Recibe una dirección del router, así
+que cualquier móvil u ordenador de tu red puede abrir
+**http://ystreamer.local**.
+
+### Por su propio Wi-Fi
+
+Una imagen recién grabada también crea su propia red Wi-Fi, así que funciona
+sin nada más alrededor, por ejemplo en el campo:
+
+- **Red:** `YStreamer`
+- **Contraseña:** `ystreamer`
+
+Únete a ella desde un móvil o un portátil y abre **http://ystreamer.local**.
+
+### Si ystreamer.local no abre
+
+El nombre `.local` depende de que tu móvil u ordenador lo busque en la red, y
+algunos dispositivos, sobre todo los móviles Android, no lo hacen. Usa la
+dirección directamente:
+
+- En el Wi-Fi propio del dispositivo, siempre es **http://10.0.0.1**.
+- Por Ethernet, es la que le dio tu router. La pantalla HDMI la muestra, y
+  también la lista de dispositivos de tu router.
+
+### Con una pantalla HDMI
+
+Si hay una pantalla conectada, muestra todo lo anterior: la red Wi-Fi y su
+contraseña, un código QR para unirte y cada dirección que puedes abrir.
+
+<Screenshot
+  src="/images/docs/ystreamer-ui/default-splash.webp"
+  alt="La pantalla de inicio: el punto de acceso, su contraseña y un código QR para unirse, y las direcciones que abrir"
+  width={1920}
+  height={1080}
+  scale={1}
+/>
+
+## 2. Pon una contraseña
+
+La interfaz web no tiene contraseña hasta que pongas una: cualquiera que
+llegue al dispositivo puede cambiar sus ajustes. Ve a
+**System → General → Access** y elige **Set password…**. Ver
+[contraseña y SSH](/docs/network/security).
+
+## 3. Elige el país del Wi-Fi
+
+En **Network → Connectivity**, elige el país en el que estás. La radio Wi-Fi
+sigue las normas locales de ese país.
+
+## 4. Únete a tu Wi-Fi (opcional)
+
+También en **Network**, activa **Join a network**, elige la tuya con
+**Scan**, escribe su contraseña y pulsa **Save**. Solo aparecen redes de
+2,4 GHz.
+
+Tu navegador se desconecta de la red YStreamer cuando la Pi cambia de red.
+Vuelve a tu Wi-Fi y abre **http://ystreamer.local**. Si la Pi no consigue
+unirse en un minuto, vuelve a crear su propia red para que puedas corregir los
+ajustes. Ver [Wi-Fi y Ethernet](/docs/network/wifi-and-ethernet).
+
+## 5. Conecta las gafas
+
+YStreamer viene configurado para **DJI Goggles 2, Goggles Integra, Goggles 3
+y Goggles N3**. Conéctalas al puerto **USB-C** de la Pi y enciende la
+aeronave. La vista en directo aparece en la página **Watch** y en el HDMI.
+
+<Admonition type="info" title="Otras gafas o una cámara USB">
+  Para las primeras **DJI FPV Goggles (V1 / V2)**, o una **cámara USB**,
+  capturadora o receptor analógico, cambia antes la fuente en **Input → Video
+  source** y luego conéctala a uno de los puertos **USB-A** de la Pi. Ver
+  [entrada de vídeo](/docs/using/video-input).
+</Admonition>
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/watch-page.webp"
+  alt="La página Watch con vídeo en directo de las gafas"
+  width={1973}
+  height={1501}
+/>
+
+A partir de aquí, configura lo que necesites:
+
+- [Streaming](/docs/using/streaming) hacia VLC, OBS, una estación de tierra o
+  una plataforma
+- [Grabación](/docs/using/recording)
+- [Salida HDMI](/docs/using/hdmi)

@@ -1,0 +1,222 @@
+---
+import { Icon } from "astro-icon/components";
+import { getLangFromUrl, useTranslations, useData } from "../../i18n";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const d = useData(lang);
+
+const inputIcons = ["mdi:safety-goggles", "mdi:safety-goggles", "mdi:webcam"];
+const outputIcons = [
+  "mdi:monitor",
+  "mdi:web",
+  "mdi:access-point",
+  "mdi:record-circle-outline",
+];
+
+// `experimental` adds the same tag the compatibility list uses
+type Item = { name: string; detail: string; experimental?: boolean };
+const inputs = d<Item[]>("flow.inputs").map((x, i) => ({
+  ...x,
+  icon: inputIcons[i],
+}));
+const outputs = d<Item[]>("flow.outputs").map((x, i) => ({
+  ...x,
+  icon: outputIcons[i],
+}));
+---
+
+<section class="px-6 py-12" id="how-it-works">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto">
+      <span class="eyebrow">{t("flow.eyebrow")}</span>
+      <h2 class="mt-3 text-3xl md:text-4xl font-bold">{t("flow.title")}</h2>
+      <p class="mt-3 text-[rgb(var(--color-text-muted))] text-lg">
+        {t("flow.subtitle")}
+      </p>
+    </div>
+
+    <div class="flow mt-14">
+      <div class="flow-col flow-in">
+        <span class="flow-label">{t("flow.inputsLabel")}</span>
+        {inputs.map((x) => (
+          <div class="flow-item">
+            <Icon
+              name={x.icon}
+              class="w-5 h-5 flex-none text-[rgb(var(--color-primary))]"
+            />
+            <span class="min-w-0">
+              <span class="flex flex-wrap items-center gap-x-2 font-semibold leading-tight">
+                {x.name}
+                {x.experimental && (
+                  <span class="experimental">{t("compat.status.experimental")}</span>
+                )}
+              </span>
+              <span class="block text-xs text-[rgb(var(--color-text-muted))] leading-tight mt-0.5">
+                {x.detail}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div class="flow-link" aria-hidden="true"></div>
+
+      <div class="flow-hub">
+        <Icon name="logo" class="w-12 h-12" />
+        <span class="mt-3 font-bold text-lg leading-tight">YStreamer</span>
+        <span class="text-xs text-[rgb(var(--color-text-muted))]">
+          Raspberry Pi 4
+        </span>
+      </div>
+
+      <div class="flow-link" aria-hidden="true"></div>
+
+      <div class="flow-col flow-out">
+        <span class="flow-label">{t("flow.outputsLabel")}</span>
+        {outputs.map((x) => (
+          <div class="flow-item">
+            <Icon
+              name={x.icon}
+              class="w-5 h-5 flex-none text-[rgb(var(--color-primary))]"
+            />
+            <span class="min-w-0">
+              <span class="block font-semibold leading-tight">{x.name}</span>
+              <span class="block text-xs text-[rgb(var(--color-text-muted))] leading-tight mt-0.5">
+                {x.detail}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .experimental {
+    padding: 0 0.45rem;
+    border-radius: 9999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: rgb(var(--color-accent));
+    background: rgba(var(--color-accent), 0.12);
+  }
+  .flow {
+    --item-h: 4rem;
+    --gap: 0.75rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 0;
+  }
+  .flow-col {
+    position: relative;
+    display: grid;
+    gap: var(--gap);
+    width: 100%;
+    max-width: 22rem;
+  }
+  .flow-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgb(var(--color-text-light));
+    text-align: center;
+  }
+  .flow-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    height: var(--item-h);
+    padding: 0 1rem;
+    border-radius: 0.9rem;
+    border: 1px solid rgb(var(--color-border));
+    background: rgb(var(--color-card-bg));
+  }
+
+  /* Vertical links on narrow screens */
+  .flow-link {
+    position: relative;
+    width: 2px;
+    height: 3rem;
+    background: rgba(var(--color-brand), 0.4);
+  }
+
+  .flow-hub {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 10rem;
+    height: 10rem;
+    border-radius: 1rem;
+    text-align: center;
+    border: 1px solid rgba(var(--color-brand), 0.5);
+    background: rgb(var(--color-card-bg));
+  }
+
+  @media (min-width: 900px) {
+    .flow {
+      grid-template-columns: minmax(0, 1fr) 4.5rem auto 4.5rem minmax(0, 1fr);
+      align-items: center;
+      justify-items: stretch;
+    }
+    .flow-col {
+      max-width: none;
+    }
+    /* Out of the flow so the bus lines up with the item centres */
+    .flow-label {
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      right: 0;
+      margin-bottom: 0.6rem;
+    }
+
+    /* Stubs from each item to the bus */
+    .flow-item::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 1.25rem;
+      height: 2px;
+      background: rgba(var(--color-brand), 0.35);
+    }
+    .flow-in .flow-item::after {
+      left: 100%;
+    }
+    .flow-out .flow-item::after {
+      right: 100%;
+    }
+
+    /* The bus joining the stubs */
+    .flow-col::before {
+      content: "";
+      position: absolute;
+      top: calc(var(--item-h) / 2);
+      bottom: calc(var(--item-h) / 2);
+      width: 2px;
+      background: rgba(var(--color-brand), 0.35);
+    }
+    .flow-in::before {
+      right: -1.25rem;
+    }
+    .flow-out::before {
+      left: -1.25rem;
+    }
+
+    .flow-link {
+      width: auto;
+      height: 2px;
+      margin-left: 1.25rem;
+    }
+    .flow-hub + .flow-link {
+      margin-left: 0;
+      margin-right: 1.25rem;
+    }
+  }
+</style>

@@ -1,0 +1,287 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --color-bg: 252, 252, 252;
+  --color-text: 34, 39, 42;
+  --color-text-muted: 100, 116, 139;
+  --color-text-light: 100, 116, 139;
+  --color-primary: 29, 106, 224;
+  --color-primary-hover: 22, 88, 196;
+  --color-brand: 61, 139, 255;
+  --color-button: 29, 106, 224;
+  --color-button-hover: 22, 88, 196;
+  --color-secondary: 240, 240, 242;
+  --color-secondary-hover: 226, 232, 240;
+  --color-accent: 234, 88, 12;
+  --color-rec: 239, 68, 68;
+  --color-accent-hover: 194, 65, 12;
+  --color-danger: 220, 38, 38;
+  --color-success: 16, 185, 129;
+  --color-border: 226, 232, 240;
+  --color-card-bg: 255, 255, 255;
+  --color-card-shadow: 0, 0, 0, 0.05;
+  --color-header-bg: 255, 255, 255;
+  --color-footer-bg: 241, 245, 249;
+  --color-code-bg: 240, 246, 255;
+  --color-code-border: 213, 227, 250;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+    --color-bg: 17, 24, 39;
+    --color-text: 241, 245, 249;
+    --color-text-muted: 148, 163, 184;
+    --color-text-light: 148, 163, 184;
+    --color-primary: 74, 158, 255;
+    --color-primary-hover: 125, 182, 255;
+    --color-brand: 61, 139, 255;
+    --color-button: 36, 118, 242;
+    --color-button-hover: 61, 139, 255;
+    --color-secondary: 31, 41, 55;
+    --color-secondary-hover: 55, 65, 81;
+    --color-accent: 249, 115, 22;
+    --color-accent-hover: 251, 146, 60;
+    --color-danger: 248, 113, 113;
+    --color-success: 52, 211, 153;
+    --color-border: 55, 65, 81;
+    --color-card-bg: 23, 30, 45;
+    --color-card-shadow: 0, 0, 0, 0.2;
+    --color-header-bg: 17, 24, 39;
+    --color-footer-bg: 17, 24, 39;
+    --color-code-bg: 16, 28, 50;
+    --color-code-border: 34, 54, 90;
+  }
+}
+
+:root.dark {
+  color-scheme: dark;
+  --color-bg: 17, 24, 39;
+  --color-text: 241, 245, 249;
+  --color-text-muted: 148, 163, 184;
+  --color-text-light: 148, 163, 184;
+  --color-primary: 74, 158, 255;
+  --color-primary-hover: 125, 182, 255;
+  --color-brand: 61, 139, 255;
+  --color-button: 36, 118, 242;
+  --color-button-hover: 61, 139, 255;
+  --color-secondary: 31, 41, 55;
+  --color-secondary-hover: 55, 65, 81;
+  --color-accent: 249, 115, 22;
+  --color-accent-hover: 251, 146, 60;
+  --color-danger: 248, 113, 113;
+  --color-success: 52, 211, 153;
+  --color-border: 55, 65, 81;
+  --color-card-bg: 23, 30, 45;
+  --color-card-shadow: 0, 0, 0, 0.2;
+  --color-header-bg: 17, 24, 39;
+  --color-footer-bg: 17, 24, 39;
+  --color-code-bg: 16, 28, 50;
+  --color-code-border: 34, 54, 90;
+}
+
+@font-face {
+  font-family: "Atkinson";
+  src: url("/fonts/atkinson-regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson";
+  src: url("/fonts/atkinson-bold.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  html {
+    font-family: "Atkinson", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: rgb(var(--color-bg));
+    color: rgb(var(--color-text));
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
+  }
+
+  input,
+  select {
+    outline: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    line-height: 1.2;
+  }
+
+  a {
+    color: rgb(var(--color-primary));
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  a:hover {
+    color: rgb(var(--color-primary-hover));
+  }
+
+  button:hover {
+    cursor: pointer;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  code {
+    font-family:
+      ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    background-color: rgb(var(--color-code-bg));
+    border: 1px solid rgb(var(--color-code-border));
+    padding: 0.1em 0.35em;
+    border-radius: 0.3rem;
+    font-size: 0.875em;
+  }
+
+  pre {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    background-color: rgb(var(--color-code-bg));
+    border: 1px solid rgb(var(--color-code-border));
+  }
+
+  pre code {
+    background-color: transparent;
+    border: 0;
+    padding: 0;
+  }
+
+  main {
+    flex: 1;
+    width: 100%;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--color-secondary));
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-text-muted));
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-primary));
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(var(--color-primary));
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.4rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+.btn-primary {
+  color: #fff;
+  background: rgb(var(--color-button));
+}
+.btn-primary:hover {
+  color: #fff;
+  background: rgb(var(--color-button-hover));
+}
+.btn-ghost {
+  color: rgb(var(--color-text));
+  border: 1px solid rgb(var(--color-border));
+}
+.btn-ghost:hover {
+  color: rgb(var(--color-text));
+  background: rgb(var(--color-secondary));
+}
+
+.card {
+  border-radius: 1rem;
+  border: 1px solid rgb(var(--color-border));
+  background: rgb(var(--color-card-bg));
+}
+.icon-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  color: rgb(var(--color-primary));
+  background: rgba(var(--color-brand), 0.1);
+}
+
+.astro-code,
+.astro-code span {
+  color: var(--shiki-light);
+  font-style: var(--shiki-light-font-style);
+  font-weight: var(--shiki-light-font-weight);
+}
+.astro-code {
+  background-color: rgb(var(--color-code-bg)) !important;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .astro-code,
+  :root:not(.light) .astro-code span {
+    color: var(--shiki-dark);
+    font-style: var(--shiki-dark-font-style);
+    font-weight: var(--shiki-dark-font-weight);
+  }
+}
+:root.dark .astro-code,
+:root.dark .astro-code span {
+  color: var(--shiki-dark);
+  font-style: var(--shiki-dark-font-style);
+  font-weight: var(--shiki-dark-font-weight);
+}
+
+.brand-name {
+  display: inline-block;
+  color: rgb(var(--color-text));
+}
+.brand-name::first-letter {
+  color: rgb(var(--color-primary));
+}

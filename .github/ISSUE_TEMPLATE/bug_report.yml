@@ -1,0 +1,101 @@
+name: Bug report
+description: Something isn't working as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please check
+        [common issues](https://ystreamer.yarosfpv.com/docs/help/common-issues)
+        first - it covers the most frequent snags.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+      placeholder: The goggles are connected but there's no video on HDMI...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Connect the goggles to the USB-C port
+        2. Turn on the SRT output
+        3. Open it in OBS
+    validations:
+      required: true
+  - type: textarea
+    id: device
+    attributes:
+      label: Device details
+      description: |
+        Filled in by **Report an issue** under System → About in the web
+        interface. Reporting from somewhere else? Copy the rows from System → About.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: YStreamer version
+      description: Shown under System → About, or run `ystreamer version`.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How is it installed?
+      options:
+        - Ready-made SD card image
+        - Install script on Raspberry Pi OS Lite
+  - type: dropdown
+    id: source
+    attributes:
+      label: Video source
+      options:
+        - DJI goggles (Goggles 2, Integra, Goggles 3, N3)
+        - DJI FPV Goggles V1 / V2
+        - USB camera or capture device
+        - Not related to the video source
+  - type: input
+    id: hardware
+    attributes:
+      label: Exact goggles / air unit / camera
+      placeholder: "Goggles Integra + O4 Air Unit Pro"
+  - type: checkboxes
+    id: area
+    attributes:
+      label: What's affected?
+      description: Tick everything that's involved.
+      options:
+        - label: HDMI output
+        - label: Browser view
+        - label: RTSP
+        - label: SRT
+        - label: RTMP
+        - label: UDP
+        - label: Recording
+        - label: Camera settings
+        - label: Network / Wi-Fi
+        - label: Remote access (Tailscale / WireGuard)
+        - label: Updates
+        - label: Web interface
+        - label: Something else
+  - type: input
+    id: power
+    attributes:
+      label: How is the Pi powered?
+      description: Power problems cause a lot of odd behaviour. Does the Performance page show a power warning?
+      placeholder: "5V 3A on the GPIO header, no power warning"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "**System → About → Copy logs** copies them for you. Or from the Logs page, or `ystreamer logs` over SSH."
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, photos or a video help a lot. Drag files in here.

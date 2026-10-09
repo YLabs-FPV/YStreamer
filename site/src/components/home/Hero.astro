@@ -1,0 +1,97 @@
+---
+import { Icon } from "astro-icon/components";
+import HeroMedia from "./HeroMedia.astro";
+import CopyCommand from "../CopyCommand.astro";
+import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../../i18n";
+import { GITHUB_URL, INSTALL_COMMAND } from "../../consts";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+---
+
+<section class="px-6 py-12 lg:py-20">
+  <div class="max-w-7xl mx-auto grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-center lg:gap-14">
+    <div class="min-w-0 text-center lg:text-left">
+      <div class="flex flex-col items-center lg:flex-row lg:gap-5">
+        <Icon
+          name="logo"
+          class="h-16 w-16 md:h-24 md:w-24 mb-6 lg:mb-0 shrink-0"
+        />
+        <div>
+          <h1 class="brand-name text-5xl md:text-7xl font-bold tracking-tight">
+            YStreamer
+          </h1>
+          <p class="italic text-[rgb(var(--color-text-muted))]">
+            {t("hero.by")}
+            <a
+              href="https://yarosfpv.com"
+              target="_blank"
+              class="hover:underline"
+            >
+              YarosFPV
+            </a>
+          </p>
+        </div>
+      </div>
+
+      <p class="mt-5 lg:mt-7 text-xl md:text-2xl font-medium">
+        {t("hero.slogan")}
+      </p>
+      <p class="mt-4 text-base md:text-lg text-[rgb(var(--color-text-muted))] max-w-2xl mx-auto lg:mx-0">
+        {t("hero.subtitle")}
+      </p>
+
+      <div class="mt-9 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 flex-wrap">
+        <a
+          href={getLocalizedUrl(lang, "/download")}
+          class="btn btn-primary w-full sm:w-auto"
+        >
+          <Icon name="mdi:download" class="w-5 h-5" />
+          {t("hero.download")}
+        </a>
+        <a
+          href={getLocalizedUrl(lang, "/docs")}
+          class="btn btn-ghost w-full sm:w-auto"
+        >
+          <Icon name="mdi:book-open-variant" class="w-5 h-5" />
+          {t("hero.docs")}
+        </a>
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noopener"
+          class="btn btn-ghost w-full sm:w-auto"
+        >
+          <Icon name="mdi:github" class="w-5 h-5" />
+          {t("hero.source")}
+        </a>
+      </div>
+
+      <div class="mt-8 max-w-2xl mx-auto lg:mx-0 text-left">
+        <p class="mb-2 text-sm text-[rgb(var(--color-text-muted))]">
+          {t("hero.orInstall")}
+        </p>
+        <CopyCommand command={INSTALL_COMMAND} />
+      </div>
+    </div>
+
+    <div class="hero-media min-w-0 max-w-5xl w-full mx-auto">
+      <HeroMedia />
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Side by side on a wide screen: the video turned a little toward the
+     text. Stacked, it sits flat */
+  @media (min-width: 1024px) {
+    .hero-media {
+      perspective: 1800px;
+    }
+    .hero-media > :global(.frame) {
+      transform: rotateY(-14deg) rotateX(4deg);
+      transform-origin: left center;
+      box-shadow: 0 30px 60px -25px rgba(0, 0, 0, 0.35);
+    }
+  }
+</style>

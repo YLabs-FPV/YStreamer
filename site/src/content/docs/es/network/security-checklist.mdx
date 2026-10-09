@@ -1,0 +1,69 @@
+---
+title: Lista de seguridad
+description: Qué abre el dispositivo en la red, y cómo cerrarlo.
+order: 40
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+De fábrica, YStreamer está pensado para que sea fácil llegar a él. En tu
+propia red no pasa nada, pero antes de llevarlo a un sitio compartido, como un
+evento, el campo de un club o el Wi-Fi de un local, repasa esta lista.
+
+## Qué está abierto por defecto
+
+| Qué                 | Puerto | Por defecto                                                                       |
+| ------------------- | ------ | --------------------------------------------------------------------------------- |
+| Interfaz web        | 80     | Sin contraseña: cualquiera que llegue puede cambiar los ajustes                   |
+| Vista del navegador | 80     | Cualquiera puede verla, incluso con contraseña puesta                             |
+| RTSP                | 554    | Activado, sin contraseña                                                          |
+| SRT                 | 9000   | Desactivado; sin cifrar salvo que tenga frase de paso                             |
+| Punto de acceso     | -      | Activado en una imagen nueva, contraseña `ystreamer`, visible en la pantalla HDMI |
+| SSH (solo imagen)   | 22     | Desactivado; cuenta `ystreamer`, contraseña `ystreamer`                           |
+
+RTMP y UDP solo envían vídeo hacia fuera, así que no abren nada en el
+dispositivo.
+
+## La lista
+
+1. **Pon una contraseña a la interfaz web** en
+   **System → General → Access**. Sin ella, cualquiera en la red puede
+   cambiar todos los ajustes, incluido el Wi-Fi. Ver
+   [contraseña y SSH](/docs/network/security).
+2. **Decide quién puede ver.** Con una contraseña puesta, se puede seguir
+   viendo en el navegador sin iniciar sesión. Activa
+   **Require password to watch** si no debería ser así.
+3. **Dale a RTSP su propia contraseña**, o desactívalo. En
+   **Streaming → RTSP**, activa **Require password**. La contraseña de la
+   interfaz web no cubre RTSP, y la propia contraseña de RTSP se envía sin
+   cifrar.
+4. **Usa una frase de paso para SRT**, en **Streaming → SRT**, sobre todo por
+   internet. Sin ella, el vídeo viaja sin cifrar.
+5. **Cambia la contraseña del punto de acceso** en **Network**, y desactiva
+   **Show access point password on screen** en **Display → Splash screen**
+   cuando la pantalla esté en un sitio público.
+6. **Cambia la contraseña de SSH**, o deja SSH desactivado. Si lo activas, la
+   tarjeta avisa hasta que cambies la contraseña predeterminada.
+7. **Deja el terminal desactivado.** El
+   [modo desarrollador](/docs/maintenance/developer-mode) puede activar un
+   **Terminal** que da una shell de root en el dispositivo desde el navegador.
+8. **Protege el acceso remoto con contraseña.** Con Tailscale o WireGuard, la
+   interfaz web también es accesible desde esa red, así que el paso 1 importa
+   aún más.
+
+<Admonition type="warning" title="Los ajustes exportados contienen secretos">
+  Una exportación de ajustes contiene las contraseñas del Wi-Fi, la clave de
+  stream de RTMP y las contraseñas de RTSP y SRT. Mantén el archivo en privado.
+</Admonition>
+
+## También conviene saber
+
+- **Las actualizaciones están firmadas.** El dispositivo solo instala un
+  paquete firmado con la clave de versiones de YStreamer, tanto si se descarga
+  como si se sube a mano. Ver [actualizaciones](/docs/maintenance/updates).
+- **Una sesión dura 30 días** en un navegador. Poner una contraseña nueva
+  cierra la sesión en todos los demás navegadores.
+- **Las contraseñas incorrectas se ralentizan**, así que adivinar la
+  contraseña de la interfaz web lleva mucho tiempo.
+- **¿Has olvidado la contraseña?** Ver
+  [copia de seguridad y restablecimiento](/docs/maintenance/backup-and-reset).

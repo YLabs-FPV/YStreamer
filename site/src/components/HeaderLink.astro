@@ -1,0 +1,37 @@
+---
+import type { HTMLAttributes } from "astro/types";
+import { getRouteFromUrl } from "../i18n";
+
+type Props = HTMLAttributes<"a">;
+
+const { href, class: className, ...props } = Astro.props;
+
+const normalize = (route: string) => {
+  if (route === "/" || route === "") return "/";
+  return route.replace(/\/$/, "");
+};
+
+const current = normalize(getRouteFromUrl(Astro.url));
+const target = normalize(
+  getRouteFromUrl(new URL(href || "/", Astro.url.origin)),
+);
+
+const isActive =
+  current === target || (target !== "/" && current.startsWith(target + "/"));
+---
+
+<a
+  href={href}
+  class:list={[
+    className,
+    "inline-flex items-center gap-2 py-2 px-3 rounded-lg text-[rgb(var(--color-primary))] no-underline transition-colors",
+    {
+      "font-bold bg-[rgb(var(--color-secondary))] text-[rgb(var(--color-primary))]":
+        isActive,
+      "hover:bg-[rgb(var(--color-secondary))]": !isActive,
+    },
+  ]}
+  {...props}
+>
+  <slot />
+</a>

@@ -1,0 +1,86 @@
+---
+title: La interfaz web
+description: Cómo moverse por ella, guardar ajustes y la página Watch.
+order: 10
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Abre **http://ystreamer.local**, o la dirección del dispositivo, en cualquier
+navegador.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/watch-page.webp"
+  alt="La interfaz web: la barra lateral y la página Watch con el vídeo en directo, la grabadora y los ajustes de cámara"
+  width={1973}
+  height={1501}
+/>
+
+## Distribución
+
+La barra lateral contiene todas las páginas:
+
+| Grupo       | Páginas                                              |
+| ----------- | ---------------------------------------------------- |
+|             | **Watch**: la vista en directo                       |
+| Video       | **Input**, **Streaming**, **Recording**, **Display** |
+| Device      | **Network**, **System**                              |
+| Diagnostics | **Performance**, **Logs**                            |
+
+En un móvil, la barra lateral se pliega en un menú.
+
+## Guardar los ajustes
+
+Los cambios en una página de ajustes no se aplican hasta que pulsas **Save**.
+**Discard** los descarta. La barra lateral marca las páginas con cambios sin
+guardar.
+
+Los ajustes que te dejarían sin conexión, como cambiar el modo del Wi-Fi,
+preguntan antes.
+
+## La página Watch
+
+La vista en directo, con:
+
+- **Stats**: la tasa de bits del vídeo y el búfer del reproductor.
+- **Reconnect**: reinicia el reproductor.
+- **Recorder**: inicia y detiene la grabación en el dispositivo, y abre los
+  archivos.
+- **Camera**: los ajustes de cámara de la unidad aérea, con gafas DJI. Ver
+  [ajustes de cámara](/docs/using/camera-settings).
+- La grabación propia de la unidad aérea: si está grabando y en qué tarjeta.
+
+### Atajos de teclado
+
+| Tecla       | Acción                             |
+| ----------- | ---------------------------------- |
+| `S`         | Mostrar u ocultar las estadísticas |
+| `P`         | Imagen en imagen                   |
+| `T`         | Modo cine                          |
+| `F`         | Pantalla completa                  |
+| `Shift`+`R` | Iniciar o detener la grabación     |
+
+### WebRTC o WebSocket
+
+El navegador recibe el vídeo de una de dos formas, que se eligen en
+**Streaming → Browser**:
+
+- **WebSocket** (por defecto): una tasa de fotogramas más estable.
+- **WebRTC**: la menor latencia.
+
+**Viewer limit** limita cuántos navegadores pueden ver a la vez. Cada
+espectador consume CPU, así que un límite mantiene fluidos el HDMI y el RTSP.
+
+## Tema
+
+**System → General → Theme** cambia entre claro y oscuro. Se recuerda solo en
+ese navegador.
+
+## Zona horaria
+
+**System → General → Timezone** fija la zona horaria del dispositivo, que se
+usa para la fecha y la hora en los nombres de las
+[grabaciones](/docs/using/recording). La imagen empieza en UTC. Mientras siga
+así, la tarjeta ofrece la zona horaria de tu navegador con un clic, salvo que
+el navegador también esté en UTC. Pulsa **Save** para aplicarla.

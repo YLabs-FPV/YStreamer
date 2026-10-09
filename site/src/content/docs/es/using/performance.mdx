@@ -1,0 +1,56 @@
+---
+title: Consejos de rendimiento
+description: Qué le cuesta más a la Pi, y cómo mantener el vídeo fluido.
+order: 90
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Una Raspberry Pi 4 puede mover varias salidas a la vez, pero no todo es
+gratis. Cuando el vídeo da tirones o va con retraso, suele ser por algo de lo
+que sigue. La página **Performance** muestra lo que pasa: carga del
+procesador, temperatura, fotogramas por segundo, tasa de bits y cuántos
+espectadores y salidas están funcionando.
+
+## Qué cuesta cada cosa
+
+Con **gafas DJI**, el vídeo llega ya comprimido, y la mayoría de salidas solo
+lo reempaquetan:
+
+| Salida                    | Coste    | Por qué                                                               |
+| ------------------------- | -------- | --------------------------------------------------------------------- |
+| RTSP, SRT, UDP, grabación | Bajo     | El vídeo se reenvía sin volver a codificarlo                          |
+| RTMP                      | Bajo     | Lo mismo, más una pequeña pista de audio en silencio si está activada |
+| HDMI                      | Moderado | El decodificador por hardware de la Pi convierte el vídeo en imagen   |
+| Cada navegador que mira   | Moderado | Cada espectador recibe su propia copia del stream                     |
+
+Con una **cámara USB**, YStreamer primero tiene que comprimir su imagen, que es
+el trabajo más pesado de todos. Normalmente lo hace el codificador por
+hardware de la Pi. Sin él, lo hace la CPU, limitada a 720p. Ver
+[entrada de vídeo](/docs/using/video-input).
+
+## Mantenerlo fluido
+
+- **Desactiva lo que no uses.** UDP, SRT y RTMP siguen trabajando mientras
+  están activados, los reciba alguien o no.
+- **Desactiva el HDMI** en **Display → HDMI** cuando no haya ninguna pantalla
+  conectada. Libera el decodificador.
+- **Limita los espectadores del navegador** en
+  **Streaming → Browser → Viewer limit**. Para mucho público, envía el stream
+  a un servidor o a una plataforma y deja que lo sirvan ellos.
+- **Usa una buena fuente de alimentación.** Una que se queda corta hace que la
+  Pi vaya más lenta y corta el enlace USB con las gafas. La página Performance
+  avisa cuando la tensión ha caído. Ver [qué necesitas](/docs/getting-started/requirements).
+- **Mantenla fresca.** La Pi se ralentiza sola cuando se calienta demasiado.
+  Un disipador o un pequeño ventilador ayudan, sobre todo dentro de una caja o
+  al sol; la página Performance muestra la temperatura.
+- **Mejor Ethernet para los streams.** El Wi-Fi de la Pi es solo de 2,4 GHz y
+  se comparte con todo lo que hay en él, incluidos los clientes del punto de
+  acceso.
+- **Con una cámara USB**, una resolución o tasa de bits más baja en **Input**
+  aligera el trabajo del codificador.
+
+<Admonition type="tip">
+  Abre la página **Performance** en una pestaña del navegador mientras pruebas
+  algo en otra: las gráficas muestran al momento lo que cuesta cada cambio.
+</Admonition>

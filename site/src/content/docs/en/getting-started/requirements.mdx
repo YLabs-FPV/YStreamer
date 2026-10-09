@@ -1,0 +1,117 @@
+---
+title: What you need
+description: Hardware, power, cables and the limits to know about.
+order: 20
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+## Hardware
+
+- **Raspberry Pi 4 Model B.** The only compatible board so far.
+- **A microSD card**, 16 GB or more. With the ready-made image, the system
+  takes 8 GB and the rest of the card holds the settings and recordings, on a
+  partition of their own. A card under about 10 GB works, but keeps everything
+  on one partition.
+- **A way to power the Pi** that doesn't use its USB-C port (see below).
+- **A video source**: supported DJI goggles with a **USB-C to USB-C data
+  cable**, or a USB camera.
+- Optional: an HDMI screen, a USB drive for recordings, a
+  [record button](/docs/using/record-button).
+
+## Powering the Pi
+
+The Pi 4 is normally powered through its USB-C port, but YStreamer needs that
+port for the goggles. Power it another way:
+
+- **The GPIO header**: a 5 V supply wired to a 5 V pin (pin 2 or 4) and a
+  ground pin (for example pin 6). Use a supply rated for at least 3 A.
+- **A PoE HAT**, powering the Pi over Ethernet.
+- **A USB-C power and data splitter**, which feeds power into the USB-C port
+  while passing data through to the goggles. This works, but isn't
+  recommended.
+
+<Screenshot
+  themed="/images/docs/diagrams/{theme}/rpi-4b-power.svg"
+  alt="A 5 V supply wired to the Pi's GPIO header: plus to a 5 V pin, minus to a ground pin"
+  width={1233}
+  height={629}
+  scale={1}
+  frame={false}
+/>
+
+<Admonition type="warning" title="Power matters">
+  A supply that can't keep up causes glitches and USB drop-outs, including the
+  link to the goggles. The **Performance** page warns when the voltage has
+  dipped.
+</Admonition>
+
+## Cables
+
+- **Goggles**: a USB-C to USB-C cable that carries data.
+- **DJI FPV Goggles V1 / V2** and **USB cameras** go in one of the Pi's
+  USB-A ports instead.
+
+<Admonition type="warning" title="Early Raspberry Pi 4 boards">
+  The first Raspberry Pi 4 boards, **revision 1.1** from 2019, have a [USB-C
+  wiring defect](https://hackaday.com/2019/07/16/exploring-the-raspberry-pi-4-usb-c-issue-in-depth/):
+  both of the port's configuration pins share one resistor, against the USB-C
+  standard. With those boards, the goggles may not connect over a USB-C to
+  USB-C cable. **Revision 1.2 and later** are fixed. **System → About → Board**
+  shows yours, for example "Raspberry Pi 4 Model B Rev 1.1".
+
+  If yours is affected, use an **OTG adapter** (USB-C plug to USB-A socket)
+  instead. Plug the adapter into the **goggles**, then run a USB-A to USB-C
+  cable from it to the Pi's USB-C port. The adapter always goes on the goggles'
+  side, never on the Pi's.
+</Admonition>
+
+## SD card and USB drives
+
+The SD card holds the system, the settings and, unless you record elsewhere,
+every recording, so it's written to constantly. Cheap cards wear out or slow
+down under that.
+
+- **A high-endurance microSD card**, the kind sold for dash cams and security
+  cameras, lasts much longer under constant recording. Otherwise, pick one
+  rated **A2** or at least **A1**, from a known brand.
+- **16 GB or more.** With the ready-made image, everything past the first
+  8 GB is for settings and recordings.
+- **For long recordings, use a USB drive** in one of the **blue USB 3 ports**.
+  It's usually faster than the SD card, and spares it the wear. Format it as **exFAT**
+  to hold files over 4 GB; FAT32 works but splits recordings at about 3.5 GB.
+
+## Supported inputs
+
+| Device                                        | Port  | Status       |
+| --------------------------------------------- | ----- | ------------ |
+| DJI Goggles 2                                 | USB-C | Supported    |
+| DJI Goggles Integra                           | USB-C | Supported    |
+| DJI Goggles 3                                 | USB-C | Supported    |
+| DJI Goggles N3                                | USB-C | Supported    |
+| DJI FPV Goggles V1 / V2                       | USB-A | Experimental |
+| USB cameras, capture sticks, analog receivers | USB-A | Supported    |
+
+Which [camera settings](/docs/using/camera-settings) you can change depends on the
+air unit.
+
+For the setups that have actually been tested, see [tested hardware](/docs/getting-started/tested-hardware).
+
+## Installation
+
+- **The ready-made image [Recommended]**: Raspberry Pi OS Lite with
+  YStreamer installed; flash, plug & play.
+- **Install script**: for adding YStreamer to a Pi that already runs
+  **Raspberry Pi OS Lite (64-bit, Debian 13 "Trixie")**.
+
+## Limits
+
+- **Raspberry Pi 4 Model B only.** More board support will be added
+  in the future.
+- **The USB-C port is reserved for the goggles** while YStreamer is
+  installed.
+- **Wi-Fi is 2.4 GHz only, on purpose.** 5 GHz is where the goggles' video
+  link runs, and the Pi's Wi-Fi there would interfere with it.
+- **No desktop.** Raspberry Pi OS with a desktop isn't supported: the desktop
+  keeps the HDMI output for itself. Use the Lite version.

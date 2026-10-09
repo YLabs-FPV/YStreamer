@@ -1,0 +1,73 @@
+---
+title: Files on the device
+description: Where YStreamer keeps its settings, recordings and updates, for SSH users.
+order: 50
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+You don't need any of this for everyday use: the web interface covers it. It's
+for backups, troubleshooting and anyone working over
+[SSH](/docs/network/security).
+
+## Settings: `/etc/ystreamer/`
+
+| File                        | What it is                                                       |
+| --------------------------- | ---------------------------------------------------------------- |
+| `settings.json`             | Every setting, as **Export settings** downloads it               |
+| `auth.json`                 | The web interface password (hashed) and the key that signs logins |
+| `overlay.png`               | The logo for the video                                           |
+| `splash-image`              | A custom splash screen image, if one is uploaded                 |
+| `settings.before-reset.json`| The settings as they were before the last reset                  |
+| `settings.v<N>.json`        | A copy kept when an update changes the settings format           |
+| `image`                     | Marks a ready-made image install                                 |
+
+<Admonition type="warning">
+  Stop YStreamer before editing `settings.json` by hand
+  (`sudo systemctl stop ystreamer`), or it may write over your changes. A file
+  it can't read is ignored, and YStreamer starts with the defaults.
+</Admonition>
+
+## Recordings and updates: `/var/lib/ystreamer/`
+
+| Path            | What it is                                                         |
+| --------------- | ------------------------------------------------------------------ |
+| `recordings/`   | Recordings, unless **Save to** points somewhere else               |
+| `update/`       | `current.deb` and `previous.deb`, the versions to roll back between, and the log of the last update |
+
+USB drives are mounted under `/media/`.
+
+## On the ready-made image: the data partition
+
+On the image, `/etc/ystreamer` and `/var/lib/ystreamer` live on a partition of
+their own, labelled `ystreamer-data` and mounted at `/data`. Their folders
+there, `config` and `state`, are put in place at both paths at every start, so
+the paths above work the same way.
+
+It's formatted as ext4, so Windows and macOS can't read it if you put the card
+in a computer.
+
+## Network
+
+Wi-Fi, Ethernet and WireGuard are stored as NetworkManager connections, named
+`ystreamer-ap`, `ystreamer-wifi`, `ystreamer-eth` and `ystreamer-wg`.
+
+```sh
+nmcli connection show
+```
+
+## The boot partition: `/boot/firmware/`
+
+- `config.txt` gets a section between `# >>> ystreamer` and `# <<< ystreamer`,
+  which sets the USB-C port up for the goggles and gives the video hardware
+  enough memory. Uninstalling takes it out again.
+- An empty `ystreamer-reset` file here resets the settings at the next start.
+  See [backup and reset](/docs/maintenance/backup-and-reset).
+
+## Logs
+
+```sh
+ystreamer logs -f
+```
+
+Or with `journalctl -u ystreamer`. See [the command line](/docs/maintenance/command-line).

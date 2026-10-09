@@ -1,0 +1,24 @@
+---
+title: Tested hardware
+description: The goggles, air units and cameras YStreamer has actually been run with.
+order: 25
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import TestedHardware from "../../../../components/docs/TestedHardware.astro";
+
+[What you need](/docs/getting-started/requirements#supported-inputs) lists what
+YStreamer supports. This table is narrower: the setups that have actually been
+run on real hardware, by the maintainer and by the community.
+
+<TestedHardware />
+
+The **Pi 4** column, the board revision, matters for DJI goggles: revision 1.1 boards have a USB-C
+defect, see [early Raspberry Pi 4 boards](/docs/getting-started/requirements#cables).
+
+<Admonition type="tip" title="Tried it with your setup? Let us know">
+  Reports build this table, and "it just works" is just as useful as a
+  problem. Use the [hardware compatibility
+  report](https://github.com/YLabs-FPV/YStreamer/issues/new?template=hardware_report.yml)
+  on GitHub, with your goggles and air unit, or your USB camera.
+</Admonition>

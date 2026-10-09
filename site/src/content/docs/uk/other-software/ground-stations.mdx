@@ -1,0 +1,75 @@
+---
+title: QGroundControl і Mission Planner
+description: Показуй відео в наземній станції керування.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Наземні станції зазвичай приймають H.264 через RTP на UDP-порту 5600 — саме
+це надсилає вихід UDP у YStreamer у форматі **RTP**.
+
+## Налаштуй вихід UDP
+
+1. На пристрої перейди в **Streaming → UDP** і увімкни **UDP**.
+2. Обери **RTP**.
+3. У **Destinations** введи адресу комп'ютера з наземною станцією і порт
+   5600, наприклад `192.168.1.20:5600`.
+4. Натисни **Save**.
+
+Можна додати кілька адрес, до 8, наприклад наземну станцію й ноутбук.
+
+<Admonition type="tip">
+  Признач комп'ютеру з наземною станцією фіксовану адресу в мережі, інакше
+  доведеться змінювати адресу щоразу, коли він отримає нову.
+</Admonition>
+
+## QGroundControl
+
+1. Відкрий **Application Settings → General**, а потім розділ **Video**.
+2. Встанови **Source** на **UDP h.264 Video Stream**, а порт — на **5600**.
+
+Відео з'явиться у вікні Fly.
+
+<Screenshot
+  src="/images/docs/other-software/qgroundcontrol.webp"
+  alt="Відео у вікні Fly в QGroundControl"
+  width={2926}
+  height={1720}
+/>
+
+QGroundControl також уміє читати RTSP, і тоді на пристрої не треба вказувати
+адресу: встанови **Source** на **RTSP Video Stream**, а URL — на
+`rtsp://ystreamer.local:554/stream`.
+
+## Mission Planner
+
+1. Клацни правою кнопкою на HUD (авіагоризонті) й обери
+   **Video → Set GStreamer Source**.
+2. Введи цей конвеєр:
+
+```
+udpsrc port=5600 buffer-size=90000 ! application/x-rtp,media=video,clock-rate=90000,encoding-name=H264,payload=96 ! rtph264depay ! avdec_h264 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false
+```
+
+Або через RTSP, нічого не налаштовуючи на пристрої:
+
+```
+rtspsrc location=rtsp://ystreamer.local:554/stream latency=0 ! rtph264depay ! avdec_h264 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false
+```
+
+<Screenshot
+  src="/images/docs/other-software/missionplanner.webp"
+  alt="Відео в HUD у Mission Planner"
+  width={1590}
+  height={1222}
+/>
+
+## Немає картинки?
+
+- Брандмауер комп'ютера має пропускати UDP 5600.
+- Телефони й планшети не завжди знаходять `ystreamer.local`: використовуй
+  адресу пристрою.
+- Перевір, чи немає помилки в **Streaming → UDP**, наприклад імені, яке не
+  вдається знайти.

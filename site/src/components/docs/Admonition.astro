@@ -1,0 +1,76 @@
+---
+import { Icon } from "astro-icon/components";
+import { getLangFromUrl, useTranslations } from "../../i18n";
+
+type Type = "note" | "info" | "tip" | "warning" | "danger";
+
+interface Props {
+  type?: Type;
+  title?: string;
+}
+
+const { type = "note", title } = Astro.props;
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+const meta: Record<Type, { icon: string; color: string }> = {
+  note: { icon: "mdi:note-text", color: "var(--color-primary)" },
+  info: { icon: "mdi:information", color: "var(--color-primary)" },
+  tip: { icon: "mdi:lightbulb", color: "var(--color-success)" },
+  warning: { icon: "mdi:alert", color: "var(--color-accent)" },
+  danger: { icon: "mdi:fire", color: "var(--color-danger)" },
+};
+
+const { icon, color } = meta[type];
+const label = t(`admonition.${type}`);
+---
+
+<aside class="admonition" style={`--ad: ${color}`}>
+  <div class="admonition-title">
+    <Icon name={icon} size={18} />
+    <p>{title ?? label}</p>
+  </div>
+  <div class="admonition-content">
+    <slot />
+  </div>
+</aside>
+
+<style>
+  .admonition {
+    border-left: 4px solid rgb(var(--ad));
+    border-radius: 0.5rem;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    background-color: rgba(var(--ad), 0.1);
+  }
+  .admonition-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: rgb(var(--ad));
+  }
+  .admonition-title p {
+    margin: 0;
+    padding-top: 0.2rem;
+  }
+  .admonition-content {
+    margin-top: 0.5rem;
+  }
+  .admonition-content :global(> :first-child) {
+    margin-top: 0;
+  }
+  .admonition-content :global(> :last-child) {
+    margin-bottom: 0;
+  }
+
+  :global(:root.dark) .admonition {
+    background-color: rgba(var(--ad), 0.15);
+  }
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not(.light)) .admonition {
+      background-color: rgba(var(--ad), 0.15);
+    }
+  }
+</style>

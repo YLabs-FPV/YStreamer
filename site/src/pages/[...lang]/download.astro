@@ -1,0 +1,163 @@
+---
+import MainLayout from "../../layouts/MainLayout.astro";
+import CopyCommand from "../../components/CopyCommand.astro";
+import { Icon } from "astro-icon/components";
+import {
+  IMAGE_DOWNLOAD,
+  INSTALL_COMMAND,
+  RELEASES_URL,
+  SITE_TITLE,
+} from "../../consts";
+import {
+  getLangFromUrl,
+  useTranslations,
+  useData,
+  getLocalizedUrl,
+} from "../../i18n";
+import { getLangPaths } from "../../i18n/getLangPaths";
+
+export const getStaticPaths = getLangPaths;
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const d = useData(lang);
+
+const imageSteps = d<string[]>("download.image.steps");
+const scriptSteps = d<string[]>("download.script.steps");
+---
+
+<MainLayout
+  title={`${t("download.pageTitle")} - ${SITE_TITLE}`}
+  class="px-6 py-12 md:py-16"
+>
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto">
+      <h1 class="text-4xl font-bold">{t("download.heading")}</h1>
+      <p class="mt-3 text-[rgb(var(--color-text-muted))]">
+        {t("download.subtitle")}
+      </p>
+    </div>
+
+    <div class="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <article class="card recommended p-7 flex flex-col min-w-0" id="image">
+        <span class="recommended-badge">
+          <Icon name="mdi:star" class="w-3.5 h-3.5" />
+          {t("download.recommended")}
+        </span>
+        <div class="flex items-center gap-3">
+          <span class="icon-tile">
+            <Icon name="mdi:micro-sd" class="w-6 h-6" />
+          </span>
+          <div>
+            <h2 class="text-xl font-bold leading-tight">
+              {t("download.image.title")}
+            </h2>
+            <span class="text-sm text-[rgb(var(--color-text-muted))]">
+              {t("download.image.tag")}
+            </span>
+          </div>
+        </div>
+        <ol class="dl-steps">
+          {imageSteps.map((s) => (
+            <li set:html={s} />
+          ))}
+        </ol>
+        <div class="mt-auto pt-7 flex flex-col sm:flex-row gap-3">
+          <a href={IMAGE_DOWNLOAD} class="btn btn-primary">
+            <Icon name="mdi:download" class="w-5 h-5" />
+            {t("download.image.cta")}
+          </a>
+          <a
+            href={getLocalizedUrl(lang, "/docs/getting-started/install-image")}
+            class="btn btn-ghost"
+          >
+            {t("download.fullGuide")}
+          </a>
+        </div>
+        <a
+          href={RELEASES_URL}
+          target="_blank"
+          rel="noopener"
+          class="mt-3 text-sm"
+        >
+          {t("common.allReleases")}
+        </a>
+      </article>
+
+      <article class="card p-7 flex flex-col min-w-0" id="script">
+        <div class="flex items-center gap-3">
+          <span class="icon-tile">
+            <Icon name="mdi:console" class="w-6 h-6" />
+          </span>
+          <div>
+            <h2 class="text-xl font-bold leading-tight">
+              {t("download.script.title")}
+            </h2>
+            <span class="text-sm text-[rgb(var(--color-text-muted))]">
+              {t("download.script.tag")}
+            </span>
+          </div>
+        </div>
+        <ol class="dl-steps">
+          {scriptSteps.map((s) => (
+            <li set:html={s} />
+          ))}
+        </ol>
+        <CopyCommand command={INSTALL_COMMAND} class="mt-4" />
+        <div class="mt-auto pt-7">
+          <a
+            href={getLocalizedUrl(lang, "/docs/getting-started/install-script")}
+            class="btn btn-ghost"
+          >
+            {t("download.fullGuide")}
+          </a>
+        </div>
+      </article>
+    </div>
+
+    <p class="mt-10 text-center text-[rgb(var(--color-text-muted))]">
+      {t("download.next")}
+      <a href={getLocalizedUrl(lang, "/docs/getting-started/first-boot")}>
+        {t("download.nextLink")}
+      </a>
+    </p>
+  </div>
+</MainLayout>
+
+<style>
+  /* The image is the way most people should go */
+  .recommended {
+    position: relative;
+    border: 2px solid rgb(var(--color-brand));
+    background:
+      linear-gradient(rgba(var(--color-brand), 0.06), rgba(var(--color-brand), 0.06)),
+      rgb(var(--color-card-bg));
+  }
+  .recommended-badge {
+    position: absolute;
+    top: 0;
+    left: 1.75rem;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.7rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #fff;
+    background: rgb(var(--color-button));
+  }
+  .dl-steps {
+    margin: 1.5rem 0 0;
+    padding-left: 1.25rem;
+    list-style: decimal;
+    display: grid;
+    gap: 0.5rem;
+    color: rgb(var(--color-text-muted));
+  }
+  .dl-steps :global(strong) {
+    color: rgb(var(--color-text));
+  }
+</style>

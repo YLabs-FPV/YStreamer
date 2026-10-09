@@ -1,0 +1,87 @@
+---
+title: Command line
+description: The ystreamer command, for checking on and fixing the device over SSH.
+order: 40
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+On the device, over [SSH](/docs/network/security) or with a keyboard attached,
+the `ystreamer` command checks on the service and fixes the things that would
+lock you out of the web interface.
+
+```sh
+ystreamer help
+```
+
+| Command                           | What it does                                             |
+| --------------------------------- | -------------------------------------------------------- |
+| `ystreamer status`                | Whether YStreamer is running, and the addresses to open  |
+| `ystreamer logs`                  | The latest 200 lines of its log                          |
+| `ystreamer logs -f`               | The latest 50 lines, then keeps following                |
+| `sudo ystreamer restart`          | Restarts YStreamer                                       |
+| `sudo ystreamer password`         | Sets the web interface password                          |
+| `sudo ystreamer password --clear` | Removes the web interface password                       |
+| `sudo ystreamer reset`            | Puts every setting and the password back to the defaults |
+| `ystreamer version`               | The installed version                                    |
+
+`restart`, `password` and `reset` need `sudo`.
+
+## Status
+
+```sh
+ystreamer status
+```
+
+```
+YStreamer 0.1.0
+Service:        running
+Web interface:  http://ystreamer.local  http://192.168.1.50
+Password:       run with sudo to see
+```
+
+With `sudo`, it also says whether a password is set. If the service is running
+a different version than the one installed, for example halfway through an
+update, it says so.
+
+## Password
+
+```sh
+sudo ystreamer password
+```
+
+Asks for the new password twice, without showing it. At least 6 characters.
+It takes effect right away, and browsers that were logged in have to log in
+again. `--clear` removes the password instead.
+
+For a script, pipe the password in on one line:
+
+```sh
+echo 'new-password' | sudo ystreamer password
+```
+
+<Admonition type="tip" title="Locked out?">
+  This is the quickest fix for a forgotten password, if you can still reach the
+  device over SSH.
+</Admonition>
+
+## Reset
+
+```sh
+sudo ystreamer reset
+```
+
+Puts every setting and the web interface password back to the defaults, after
+asking first; `--yes` skips the question. YStreamer restarts with the
+defaults, and the network settings go back to them too.
+
+Recordings, the logo and the splash image are kept. The previous settings are
+kept as `settings.before-reset.json`. See
+[backup and reset](/docs/maintenance/backup-and-reset) for the other ways to
+reset.
+
+## ystreamer run
+
+`ystreamer run` is YStreamer itself, the program the system service starts.
+Don't run it by hand: use `sudo ystreamer restart` instead. On its own,
+`ystreamer` shows the help.

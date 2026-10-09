@@ -1,0 +1,74 @@
+---
+title: Archivos en el dispositivo
+description: Dónde guarda YStreamer sus ajustes, grabaciones y actualizaciones, para usuarios de SSH.
+order: 50
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+No necesitas nada de esto para el uso diario: la interfaz web lo cubre. Es
+para copias de seguridad, resolver problemas y para quien trabaje por
+[SSH](/docs/network/security).
+
+## Ajustes: `/etc/ystreamer/`
+
+| Archivo                      | Qué es                                                                            |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| `settings.json`              | Todos los ajustes, tal como los descarga **Export settings**                      |
+| `auth.json`                  | La contraseña de la interfaz web (con hash) y la clave que firma las sesiones     |
+| `overlay.png`                | El logo para el vídeo                                                             |
+| `splash-image`               | Una imagen de inicio personalizada, si se ha subido una                           |
+| `settings.before-reset.json` | Los ajustes tal como estaban antes del último restablecimiento                    |
+| `settings.v<N>.json`         | Una copia que se guarda cuando una actualización cambia el formato de los ajustes |
+| `image`                      | Marca una instalación con la imagen lista para usar                               |
+
+<Admonition type="warning">
+  Detén YStreamer antes de editar `settings.json` a mano (`sudo systemctl stop
+  ystreamer`), o puede sobrescribir tus cambios. Un archivo que no puede leer se
+  ignora, y YStreamer arranca con los valores por defecto.
+</Admonition>
+
+## Grabaciones y actualizaciones: `/var/lib/ystreamer/`
+
+| Ruta          | Qué es                                                                                                                      |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `recordings/` | Las grabaciones, salvo que **Save to** apunte a otro sitio                                                                  |
+| `update/`     | `current.deb` y `previous.deb`, las versiones entre las que se puede volver atrás, y el registro de la última actualización |
+
+Las memorias USB se montan en `/media/`.
+
+## En la imagen lista para usar: la partición de datos
+
+En la imagen, `/etc/ystreamer` y `/var/lib/ystreamer` están en una partición
+propia, con la etiqueta `ystreamer-data` y montada en `/data`. Sus carpetas
+ahí, `config` y `state`, se colocan en ambas rutas en cada arranque, así que
+las rutas de arriba funcionan igual.
+
+Está formateada en ext4, así que Windows y macOS no pueden leerla si pones la
+tarjeta en un ordenador.
+
+## Red
+
+El Wi-Fi, Ethernet y WireGuard se guardan como conexiones de NetworkManager,
+llamadas `ystreamer-ap`, `ystreamer-wifi`, `ystreamer-eth` y `ystreamer-wg`.
+
+```sh
+nmcli connection show
+```
+
+## La partición de arranque: `/boot/firmware/`
+
+- `config.txt` recibe una sección entre `# >>> ystreamer` y `# <<< ystreamer`,
+  que prepara el puerto USB-C para las gafas y da al hardware de vídeo memoria
+  suficiente. Al desinstalar se quita.
+- Un archivo vacío `ystreamer-reset` aquí restablece los ajustes en el
+  siguiente arranque. Ver
+  [copia de seguridad y restablecimiento](/docs/maintenance/backup-and-reset).
+
+## Registros
+
+```sh
+ystreamer logs -f
+```
+
+O con `journalctl -u ystreamer`. Ver [la línea de comandos](/docs/maintenance/command-line).

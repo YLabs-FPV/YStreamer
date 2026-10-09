@@ -1,0 +1,62 @@
+---
+title: Pantalla de inicio y logo
+description: Qué se muestra mientras no hay vídeo, y cómo poner un logo en la imagen.
+order: 50
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+## Pantalla de inicio
+
+Mientras no hay vídeo, YStreamer envía en su lugar una pantalla de inicio: al
+HDMI, a los navegadores y a los streams. Las grabaciones no la incluyen.
+
+Por defecto muestra cómo llegar al dispositivo: sus direcciones, el nombre y
+la contraseña del punto de acceso, y un código QR para unirse.
+
+<Screenshot
+  src="/images/docs/ystreamer-ui/default-splash.webp"
+  alt="La pantalla de inicio por defecto"
+  width={1920}
+  height={1080}
+  scale={1}
+/>
+
+En **Display → Splash screen**:
+
+| Ajuste                               | Qué hace                                                                           |
+| ------------------------------------ | ---------------------------------------------------------------------------------- |
+| Upload image                         | Tu propia imagen en lugar de la predeterminada. **Use default** vuelve a esta.     |
+| Image scaling                        | **Fit** o **Fill**, para tu imagen.                                                |
+| Show status over custom image        | Mantiene las direcciones y el estado de la conexión en la parte inferior.          |
+| Show access point password on screen | Desactivado, oculta la contraseña y el código QR.                                  |
+| Freeze on last frame                 | Cuando se corta el vídeo, mantiene la última imagen en su lugar.                   |
+| Grayscale frozen frame               | Muestra la imagen congelada en gris, para que no se confunda con vídeo en directo. |
+
+<Admonition type="tip">
+  En un lugar público, desactiva **Show access point password on screen**, o
+  cambia la contraseña en **Network**.
+</Admonition>
+
+## Logo
+
+En **Display → Logo**, suelta una imagen: PNG, WebP o JPEG, con la
+transparencia conservada. Luego arrástrala a donde la quieras en la vista
+previa y arrastra su esquina para cambiar el tamaño, o usa el control
+**Size**. **Opacity** va del 10 al 100 %, y **Show logo** lo activa y
+desactiva sin quitarlo.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/logo-card.webp"
+  alt="Display → Logo: un logo colocado sobre la vista previa en directo, con el interruptor Show logo y los controles Size y Opacity"
+  width={1175}
+  height={1230}
+/>
+
+Dónde aparece el logo depende de la fuente:
+
+- **Gafas DJI**: solo en el **HDMI** y en la vista del navegador. Los streams y
+  las grabaciones llevan el vídeo propio de las gafas, sin tocar.
+- **Cámara USB**: en el propio vídeo, así que en todas las salidas y en las
+  grabaciones.

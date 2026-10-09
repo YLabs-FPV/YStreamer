@@ -1,0 +1,99 @@
+---
+title: Script de instalación
+description: Añade YStreamer a una Pi que ya usa Raspberry Pi OS Lite.
+order: 40
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Si tu Pi ya usa **Raspberry Pi OS Lite (64 bits, Debian 13 "Trixie")**, puedes
+añadirle YStreamer con un solo comando.
+
+<Admonition type="warning" title="Solo Lite">
+  Con un escritorio que se inicia al arrancar, YStreamer no puede mostrar vídeo
+  por HDMI. Usa Raspberry Pi OS Lite, o desactiva el escritorio con `sudo
+  raspi-config` (System Options → Boot).
+</Admonition>
+
+## Ejecútalo
+
+En la Pi, por SSH o con un teclado conectado:
+
+```sh
+curl -fsSL https://ystreamer.yarosfpv.com/install.sh | sudo sh
+```
+
+El script:
+
+1. Comprueba el dispositivo: sistema de 64 bits, Raspberry Pi 4, Trixie y
+   nada más en el puerto 80. Con cualquier cosa sin probar, pregunta antes de
+   seguir.
+2. Descarga la última versión y verifica su firma.
+3. Enumera lo que va a cambiar y pregunta antes de instalar.
+4. Instala YStreamer y lo inicia, y luego muestra la dirección de la interfaz
+   web: `http://<hostname>.local`.
+
+## Qué cambia
+
+- Instala el paquete `ystreamer` y lo que necesita, como GStreamer.
+- Inicia YStreamer ahora y en cada arranque. Usa el puerto 80 y la salida
+  HDMI.
+- Añade dos líneas a `/boot/firmware/config.txt`, guardando una copia del
+  original: una prepara el puerto USB-C para las gafas y la otra da al
+  hardware de vídeo memoria suficiente.
+
+<Admonition type="info" title="Reinicia una vez">
+  Cuando cambian los ajustes de arranque, reinicia antes de conectar las gafas.
+  El script te avisa cuando hace falta.
+</Admonition>
+
+## Opciones
+
+Pasa las opciones después de `sh -s --`:
+
+| Opción        | Qué hace                                                                |
+| ------------- | ----------------------------------------------------------------------- |
+| `--check`     | Comprueba el dispositivo y verifica la descarga. No instala nada.       |
+| `--yes`, `-y` | No hace ninguna pregunta, salvo antes de volver a una versión anterior. |
+
+Por ejemplo, para comprobar un dispositivo sin cambiarlo:
+
+```sh
+curl -fsSL https://ystreamer.yarosfpv.com/install.sh | sudo sh -s -- --check
+```
+
+## Ejecutarlo de nuevo
+
+En una Pi que ya tiene YStreamer, el script dice qué hay instalado y qué va a
+hacer antes de preguntar:
+
+- **Una versión más antigua**: la actualiza a la última.
+- **La última versión**: la reinstala.
+- **Una versión más nueva** que la última publicada: vuelve a la publicada,
+  pero solo después de que lo confirmes en un terminal, incluso con `--yes`.
+
+Se conservan los ajustes, el inicio de sesión y las grabaciones. YStreamer se
+reinicia, lo que cierra una grabación en curso y pausa los streams y el HDMI
+unos segundos. La versión que estaba funcionando pasa a ser a la que vuelve
+[Roll back](/docs/maintenance/updates#volver-a-una-versión-anterior).
+
+`--check` te dice cuál de estos casos ocurriría, sin cambiar nada.
+
+## Diferencias con la imagen
+
+- **Red**: YStreamer deja el Wi-Fi y Ethernet al sistema hasta que los
+  cambies en la interfaz web. Ver [Wi-Fi y Ethernet](/docs/network/wifi-and-ethernet).
+- **SSH y la cuenta de usuario** se quedan como los configuraste; los
+  controles de SSH de la interfaz web solo están en la imagen.
+- **La dirección** usa el nombre de host de tu Pi en lugar de `ystreamer`.
+
+## Desinstalar
+
+```sh
+sudo apt remove ystreamer
+```
+
+Esto quita los ajustes de arranque; reinicia para recuperar el puerto USB-C.
+`sudo apt purge ystreamer` también borra los ajustes y la contraseña de la
+interfaz web. Las grabaciones en `/var/lib/ystreamer` se conservan en ambos
+casos.

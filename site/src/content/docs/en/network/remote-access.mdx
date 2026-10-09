@@ -1,0 +1,63 @@
+---
+title: Remote access
+description: Reach the device from anywhere through Tailscale or WireGuard.
+order: 20
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Under **Network → Remote access**. The ready-made image comes with Tailscale
+and WireGuard installed. After the install script, the card says what to
+install if they're missing. Both need the device to have internet:
+through your network, Ethernet, or a [phone over USB](/docs/network/wifi-and-ethernet).
+
+<Admonition type="warning" title="Set a password first">
+  Without a [password](/docs/network/security), anyone on your Tailscale network
+  or VPN can change the settings.
+</Admonition>
+
+## Tailscale
+
+1. Press **Set up**. The card shows a link.
+2. Open it on any device and sign in to Tailscale. The card follows along by
+   itself.
+3. Once connected, the card shows the device's Tailscale address. Open it from
+   any device on your Tailscale network.
+
+The card also shows the devices using it, and whether each connection is
+**Direct** or **Relayed**. Relayed adds delay.
+
+**Disconnect** takes the device off Tailscale for now; **Sign out** removes it
+from your Tailscale network. Setting it up again needs a connection from the
+local network.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/tailscale.webp"
+  alt="The Tailscale card, connected"
+  width={1364}
+  height={624}
+/>
+
+## WireGuard
+
+For your own WireGuard server.
+
+1. Make a configuration for the device on your server: a `.conf` file with an
+   `[Interface]` and a `[Peer]`.
+2. Press **Upload configuration** and choose the file.
+3. **Switch on**.
+
+The card shows the device's address in the tunnel, the last answer from the
+server, and the data received and sent.
+
+<Admonition type="tip" title="PersistentKeepalive">
+  The device usually sits behind a router, so the server can only reach it while
+  the line is kept open. Add `PersistentKeepalive = 25` under `[Peer]`; the card
+  warns when it's missing.
+</Admonition>
+
+A configuration with `AllowedIPs = 0.0.0.0/0` sends all of the device's
+internet traffic through the tunnel, including RTMP and SRT streams.
+
+**Remove** deletes the configuration and its keys from the device.

@@ -1,0 +1,17 @@
+# Raspberry Pi OS Lite plus YStreamer; build.sh hands this to pi-gen
+IMG_NAME=ystreamer
+RELEASE=trixie
+STAGE_LIST="stage0 stage1 stage2 stage-ystreamer"
+DEPLOY_COMPRESSION=xz
+
+TARGET_HOSTNAME=ystreamer
+# The login for SSH, which stays off until switched on in the web interface
+FIRST_USER_NAME=ystreamer
+FIRST_USER_PASS=ystreamer
+DISABLE_FIRST_BOOT_USER_RENAME=1
+ENABLE_SSH=0
+
+LOCALE_DEFAULT=en_US.UTF-8
+KEYBOARD_KEYMAP=us
+KEYBOARD_LAYOUT="English (US)"
+TIMEZONE_DEFAULT=Etc/UTC

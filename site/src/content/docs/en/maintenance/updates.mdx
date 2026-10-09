@@ -1,0 +1,51 @@
+---
+title: Updates
+description: Update YStreamer from the web interface, and roll back.
+order: 10
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Everything is under **System → Updates**.
+
+Updating keeps your settings, password and recordings.
+
+## Checking
+
+With **Check automatically** on (the default), the device asks the update
+server a minute after it starts, then about twice a day. Without internet, it
+tries again every 15 minutes. Nothing is downloaded or installed without you.
+**Check for updates** asks right away.
+
+## Installing
+
+1. When a new version is available, its release notes are shown. Press
+   **Download**.
+2. Press **Install**.
+
+Video, streams and any recording stop while YStreamer restarts. Don't unplug
+the device until the page reloads.
+
+<Admonition type="info" title="Safe by design">
+  Every update is signed, and the device checks the signature before installing
+  it. If the new version doesn't start, the device puts the previous one back by
+  itself.
+</Admonition>
+
+## Without internet
+
+**Install from files** takes a release's `.deb` file together with its `.sig`
+file, both from the
+[releases page](https://github.com/YLabs-FPV/YStreamer/releases). Download
+them on a computer, then choose both at once.
+
+## Rolling back
+
+**Previous version → Roll back** installs the version that ran before. Rolling
+back again returns to the newer one.
+
+## The install script
+
+Running the [install script](/docs/getting-started/install-script) again also updates to the
+latest version, and keeps the one before it to roll back to. See
+[Running it again](/docs/getting-started/install-script#running-it-again).

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YStreamer</title>
+    <script>
+      // Before the first paint, so a chosen theme doesn't flash the other one
+      try {
+        const theme = localStorage.getItem("ystreamer.theme");
+        if (theme === "light" || theme === "dark") {
+          document.documentElement.classList.add(theme);
+          document.documentElement.style.colorScheme = theme;
+        } else {
+          document.documentElement.style.colorScheme = "light dark";
+        }
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

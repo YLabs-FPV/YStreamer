@@ -1,0 +1,27 @@
+#!/bin/sh
+set -e
+
+CONFIG=/boot/firmware/config.txt
+BEGIN="# >>> ystreamer"
+END="# <<< ystreamer"
+
+remove_boot_settings() {
+    [ -f "$CONFIG" ] || return 0
+    grep -qF "$BEGIN" "$CONFIG" || return 0
+    sed -i "/^$BEGIN\$/,/^$END\$/d" "$CONFIG"
+    rm -f "$CONFIG.before-ystreamer"
+    echo "YStreamer: restored $CONFIG; reboot to get the USB-C port back." >&2
+}
+
+case "$1" in
+remove)
+    remove_boot_settings
+    ;;
+purge)
+    remove_boot_settings
+    # Settings and the login; recordings in /var/lib/ystreamer stay
+    rm -rf /etc/ystreamer
+    ;;
+esac
+
+#DEBHELPER#

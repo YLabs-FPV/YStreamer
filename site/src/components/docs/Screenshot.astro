@@ -1,0 +1,107 @@
+---
+interface Props {
+  src?: string;
+  themed?: string;
+  alt: string;
+  width: number;
+  height: number;
+  scale?: number;
+  caption?: string;
+  /** Off for drawings, which come without a background to put a border on */
+  frame?: boolean;
+}
+
+const {
+  src,
+  themed,
+  alt,
+  width,
+  height,
+  scale = 0.5,
+  caption,
+  frame = true,
+} = Astro.props;
+const shownWidth = Math.round(width * scale);
+const shownHeight = Math.round(height * scale);
+const size = { width: shownWidth, height: shownHeight };
+---
+
+<figure class:list={["screenshot", { "no-frame": !frame }]}>
+  {themed ? (
+    <>
+      <img
+        class="light-only"
+        src={themed.replace("{theme}", "light")}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        {...size}
+      />
+      <img
+        class="dark-only"
+        src={themed.replace("{theme}", "dark")}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        {...size}
+      />
+    </>
+  ) : (
+    <img src={src} alt={alt} loading="lazy" decoding="async" {...size} />
+  )}
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .screenshot {
+    margin: 1.5rem 0;
+    text-align: center;
+  }
+  .screenshot img {
+    display: inline-block;
+    max-width: 100%;
+    height: auto;
+    /* Over the docs' general image margins */
+    margin: 0 !important;
+    border-radius: 0.5rem;
+    border: 1px solid rgb(var(--color-border));
+  }
+  .no-frame img {
+    border: 0;
+    border-radius: 0;
+  }
+  .screenshot figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: rgb(var(--color-text-muted));
+  }
+
+  /* Default (auto): follow the system theme */
+  .light-only {
+    display: inline-block;
+  }
+  .dark-only {
+    display: none !important;
+  }
+  @media (prefers-color-scheme: dark) {
+    .light-only {
+      display: none !important;
+    }
+    .dark-only {
+      display: inline-block !important;
+    }
+  }
+  /* A theme picked in the header wins over the system's */
+  :global(html.light) .light-only {
+    display: inline-block !important;
+  }
+  :global(html.light) .dark-only {
+    display: none !important;
+  }
+  :global(html.dark) .light-only {
+    display: none !important;
+  }
+  :global(html.dark) .dark-only {
+    display: inline-block !important;
+  }
+</style>

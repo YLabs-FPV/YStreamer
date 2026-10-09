@@ -1,0 +1,23 @@
+---
+export const prerender = false;
+
+const available = ["en", "es", "uk"];
+
+const acceptLanguage = Astro.request.headers.get("accept-language") || "";
+const preferred = acceptLanguage
+  .split(",")
+  .map((part) => part.split(";")[0].trim().toLowerCase().split("-")[0]);
+
+let target = "en";
+for (const lang of preferred) {
+  if (available.includes(lang)) {
+    target = lang;
+    break;
+  }
+}
+
+const cookie = Astro.cookies.get("preferred-language")?.value;
+if (cookie && available.includes(cookie)) target = cookie;
+
+return Astro.redirect(`/${target}/`);
+---

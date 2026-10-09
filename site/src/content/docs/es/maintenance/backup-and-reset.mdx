@@ -1,0 +1,79 @@
+---
+title: Copia de seguridad y restablecimiento
+description: Guarda y restaura los ajustes, o vuelve a los valores por defecto.
+order: 20
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+## Exportar e importar
+
+En **System → Configuration**:
+
+- **Export settings** descarga todos los ajustes como un archivo `.json`.
+- **Import settings** sustituye todos los ajustes por los de un archivo. Si
+  los ajustes del Wi-Fi son distintos, el dispositivo puede salirse de tu red.
+
+<Admonition type="warning">
+  El archivo contiene contraseñas del Wi-Fi y claves de stream. Mantenlo en
+  privado. No contiene la contraseña de la interfaz web, el logo ni una imagen
+  de inicio personalizada.
+</Admonition>
+
+## Restablecer los valores por defecto
+
+**System → Configuration → Reset to defaults** devuelve todos los ajustes a
+como estaban, desde la interfaz web. La contraseña se mantiene.
+
+## Restablecer por SSH
+
+```sh
+sudo ystreamer reset
+```
+
+Esto restablece los ajustes y quita la contraseña de la interfaz web, como el
+puente y el archivo de abajo. Ver [la línea de comandos](/docs/maintenance/command-line).
+
+## Restablecer sin la interfaz web
+
+Cuando no puedes entrar de ninguna forma, por ejemplo tras olvidar la
+contraseña o dejarte fuera de la red, restablece desde fuera. Esto restablece
+los ajustes **y quita la contraseña de la interfaz web**. Se conservan las
+grabaciones, el logo y la imagen de inicio, y también los ajustes antiguos,
+como `settings.before-reset.json`, por si fue un error.
+
+### Con un puente
+
+1. Apaga la Pi.
+2. Une el **pin 40** (GPIO21) con el **pin 39** (tierra), los dos últimos pines
+   del conector, con un puente (jumper) o un cable.
+3. Enciende la Pi y deja el puente puesto al menos 5 segundos.
+4. Quita el puente.
+
+<Screenshot
+  themed="/images/docs/diagrams/{theme}/gpio-reset.svg"
+  alt="Un puente entre los dos últimos pines del conector, el pin 39 (tierra) y el pin 40 (GPIO21), en el extremo junto a los puertos USB"
+  width={791}
+  height={351}
+  scale={1}
+  frame={false}
+/>
+
+<Admonition type="warning">
+  Si se deja puesto, el puente restablece los ajustes en cada arranque. La
+  interfaz web te recuerda que lo quites.
+</Admonition>
+
+### Con un archivo
+
+1. Pon la tarjeta SD en un ordenador. Aparece una unidad llamada `bootfs`.
+2. Crea en ella un archivo vacío llamado `ystreamer-reset` (o
+   `ystreamer-reset.txt`).
+3. Vuelve a poner la tarjeta en la Pi y enciéndela.
+
+El archivo se borra cuando termina el restablecimiento.
+
+Tras cualquiera de los dos, la interfaz web indica que los ajustes se
+restablecieron. En la imagen, el punto de acceso vuelve con el nombre y la
+contraseña por defecto.

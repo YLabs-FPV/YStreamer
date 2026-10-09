@@ -1,0 +1,194 @@
+#!/bin/sh
+# Keeps settings and recordings on a partition of their own, so that a power
+# cut while recording can't take the system down with it.
+#
+# The image ships with the system partition only. The first start gives that
+# its final size and makes the data partition from the rest of the card; every
+# start checks the data partition, mounts it, and puts its folders where
+# YStreamer keeps its files. YStreamer itself never knows the difference.
+#
+# Whatever goes wrong here, the device still starts: without the data
+# partition YStreamer runs from the system partition with default settings.
+set -u
+
+# Fixed for the life of the card: the data partition sits right behind it
+SYSTEM_BYTES=${YSTREAMER_SYSTEM_BYTES:-$((8 * 1024 * 1024 * 1024))}
+# A card too small to leave this much gets no data partition at all
+MIN_DATA_BYTES=${YSTREAMER_MIN_DATA_BYTES:-$((2 * 1024 * 1024 * 1024))}
+LABEL=ystreamer-data
+SECTOR=512
+
+# Only tests point these anywhere else
+ROOT_PART=${YSTREAMER_ROOT_PART:-$(findmnt -no SOURCE /)}
+PREFIX=${YSTREAMER_PREFIX:-}
+MOUNT=$PREFIX/data
+CONFIG=$PREFIX/etc/ystreamer
+STATE=$PREFIX/var/lib/ystreamer
+# On the system partition, from before the data partition is added until it
+# has a filesystem: the only time an empty partition 3 may be formatted
+FORMATTING=$PREFIX/var/lib/ystreamer-data.formatting
+
+say() { echo "[data] $*"; }
+
+DISK=/dev/$(lsblk -no PKNAME "$ROOT_PART")
+ROOT_NUM=$(cat "/sys/class/block/$(basename "$ROOT_PART")/partition")
+
+# The device of a partition by its number, once the kernel knows about it
+partition() {
+    lsblk -nrpo NAME "$DISK" | while read -r name; do
+        number=$(cat "/sys/class/block/$(basename "$name")/partition" 2>/dev/null) || continue
+        [ "$number" = "$1" ] && echo "$name"
+    done | head -n 1
+}
+
+sectors() { cat "/sys/class/block/$(basename "$1")/size"; }
+start_of() { cat "/sys/class/block/$(basename "$1")/start"; }
+
+reread() {
+    partx -u "$DISK" 2>/dev/null || partprobe "$DISK" 2>/dev/null || true
+    udevadm settle 2>/dev/null || true
+}
+
+# Gives the system partition the size in $1 sectors, or all that's left with
+# "+", and lets its filesystem grow into it
+grow_system() {
+    echo ", $1" | sfdisk --force --no-reread -N "$ROOT_NUM" "$DISK" >/dev/null 2>&1 || return 1
+    reread
+    resize2fs "$ROOT_PART" >/dev/null 2>&1 || true
+}
+
+make_data_partition() {
+    disk_sectors=$(sectors "$DISK")
+    system_sectors=$((SYSTEM_BYTES / SECTOR))
+    system_end=$(($(start_of "$ROOT_PART") + system_sectors))
+    left=$(((disk_sectors - system_end) * SECTOR))
+
+    if [ "$left" -lt "$MIN_DATA_BYTES" ]; then
+        say "this card is too small for a data partition; everything stays on the system partition"
+        if [ "$(sectors "$ROOT_PART")" -lt $((disk_sectors - $(start_of "$ROOT_PART") - 2048)) ]; then
+            grow_system + || say "couldn't grow the system partition"
+        fi
+        return 1
+    fi
+
+    if [ "$(sectors "$ROOT_PART")" -lt "$system_sectors" ]; then
+        say "giving the system partition its final size"
+        grow_system "$system_sectors" || {
+            say "couldn't resize the system partition"
+            return 1
+        }
+    fi
+    # A cut right after the resize leaves the filesystem behind its partition
+    resize2fs "$ROOT_PART" >/dev/null 2>&1 || true
+
+    data=$(partition 3)
+    if [ -z "$data" ]; then
+        say "making the data partition"
+        mkdir -p "$(dirname "$FORMATTING")"
+        touch "$FORMATTING"
+        sync
+        # Right behind the system partition, on a megabyte boundary. Left to
+        # itself sfdisk would use the small gap before the first partition
+        start=$((($(start_of "$ROOT_PART") + $(sectors "$ROOT_PART") + 2047) / 2048 * 2048))
+        echo "$start,,L" | sfdisk --force --no-reread --append "$DISK" >/dev/null 2>&1 || {
+            say "couldn't add the data partition"
+            return 1
+        }
+        reread
+        data=$(partition 3)
+    fi
+    [ -n "$data" ] || {
+        say "the data partition didn't show up"
+        return 1
+    }
+
+    # Partition 3 is only ours to format while setting up, which the marker
+    # says. Then whatever it holds was on the card before this image was
+    # flashed over it: flashing writes the image and leaves the rest of the
+    # card as it was, and the partition comes back at the same place, an
+    # earlier install's settings and recordings included. Otherwise a
+    # filesystem that isn't ours belongs to someone, and one with none means
+    # the recordings are on a filesystem too damaged to recognise, which
+    # formatting would finish off
+    if [ ! -e "$FORMATTING" ]; then
+        kind=$(blkid -o value -s TYPE "$data" 2>/dev/null || true)
+        if [ -n "$kind" ]; then
+            say "partition 3 already holds a $kind filesystem that isn't ours; leaving it alone"
+        else
+            say "the data partition has no readable filesystem; leaving it alone so nothing on it is lost"
+        fi
+        return 1
+    fi
+    say "formatting the data partition"
+    wipefs -a -q "$data" 2>/dev/null || true
+    mkfs.ext4 -q -F -L "$LABEL" -m 0 -E lazy_itable_init=1,lazy_journal_init=1 "$data" || {
+        say "couldn't format the data partition"
+        return 1
+    }
+    sync
+    rm -f "$FORMATTING"
+    udevadm settle 2>/dev/null || true
+}
+
+# Journal replay and small repairs; anything worse gets one forceful try
+check() {
+    e2fsck -p "$1" >/dev/null 2>&1
+    [ $? -lt 4 ] && return 0
+    say "the data partition has errors, repairing"
+    e2fsck -y "$1" >/dev/null 2>&1
+    [ $? -lt 4 ]
+}
+
+# Starts a folder on the data partition from what the system partition has,
+# which on a first start is what the image shipped with
+adopt() {
+    [ -d "$2" ] && return 0
+    rm -rf "$2.new"
+    mkdir -p "$2.new" "$1"
+    cp -a "$1/." "$2.new/" && mv "$2.new" "$2"
+}
+
+over() {
+    mountpoint -q "$2" && return 0
+    mkdir -p "$2"
+    mount --bind "$1" "$2"
+}
+
+main() {
+    if mountpoint -q "$CONFIG" && mountpoint -q "$STATE"; then
+        return 0
+    fi
+
+    data=$(blkid -L "$LABEL" 2>/dev/null || true)
+    # Mid-setup, our label on the card is left over from before the flash
+    if [ -z "$data" ] || [ -e "$FORMATTING" ]; then
+        make_data_partition || return 1
+        data=$(blkid -L "$LABEL" 2>/dev/null || true)
+        [ -n "$data" ] || return 1
+    fi
+
+    if ! mountpoint -q "$MOUNT"; then
+        check "$data" || {
+            say "the data partition can't be repaired"
+            return 1
+        }
+        mkdir -p "$MOUNT"
+        mount -o noatime "$data" "$MOUNT" || {
+            say "the data partition won't mount"
+            return 1
+        }
+    fi
+
+    adopt "$CONFIG" "$MOUNT/config" && adopt "$STATE" "$MOUNT/state" || {
+        say "couldn't set up the folders on the data partition"
+        return 1
+    }
+    over "$MOUNT/config" "$CONFIG" && over "$MOUNT/state" "$STATE" || {
+        say "couldn't put the data partition's folders in place"
+        return 1
+    }
+    say "settings and recordings are on $data"
+}
+
+main || say "running from the system partition"
+exit 0

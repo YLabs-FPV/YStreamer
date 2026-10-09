@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/YLabs-FPV/YStreamer/discussions
+    about: Ask questions, share setups, or discuss ideas here.
+  - name: Documentation
+    url: https://ystreamer.yarosfpv.com/docs
+    about: Setup, outputs, guides for OBS, VLC and ground stations, and common issues.

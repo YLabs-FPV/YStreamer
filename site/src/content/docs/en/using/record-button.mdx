@@ -1,0 +1,56 @@
+---
+title: Record button
+description: Wire a physical button or switch, and a light, to start and stop recording.
+order: 70
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+A button or switch on the Pi's GPIO header can start and stop
+[recording](/docs/using/recording), with an optional light that's on while it
+records.
+
+## Wiring
+
+- **Button or switch**: between the chosen GPIO pin and any ground pin. No
+  resistor needed: the Pi's own pull-up is used.
+- **Light (optional)**: an LED from its GPIO pin, through a resistor of about
+  330 Ω, to ground. The resistor can go on either side of the LED, but the LED
+  has to be the right way round: its **longer leg (+)** toward the GPIO pin,
+  the shorter one toward ground. The other way round, it just stays dark.
+
+In this example the button is on GPIO17 (pin 11) with ground on pin 9, and the
+light on GPIO18 (pin 12) with ground on pin 14.
+
+<Screenshot
+  themed="/images/docs/diagrams/{theme}/button-led-pinout.svg"
+  alt="The record button between pin 9 (ground) and pin 11 (GPIO17), and the light from pin 12 (GPIO18) through a 330 ohm resistor and the LED to pin 14 (ground)"
+  width={1068}
+  height={672}
+  scale={1}
+  frame={false}
+/>
+
+## Settings
+
+Under **Recording → Settings → Record button**:
+
+| Setting                | What it does                                                                                 |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| Use a button or switch | Turns it on.                                                                                 |
+| Type                   | **Push button**: each press starts or stops. **Switch**: records for as long as it's closed. |
+| Pin                    | The GPIO the button is on. GPIO17 (pin 11) by default.                                       |
+| Recording light        | The GPIO for the light, or **No light**.                                                     |
+
+Once it's on, the card says **Listening**. Press the button or flip the
+switch to see it register.
+
+With a **switch** that's already closed at power-on, for example after a
+power cut, recording starts again by itself.
+
+<Admonition type="warning">
+  Do not use pin 40, it is the reset pin: holding it to ground while the Pi starts resets the
+  settings.\
+  See [backup and reset](/docs/maintenance/backup-and-reset).
+</Admonition>

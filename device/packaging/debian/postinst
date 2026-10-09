@@ -1,0 +1,34 @@
+#!/bin/sh
+set -e
+
+CONFIG=/boot/firmware/config.txt
+# The list the package carries, or the repo's, for `mise run backend:boot-config`
+WANTED=${WANTED:-/usr/share/ystreamer/config.txt}
+BEGIN="# >>> ystreamer"
+END="# <<< ystreamer"
+
+add_boot_settings() {
+    [ -f "$CONFIG" ] || return 0
+    grep -qF "$BEGIN" "$CONFIG" && return 0
+
+    missing=$(grep -v '^#' "$WANTED" | while read -r line; do
+        [ -n "$line" ] || continue
+        grep -qxF "$line" "$CONFIG" || echo "$line"
+    done)
+    [ -n "$missing" ] || return 0
+
+    cp -p "$CONFIG" "$CONFIG.before-ystreamer"
+    {
+        echo "$BEGIN"
+        echo "[all]"
+        echo "$missing"
+        echo "$END"
+    } >>"$CONFIG"
+    echo "YStreamer: changed $CONFIG; reboot for the goggles link to work." >&2
+}
+
+if [ "$1" = configure ]; then
+    add_boot_settings
+fi
+
+#DEBHELPER#

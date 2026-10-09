@@ -1,0 +1,214 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build a release for (e.g. v0.2.0)
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  package:
+    name: Package
+    runs-on: ubuntu-24.04-arm
+    container: debian:trixie
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl git xz-utils build-essential dpkg-dev \
+            pkg-config openssl python3 \
+            libglib2.0-dev libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev libgstrtspserver-1.0-dev
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Check the version
+        id: version
+        run: |
+          version=${TAG#v}
+          crate=$(sed -n 's/^version = "\(.*\)"/\1/p' device/backend/Cargo.toml | head -1)
+          if [ "$crate" != "$version" ]; then
+            echo "::error::The tag is $TAG, but device/backend/Cargo.toml says $crate. Bump it and tag again."
+            exit 1
+          fi
+          if ! grep -q "^## \[\?$version\]\?\b" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## $version' section; devices show it as the release notes."
+            exit 1
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      - uses: jdx/mise-action@v5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: device/backend
+          cache-bin: true
+      - name: Install cargo-deb
+        run: command -v cargo-deb || cargo install cargo-deb --locked
+
+      - name: Build the package
+        run: |
+          mise run frontend:install
+          mise run device:deb
+          deb=$(ls device/backend/target/debian/*.deb)
+          [ "$(echo "$deb" | wc -l)" = 1 ] || { echo "::error::Expected one .deb, found: $deb"; exit 1; }
+          echo "DEB=$deb" >>"$GITHUB_ENV"
+
+      - name: Sign the package
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          [ -n "$UPDATE_SIGNING_KEY" ] || { echo "::error::The UPDATE_SIGNING_KEY secret isn't set."; exit 1; }
+          key="$RUNNER_TEMP/update-key.pem"
+          trap 'rm -f "$key"' EXIT
+          umask 077
+          printf '%s\n' "$UPDATE_SIGNING_KEY" >"$key"
+          YSTREAMER_SIGNING_KEY="$key" device/packaging/sign.sh "$DEB"
+
+      - name: Verify the signature against update-key.pub
+        run: |
+          dir=$(mktemp -d)
+          {
+            printf '\060\052\060\005\006\003\053\145\160\003\041\000'
+            base64 -d device/packaging/update-key.pub
+          } >"$dir/key.der"
+          openssl pkey -pubin -inform DER -in "$dir/key.der" -out "$dir/key.pem"
+          base64 -d "$DEB.sig" >"$dir/signature"
+          openssl pkeyutl -verify -pubin -inkey "$dir/key.pem" -rawin \
+            -in "$DEB" -sigfile "$dir/signature"
+
+      - name: Write the manifest
+        run: |
+          device/packaging/manifest.sh "$DEB" \
+            "https://github.com/${{ github.repository }}/releases/download/$TAG"
+          python3 - "$(dirname "$DEB")/manifest.json" "${{ steps.version.outputs.version }}" <<'PY'
+          import json, sys
+          manifest = json.load(open(sys.argv[1]))
+          assert manifest["version"] == sys.argv[2], f"manifest says {manifest['version']}"
+          assert "arm64" in manifest["packages"], "no arm64 package"
+          print(json.dumps(manifest, indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: package
+          path: |
+            device/backend/target/debian/*.deb
+            device/backend/target/debian/*.deb.sig
+            device/backend/target/debian/manifest.json
+          if-no-files-found: error
+          retention-days: 7
+
+  image:
+    name: SD card image
+    needs: package
+    # pi-gen runs in Docker; on an arm64 runner it builds natively
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: package
+          path: package
+
+      # pi-gen needs a lot of room for the root filesystem and the image
+      - name: Make room
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL || true
+          sudo docker image prune --all --force || true
+          df -h /
+
+      - name: Build the image
+        run: image/build.sh "$(ls package/*.deb)"
+
+      - name: Test the data partition setup
+        run: image/tests/data-partition.sh
+
+      - name: Check the image
+        run: |
+          image="image/deploy/ystreamer-${{ needs.package.outputs.version }}.img.xz"
+          [ -f "$image" ] || { echo "::error::$image is missing; the site's Download button expects that name"; ls -l image/deploy; exit 1; }
+          xz --test "$image"
+          ls -lh "$image"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: image
+          path: image/deploy/ystreamer-${{ needs.package.outputs.version }}.img.xz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  release:
+    name: Draft the release
+    needs: [package, image]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Gather the assets
+        run: |
+          cp device/packaging/install.sh assets/
+          cd assets
+          sha256sum *.deb *.deb.sig manifest.json install.sh *.img.xz >SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Release notes from the changelog
+        run: |
+          python3 - "${{ needs.package.outputs.version }}" >notes.md <<'PY'
+          import re, sys
+          version = sys.argv[1]
+          for section in re.split(r"^## ", open("CHANGELOG.md").read(), flags=re.M)[1:]:
+              heading, _, body = section.partition("\n")
+              if heading.split()[0].strip("[]") == version:
+                  print(body.strip())
+          PY
+          cat notes.md
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG }}
+          name: YStreamer ${{ env.TAG }}
+          body_path: notes.md
+          generate_release_notes: true
+          draft: true
+          fail_on_unmatched_files: true
+          files: |
+            assets/*.deb
+            assets/*.deb.sig
+            assets/manifest.json
+            assets/install.sh
+            assets/*.img.xz
+            assets/SHA256SUMS

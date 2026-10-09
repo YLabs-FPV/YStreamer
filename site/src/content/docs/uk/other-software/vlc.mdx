@@ -1,0 +1,62 @@
+---
+title: VLC і ffplay
+description: Дивись відео у VLC або ffplay через RTSP, SRT чи UDP.
+order: 10
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Заміни `ystreamer.local` на адресу пристрою, якщо комп'ютер не знаходить
+його за ім'ям.
+
+## VLC через RTSP
+
+Найпростіший спосіб: RTSP увімкнено за замовчуванням.
+
+1. У VLC відкрий **Медіа → Відкрити мережевий потік** (на macOS:
+   **File → Open Network**).
+2. Введи `rtsp://ystreamer.local:554/stream` і натисни **Відтворити**.
+
+Якщо ввімкнено **Require password**, додай ім'я користувача й пароль в
+адресу: `rtsp://admin:пароль@ystreamer.local:554/stream`.
+
+<Admonition type="tip" title="Менша затримка">
+  За замовчуванням VLC буферизує секунду. Постав позначку **Показати більше
+  параметрів** у вікні відкриття і зменш **Кешування** приблизно до 200 мс.
+</Admonition>
+
+## VLC через SRT
+
+1. На пристрої увімкни **SRT** у режимі **Listener**.
+2. У VLC відкрий `srt://ystreamer.local:9000`.
+
+Якщо є парольна фраза, додай `:srt-passphrase=<фраза>` у
+**Показати більше параметрів → Редагувати параметри**.
+
+## VLC через UDP
+
+Щоб надсилати на комп'ютер, не чекаючи, поки він запросить потік.
+
+1. На пристрої увімкни **UDP** у форматі **MPEG-TS** і додай
+   `<IP комп'ютера>:1234` у **Destinations**.
+2. У VLC відкрий `udp://@:1234`.
+
+## ffplay
+
+ffplay іде разом з ffmpeg і запускається швидше за VLC:
+
+```sh
+ffplay -fflags nobuffer -flags low_delay rtsp://ystreamer.local:554/stream
+```
+
+Через SRT, з необов'язковою парольною фразою:
+
+```sh
+ffplay "srt://ystreamer.local:9000?passphrase=<passphrase>"
+```
+
+Щоб зберегти потік у файл без повторного кодування:
+
+```sh
+ffmpeg -i rtsp://ystreamer.local:554/stream -c copy flight.mp4
+```

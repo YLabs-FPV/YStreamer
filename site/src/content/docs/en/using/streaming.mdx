@@ -1,0 +1,99 @@
+---
+title: Streaming
+description: RTSP, SRT, RTMP and UDP, and which one to use.
+order: 80
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+All outputs can run at the same time, under **Streaming**. Each carries the
+same H.264 video, without sound.
+
+With DJI goggles, that's the live feed the goggles receive, passed on as it is:
+the same picture as in the goggles, not the air unit's higher-quality onboard
+recording. See [recording](/docs/using/recording).
+
+| Output | Direction                     | Good for                                         |
+| ------ | ----------------------------- | ------------------------------------------------ |
+| RTSP   | Players connect to the device | VLC, OBS, most players. On by default.           |
+| SRT    | Either way                    | OBS, over Wi-Fi or the internet: copes with loss |
+| RTMP   | The device sends              | YouTube, Twitch, Facebook, RTMP servers          |
+| UDP    | The device sends              | QGroundControl, Mission Planner, multicast       |
+
+For step-by-step setups, see [VLC](/docs/other-software/vlc), [OBS](/docs/other-software/obs),
+[ground stations](/docs/other-software/ground-stations) and
+[live platforms](/docs/other-software/live-platforms).
+
+## RTSP
+
+A server that players connect to. The card shows the address to use, with a
+**Copy** button:
+
+```
+rtsp://ystreamer.local:554/stream
+```
+
+554 is RTSP's standard port, so most players also take it without one:
+`rtsp://ystreamer.local/stream`.
+
+| Setting          | What it does                                            |
+| ---------------- | ------------------------------------------------------- |
+| Port             | 554 by default, the standard RTSP port. 554, or 1024 to 65535. |
+| Path             | `/stream` by default.                                   |
+| TCP only         | More latency, but survives lossy Wi-Fi and firewalls.   |
+| Require password | A user name and password for players. Sent unencrypted. |
+
+## SRT
+
+SRT sends MPEG-TS and recovers lost packets, so it holds up over Wi-Fi and
+the internet.
+
+- **Listener** (the default): the device waits on a port and receivers
+  connect to `srt://ystreamer.local:9000`.
+- **Caller**: the device connects to a receiver at **Receiver address** and
+  **Port**. Use it to reach OBS or a server elsewhere. Some servers also want
+  a **Stream ID**.
+
+| Setting      | What it does                                                                                  |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| Latency (ms) | How long to wait for lost packets. 200 on a local network, 500 to 2000 over the internet.     |
+| Passphrase   | Encrypts the stream: 10 to 79 characters, or empty for none. The receiver needs the same one. |
+
+The card shows whether a receiver is connected.
+
+## RTMP
+
+Sends the video to a streaming platform or an RTMP server.
+
+1. Pick the **Service**: YouTube, Twitch, Facebook, or **Custom server**.
+2. For a custom server, enter its **Server URL** (`rtmp://` or `rtmps://`,
+   without the key).
+3. Paste the **Stream key** from the platform.
+4. Turn **RTMP** on and **Save**.
+
+**Silent audio track** (on by default) adds silent sound: some platforms
+refuse or flag streams without audio.
+
+A server that's down is tried again and again. The card shows **Live** with
+the uptime and bitrate once it's through.
+
+See [live platforms](/docs/other-software/live-platforms).
+
+## UDP
+
+Sends the video to fixed receivers, with no connection set up.
+
+- **Format**: **RTP** (H.264 over RTP), what QGroundControl and Mission
+  Planner expect, usually on port 5600. **MPEG-TS** for VLC, ffmpeg and OBS.
+- **Destinations**: `host:port` of each receiver, separated by commas, up to 8. Multicast addresses work too, for example `239.0.0.1:1234`.
+
+<Admonition type="info">
+  UDP can't tell whether anyone receives it. If nothing shows up, check the
+  receiver's address and port, and its firewall.
+</Admonition>
+
+## The splash screen in streams
+
+While there's no video, the streams carry the
+[splash screen](/docs/using/splash-and-logo), so players stay connected and pick the
+video back up when it returns.

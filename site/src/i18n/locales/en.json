@@ -1,0 +1,295 @@
+{
+  "site": {
+    "titleSuffix": "Stream and record your DJI FPV goggles on a Raspberry Pi",
+    "description": "Raspberry Pi 4 software that takes the live feed from DJI FPV goggles or a USB camera and sends it to HDMI, any browser, RTSP/SRT/RTMP/UDP streams and recordings.",
+    "docsTitleSuffix": "YStreamer docs"
+  },
+  "nav": {
+    "home": "Home",
+    "download": "Download",
+    "docs": "Documentation",
+    "links": "Links",
+    "toggleMenu": "Toggle menu",
+    "changeLanguage": "Change language",
+    "theme": {
+      "toggle": "Toggle theme",
+      "auto": "Auto",
+      "light": "Light",
+      "dark": "Dark"
+    }
+  },
+  "common": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "allReleases": "All releases"
+  },
+  "footer": {
+    "source": "Source code",
+    "disclaimer": "YStreamer is an independent open-source project. It is not affiliated with, endorsed by or sponsored by DJI. DJI and its product names are trademarks of their respective owners."
+  },
+  "hero": {
+    "by": "by",
+    "slogan": "Your FPV feed, on every screen.",
+    "subtitle": "Software for a Raspberry Pi 4 that takes the live video from DJI goggles or a USB camera and sends it to an HDMI screen, to any browser, to streams and to recordings. Set up from a web interface.",
+    "download": "Download",
+    "docs": "Documentation",
+    "source": "Source code",
+    "orInstall": "Already running Raspberry Pi OS Lite? Install with one command:",
+    "mediaAlt": "The YStreamer web interface showing the live feed from the goggles"
+  },
+  "flow": {
+    "eyebrow": "How it works",
+    "title": "Plug in the goggles. Send the video anywhere.",
+    "subtitle": "One Raspberry Pi in the middle, one cable from the goggles, and every output at once.",
+    "inputsLabel": "In",
+    "outputsLabel": "Out",
+    "inputs": [
+      {
+        "name": "DJI goggles",
+        "detail": "Goggles 2, Integra, 3, N3 over USB-C"
+      },
+      {
+        "name": "DJI FPV Goggles V1 / V2",
+        "detail": "Video only, over USB-A",
+        "experimental": true
+      },
+      {
+        "name": "UVC Input",
+        "detail": "DJI Action, OTG analog receivers, USB cameras and capture devices"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "HDMI",
+        "detail": "A TV, monitor or projector"
+      },
+      {
+        "name": "Browser",
+        "detail": "Live view on any phone or laptop"
+      },
+      {
+        "name": "Streams",
+        "detail": "RTSP, SRT, RTMP and UDP"
+      },
+      {
+        "name": "Recording",
+        "detail": "To the SD card or a USB drive"
+      }
+    ]
+  },
+  "features": {
+    "eyebrow": "Features",
+    "title": "Everything from the web interface",
+    "subtitle": "Open the device in a browser and set it up there. No terminal needed.",
+    "items": [
+      {
+        "title": "Watch in the browser",
+        "text": "Live view on any phone or laptop on the network, with WebRTC for the lowest latency."
+      },
+      {
+        "title": "Stream it out",
+        "text": "An RTSP server, plus SRT, RTMP and UDP for OBS, ground stations and streaming platforms."
+      },
+      {
+        "title": "Record",
+        "text": "To the SD card or a USB drive, by hand, automatically when video arrives, or with a physical button."
+      },
+      {
+        "title": "Air unit camera settings",
+        "text": "Exposure, white balance, video format, colour profile and more, depending on the air unit."
+      },
+      {
+        "title": "Goggles status",
+        "text": "The goggles' battery and the link quality, shown next to the video."
+      },
+      {
+        "title": "Logo and splash screen",
+        "text": "Put your logo on the HDMI picture, and choose what shows while there's no video."
+      },
+      {
+        "title": "Remote access",
+        "text": "Reach the device from anywhere through Tailscale or WireGuard."
+      },
+      {
+        "title": "Signed updates",
+        "text": "Update from the web interface. If a new version doesn't start, the previous one comes back."
+      }
+    ]
+  },
+  "gallery": {
+    "eyebrow": "Gallery",
+    "title": "See it in action",
+    "subtitle": "From the goggles to the big screen",
+    "items": []
+  },
+  "compat": {
+    "eyebrow": "Compatibility",
+    "title": "Works with your goggles",
+    "subtitle": "Connect the goggles to the Pi's USB-C port. The first DJI FPV Goggles and USB cameras go in a USB-A port.",
+    "disclaimer": "YStreamer is not affiliated with DJI.",
+    "status": {
+      "supported": "Supported",
+      "experimental": "Experimental"
+    },
+    "devices": [
+      {
+        "name": "DJI Goggles 2",
+        "via": "USB-C",
+        "kind": "goggles",
+        "status": "supported"
+      },
+      {
+        "name": "DJI Goggles Integra",
+        "via": "USB-C",
+        "kind": "goggles",
+        "status": "supported"
+      },
+      {
+        "name": "DJI Goggles 3",
+        "via": "USB-C",
+        "kind": "goggles",
+        "status": "supported"
+      },
+      {
+        "name": "DJI Goggles N3",
+        "via": "USB-C",
+        "kind": "goggles",
+        "status": "supported"
+      },
+      {
+        "name": "DJI FPV Goggles V1 / V2",
+        "via": "USB-A",
+        "kind": "goggles",
+        "status": "experimental"
+      },
+      {
+        "name": "USB cameras & capture devices",
+        "via": "USB-A",
+        "kind": "camera",
+        "status": "supported"
+      }
+    ]
+  },
+  "install": {
+    "eyebrow": "Get started",
+    "title": "Up and running in three steps",
+    "steps": [
+      {
+        "title": "Flash the image",
+        "text": "Write the ready-made image to a microSD card and put it in a Raspberry Pi 4."
+      },
+      {
+        "title": "Plug in the goggles",
+        "text": "Connect them to the Pi's USB-C port with a data cable, and power the Pi on."
+      },
+      {
+        "title": "Open ystreamer.local",
+        "text": "Join its <strong>YStreamer</strong> Wi-Fi or plug in Ethernet, then open it in any browser."
+      }
+    ],
+    "cta": "Download YStreamer",
+    "scriptHint": "Already running Raspberry Pi OS Lite?",
+    "scriptLink": "Use the install script instead."
+  },
+  "limits": {
+    "eyebrow": "Good to know",
+    "title": "Before you start",
+    "subtitle": "A few honest limits, so there are no surprises.",
+    "items": [
+      {
+        "title": "Raspberry Pi 4 only",
+        "text": "YStreamer is tested only on the Raspberry Pi 4 Model B."
+      },
+      {
+        "title": "USB-C is for the goggles",
+        "text": "While YStreamer is installed, the Pi's USB-C port is reserved for the goggles."
+      },
+      {
+        "title": "2.4 GHz Wi-Fi, on purpose",
+        "text": "Wi-Fi runs on 2.4 GHz only. 5 GHz interferes with the goggles' video link."
+      },
+      {
+        "title": "Lite, not desktop",
+        "text": "Raspberry Pi OS with a desktop isn't supported: the desktop keeps the HDMI output. Use the Lite version."
+      }
+    ]
+  },
+  "cta": {
+    "title": "Put your FPV feed on the big screen",
+    "text": "Free and open source under GPL-3.0. Flash the image, plug in the goggles, open the browser.",
+    "download": "Get YStreamer",
+    "star": "View on GitHub"
+  },
+  "download": {
+    "pageTitle": "Download",
+    "heading": "Download YStreamer",
+    "subtitle": "Both ways end at the same place: the web interface at ystreamer.local.",
+    "fullGuide": "Full guide",
+    "image": {
+      "title": "Ready-made image",
+      "tag": "For a blank SD card",
+      "steps": [
+        "Download <strong>ystreamer-&lt;version&gt;.img.xz</strong> (about 800 MB) from the latest release.",
+        "Write it to a microSD card with <strong>Raspberry Pi Imager</strong> (\"Use custom\") or <strong>balenaEtcher</strong>.",
+        "Put the card in the Pi, power it on and open <strong>http://ystreamer.local</strong>."
+      ],
+      "cta": "Download the image"
+    },
+    "script": {
+      "title": "Install script",
+      "tag": "For Raspberry Pi OS Lite (64-bit, Trixie)",
+      "steps": [
+        "Start with <strong>Raspberry Pi OS Lite, 64-bit</strong> (Debian 13 \"Trixie\") on the Pi.",
+        "Run the command below. It checks the device, shows what it will change and <strong>asks before installing</strong>."
+      ]
+    },
+    "next": "Installed?",
+    "nextLink": "Continue with the first boot.",
+    "recommended": "Recommended"
+  },
+  "notFound": {
+    "pageTitle": "404 - No signal",
+    "linkLost": "404 - video link lost",
+    "noSignal": "No signal",
+    "heading": "This page lost its video link",
+    "message": "Nothing came through on this channel. The page you're after either never existed or was moved. Let's get you back to a clear feed.",
+    "home": "Return to home",
+    "docs": "Read the docs"
+  },
+  "docs": {
+    "sidebar": "Documentation",
+    "menuButton": "Docs",
+    "previous": "Previous",
+    "next": "Next",
+    "untranslated": "This page isn't translated yet, so it's shown in English.",
+    "closeMenu": "Close menu",
+    "pageNav": "Page navigation"
+  },
+  "admonition": {
+    "note": "Note",
+    "info": "Info",
+    "tip": "Tip",
+    "warning": "Warning",
+    "danger": "Danger"
+  },
+  "tested": {
+    "columns": [
+      "Goggles or camera",
+      "Air units",
+      "Pi 4",
+      "Result",
+      "Tested by"
+    ],
+    "results": {
+      "worksFull": "Works fully",
+      "worksLimited": "Works, with limitations",
+      "worksPartial": "Works, not fully tested",
+      "doesntWork": "Doesn't work"
+    },
+    "by": {
+      "maintainer": "Maintainer",
+      "community": "Community"
+    },
+    "empty": "No reports yet."
+  }
+}

@@ -1,0 +1,52 @@
+---
+title: Встановлення з образу [Рекомендовано]
+description: Запиши готовий образ на порожню SD-карту.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Готовий образ — найпростіший спосіб почати: Raspberry Pi OS Lite з уже
+встановленим і налаштованим YStreamer.
+
+<Admonition type="warning">
+  Запис образу стирає все на SD-карті, зокрема налаштування й записи з
+  попереднього встановлення. Спершу скопіюй записи — на USB-накопичувач або
+  завантаживши їх. Щоб отримати нову версію, краще [онови з
+  вебінтерфейсу](/docs/maintenance/updates): так усе збережеться.
+</Admonition>
+
+## 1. Завантаж
+
+[Завантаж останній образ](/download/ystreamer.img.xz),
+`ystreamer-<версія>.img.xz`. Розпаковувати його не треба. Старіші версії є на
+[сторінці релізів](https://github.com/YLabs-FPV/YStreamer/releases).
+
+## 2. Запиши
+
+**За допомогою Raspberry Pi Imager**
+
+1. Відкрий Raspberry Pi Imager і обери пристрій **Raspberry Pi 4**.
+2. В операційних системах прокрути вниз до **Use custom** і обери файл
+   `.img.xz`.
+3. Обери SD-карту й запиши.
+
+<Screenshot
+  src="/images/docs/other-software/flasher.webp"
+  alt="Raspberry Pi Imager з вибраним пунктом Use custom"
+  width={1334}
+  height={1424}
+/>
+
+**За допомогою balenaEtcher**
+
+1. Обери **Flash from file** і вкажи файл `.img.xz`.
+2. Обери SD-карту й запиши.
+
+## 3. Запусти
+
+Встав карту в Pi, підключи окуляри до порту USB-C, під'єднай екран з HDMI,
+якщо він є, і увімкни Pi.
+
+Далі — [перший запуск](/docs/getting-started/first-boot).

@@ -1,0 +1,94 @@
+---
+title: Wi-Fi and Ethernet
+description: Join a network, run an access point, and keep the device reachable.
+order: 10
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Everything here is under **Network → Connectivity**. The **Status** card shows
+each connection, its addresses and whether there's internet.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/network-page.webp"
+  alt="Network → Connectivity: the status, the access point, phone over USB and Ethernet"
+  width={1390}
+  height={1893}
+/>
+
+## Wi-Fi
+
+The Pi's Wi-Fi either runs its own network or joins one, not both. It's
+**2.4 GHz only**, on purpose: 5 GHz is where the goggles' video link runs.
+
+### Country
+
+Choose the country you're in. It sets which channels and power the radio may
+use. On the image, Raspberry Pi OS keeps Wi-Fi off until a country is set, and
+YStreamer switches it on.
+
+### Access point
+
+With **Access point** on, the device always broadcasts its own network, and
+phones and laptops connect to it directly.
+
+| Setting      | Default     | Notes                                    |
+| ------------ | ----------- | ---------------------------------------- |
+| Network name | `YStreamer` |                                          |
+| Password     | `ystreamer` | WPA2, 8 to 63 characters. Change it.     |
+| Channel      | 6           | 1 to 11                                  |
+| Address      | `10.0.0.1`  | Devices on the network open this address |
+
+A fresh image starts with the access point on.
+
+### Join a network
+
+Turn **Join a network** on, then **Scan** and pick your network, or type its
+name. Enter the password (empty for an open network) and **Save**.
+
+Saving drops your browser off the current network. Reconnect to the network
+the Pi joined and open **http://ystreamer.local**.
+
+### Fallback
+
+With the access point off, **Fallback** (on by default) starts it by itself
+when the device can't be reached:
+
+- if the network can't be joined within a minute, or
+- after a few seconds with neither Ethernet nor Wi-Fi, for example unplugged
+  in the field.
+
+It goes away again once Ethernet is back and nobody has used the access point
+for a while. The Status card says when and why it's on.
+
+<Admonition type="warning">
+  With **Fallback** off, unplugged and without a joined network, there's no way
+  to reach the web interface until you plug in Ethernet.
+</Admonition>
+
+## Ethernet
+
+| Mode      | What it does                                                                                    |
+| --------- | ----------------------------------------------------------------------------------------------- |
+| System    | Leaves Ethernet to the OS. Script installs only.                                                |
+| Automatic | Gets an address from the router (DHCP). The default on the image.                               |
+| Static    | A fixed **Address** with its network size (`192.168.1.50/24`), **Gateway** and **DNS servers**. |
+
+<Admonition type="warning">
+  With a static address on the wrong network, you'll need Wi-Fi to get back in.
+</Admonition>
+
+## Phone over USB
+
+Plug a phone into a USB-A port and turn on **USB tethering** on it. The device
+gets internet through the phone, for RTMP or remote access in the field, and
+the phone can open the web interface at the address shown on the
+[splash screen](/docs/using/splash-and-logo). There's nothing to set up.
+
+iPhones need `usbmuxd`; the card says so if it's missing.
+
+## Device name
+
+**System → General → Device name** is also the network name: the device
+answers at `http://<name>.local`. `ystreamer` on the image.

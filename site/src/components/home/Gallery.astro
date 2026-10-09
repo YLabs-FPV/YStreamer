@@ -1,0 +1,126 @@
+---
+import { getLangFromUrl, useTranslations, useData } from "../../i18n";
+
+type Media =
+  | { type: "video"; src: string }
+  | { type: "image"; src: string }
+  | { type: "themed-image"; lightSrc: string; darkSrc: string };
+
+const media: Media[] = [
+  // { type: "themed-image", lightSrc: "/gallery/watch-light.webp", darkSrc: "/gallery/watch-dark.webp" },
+  // { type: "image", src: "/gallery/hdmi.webp" },
+  // { type: "video", src: "/gallery/stream.mp4" },
+];
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const d = useData(lang);
+
+const items = d<{ label: string; caption: string }[]>("gallery.items") ?? [];
+const slots = media.map((m, i) => ({
+  ...m,
+  label: items[i]?.label ?? "",
+  caption: items[i]?.caption ?? "",
+}));
+---
+
+{slots.length > 0 && (
+  <section class="px-6 py-12" id="gallery">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center max-w-2xl mx-auto">
+        <span class="eyebrow">{t("gallery.eyebrow")}</span>
+        <h2 class="mt-3 text-3xl md:text-4xl font-bold">
+          {t("gallery.title")}
+        </h2>
+        <p class="mt-3 text-[rgb(var(--color-text-muted))] text-lg">
+          {t("gallery.subtitle")}
+        </p>
+      </div>
+
+      <div class="mt-12 grid gap-6 md:grid-cols-3">
+        {slots.map((s, i) => (
+          <figure>
+            <div class="relative aspect-video rounded-2xl border border-[rgb(var(--color-border))] bg-[rgb(var(--color-secondary))] overflow-hidden">
+              {s.type === "video" ? (
+                <video
+                  class="w-full h-full object-cover"
+                  src={s.src}
+                  autoplay
+                  loop
+                  muted
+                  playsinline
+                  aria-label={s.label}
+                />
+              ) : s.type === "image" ? (
+                <img
+                  class="w-full h-full object-cover"
+                  src={s.src}
+                  alt={s.label}
+                  loading="lazy"
+                />
+              ) : (
+                <>
+                  <img
+                    class="light-only w-full h-full object-cover"
+                    src={s.lightSrc}
+                    alt={s.label}
+                    loading="lazy"
+                  />
+                  <img
+                    class="dark-only w-full h-full object-cover"
+                    src={s.darkSrc}
+                    alt={s.label}
+                    loading="lazy"
+                  />
+                </>
+              )}
+            </div>
+            {s.label && (
+              <figcaption class="mt-3 px-1">
+                <span class="block text-sm font-semibold">{s.label}</span>
+                <span class="mt-0.5 block text-sm text-[rgb(var(--color-text-muted))]">
+                  {s.caption}
+                </span>
+              </figcaption>
+            )}
+          </figure>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+<style>
+  /* Default (auto): use system preference */
+  .light-only {
+    display: block;
+  }
+  .dark-only {
+    display: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .light-only {
+      display: none;
+    }
+    .dark-only {
+      display: block;
+    }
+  }
+
+  /* Explicit light mode */
+  :global(html.light) .light-only {
+    display: block !important;
+  }
+  :global(html.light) .dark-only {
+    display: none !important;
+  }
+
+  /* Explicit dark mode */
+  :global(html.dark) .light-only {
+    display: none !important;
+  }
+  :global(html.dark) .dark-only {
+    display: block !important;
+  }
+</style>

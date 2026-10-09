@@ -1,0 +1,25 @@
+---
+title: Salida HDMI
+description: Muestra el vídeo en una TV, un monitor o un proyector.
+order: 40
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Conecta una pantalla a uno de los puertos micro-HDMI de la Pi; YStreamer usa
+el primero que tenga una pantalla conectada. Los ajustes están en
+**Display → HDMI**.
+
+| Ajuste             | Qué hace                                                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Show video on HDMI | Desactívalo cuando no haya nada conectado: libera el decodificador y algo de CPU para el streaming.                                     |
+| Resolution         | **Automatic** elige el modo más nítido hasta 1080p, lo más cerca de 60 Hz que permita la pantalla. O elige uno que ofrezca la pantalla. |
+| Scaling            | **Fit** muestra la imagen entera, con bandas si las proporciones no coinciden. **Fill** llena la pantalla y recorta los bordes.         |
+| Rotate 180°        | Para una pantalla montada del revés.                                                                                                    |
+| Mirror             | Voltea la imagen de izquierda a derecha.                                                                                                |
+
+La lista de resoluciones marca la que prefiere la pantalla, y los modos que
+quedarían estirados.
+
+Mientras no hay vídeo, el HDMI muestra la
+[pantalla de inicio](/docs/using/splash-and-logo).

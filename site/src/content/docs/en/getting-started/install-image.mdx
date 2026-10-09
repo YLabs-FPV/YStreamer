@@ -1,0 +1,52 @@
+---
+title: Install using the image [Recommended]
+description: Flash the ready-made image to a blank SD card.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+The ready-made image is the easiest way in: Raspberry Pi OS Lite with
+YStreamer already installed and set up.
+
+<Admonition type="warning">
+  Flashing erases everything on the SD card, including the settings and any
+  recordings already on it from an earlier install. Copy recordings off first,
+  to a USB drive or by downloading them. To get a new version, [update from the
+  web interface](/docs/maintenance/updates) instead: that keeps everything.
+</Admonition>
+
+## 1. Download
+
+[Download the latest image](/download/ystreamer.img.xz),
+`ystreamer-<version>.img.xz`. You don't need to unpack it. Older versions are
+on the [releases page](https://github.com/YLabs-FPV/YStreamer/releases).
+
+## 2. Flash
+
+**With Raspberry Pi Imager**
+
+1. Open Raspberry Pi Imager and choose **Raspberry Pi 4** as the device.
+2. For the operating system, scroll down to **Use custom** and pick the
+   `.img.xz` file.
+3. Choose the SD card and write it.
+
+<Screenshot
+  src="/images/docs/other-software/flasher.webp"
+  alt="Raspberry Pi Imager with Use custom selected"
+  width={1334}
+  height={1424}
+/>
+
+**With balenaEtcher**
+
+1. Choose **Flash from file** and pick the `.img.xz` file.
+2. Choose the SD card and flash.
+
+## 3. Boot
+
+Put the card in the Pi, connect the goggles to the USB-C port, plug in an
+HDMI screen if you have one, and power the Pi on.
+
+Continue with the [first boot](/docs/getting-started/first-boot).

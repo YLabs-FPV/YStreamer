@@ -1,0 +1,52 @@
+---
+title: YouTube, Twitch y Facebook
+description: Emite en directo en una plataforma de streaming por RTMP.
+order: 40
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+El dispositivo envía directamente a la plataforma por RTMP, sin un ordenador
+en medio. Necesita internet: Wi-Fi, Ethernet o un
+[móvil por USB](/docs/network/wifi-and-ethernet).
+
+## Consigue la clave de stream
+
+- **YouTube**: YouTube Studio → **Crear → Emitir en directo → Emisión**, y
+  copia la **Clave de emisión**.
+- **Twitch**: Panel de control del creador → **Configuración → Emisión**, y
+  copia la **Clave de transmisión principal**.
+- **Facebook**: **Live Producer**, elige **Software de transmisión** y copia
+  la **Clave de transmisión**.
+
+<Admonition type="warning">
+  La clave de stream es una contraseña: cualquiera que la tenga puede emitir en
+  tu canal.
+</Admonition>
+
+## Configura el dispositivo
+
+1. Ve a **Streaming → RTMP**.
+2. Elige el **Service**. La URL del servidor se rellena sola.
+3. Pega la **Stream key**.
+4. Deja **Silent audio track** activado: algunas plataformas rechazan o
+   marcan los streams sin sonido.
+5. Activa **RTMP** y pulsa **Save**.
+
+La tarjeta muestra **Connecting…** y luego **Live** con el tiempo y la tasa
+de bits. Si la conexión se corta, el dispositivo lo vuelve a intentar solo.
+
+## Otras plataformas
+
+Elige **Custom server** y escribe la URL RTMP o RTMPS de la plataforma, sin la
+clave, por ejemplo `rtmp://live.example.com/app`. Luego pega la clave.
+
+## Tasa de bits
+
+Con gafas DJI, el vídeo se envía tal como lo generan las gafas, sin volver a
+codificarlo, así que la tasa de bits del stream es la de las gafas.
+Compruébala en las estadísticas de la página Watch (`S`), y asegúrate de que
+tu subida puede con ella.
+
+Con una cámara USB, la tasa de bits es la que se configura en
+[Input](/docs/using/video-input).

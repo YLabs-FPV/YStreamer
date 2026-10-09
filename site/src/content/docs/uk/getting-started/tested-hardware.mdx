@@ -1,0 +1,25 @@
+---
+title: Протестоване обладнання
+description: Окуляри, повітряні модулі та камери, з якими YStreamer справді запускали.
+order: 25
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import TestedHardware from "../../../../components/docs/TestedHardware.astro";
+
+[Що потрібно](/docs/getting-started/requirements#підтримувані-входи)
+перелічує, що підтримує YStreamer. Ця таблиця вужча: конфігурації, які
+справді запускали на реальному обладнанні — розробник і спільнота.
+
+<TestedHardware />
+
+Колонка **Pi 4**, тобто ревізія плати, важлива для окулярів DJI: плати ревізії
+1.1 мають дефект USB-C, див.
+[ранні плати Raspberry Pi 4](/docs/getting-started/requirements#кабелі).
+
+<Admonition type="tip" title="Спробував зі своїм обладнанням? Розкажи нам">
+  Таблиця складається зі звітів, і "просто працює" не менш корисне, ніж
+  проблема. Скористайся [звітом про сумісність
+  обладнання](https://github.com/YLabs-FPV/YStreamer/issues/new?template=hardware_report.yml)
+  на GitHub, вказавши свої окуляри й повітряний модуль або USB-камеру.
+</Admonition>

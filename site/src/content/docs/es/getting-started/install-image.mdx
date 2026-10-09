@@ -1,0 +1,53 @@
+---
+title: Instalar con la imagen [Recomendado]
+description: Graba la imagen lista para usar en una tarjeta SD vacía.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+La imagen lista para usar es la forma más fácil de empezar: Raspberry Pi OS
+Lite con YStreamer ya instalado y configurado.
+
+<Admonition type="warning">
+  Grabar la imagen borra todo lo que hay en la tarjeta SD, incluidos los ajustes
+  y las grabaciones de una instalación anterior. Copia antes las grabaciones, a
+  una memoria USB o descargándolas. Para conseguir una versión nueva, mejor
+  [actualiza desde la interfaz web](/docs/maintenance/updates): así se conserva
+  todo.
+</Admonition>
+
+## 1. Descarga
+
+[Descarga la última imagen](/download/ystreamer.img.xz),
+`ystreamer-<versión>.img.xz`. No hace falta descomprimirla. Las versiones
+anteriores están en la [página de versiones](https://github.com/YLabs-FPV/YStreamer/releases).
+
+## 2. Graba la tarjeta
+
+**Con Raspberry Pi Imager**
+
+1. Abre Raspberry Pi Imager y elige **Raspberry Pi 4** como dispositivo.
+2. En el sistema operativo, baja hasta **Use custom** y elige el archivo
+   `.img.xz`.
+3. Elige la tarjeta SD y grábala.
+
+<Screenshot
+  src="/images/docs/other-software/flasher.webp"
+  alt="Raspberry Pi Imager con Use custom seleccionado"
+  width={1334}
+  height={1424}
+/>
+
+**Con balenaEtcher**
+
+1. Elige **Flash from file** y selecciona el archivo `.img.xz`.
+2. Elige la tarjeta SD y grábala.
+
+## 3. Arranca
+
+Pon la tarjeta en la Pi, conecta las gafas al puerto USB-C, conecta una
+pantalla HDMI si tienes una y enciende la Pi.
+
+Sigue con el [primer arranque](/docs/getting-started/first-boot).

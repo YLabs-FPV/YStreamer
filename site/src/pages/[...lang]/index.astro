@@ -1,0 +1,24 @@
+---
+import MainLayout from "../../layouts/MainLayout.astro";
+import Hero from "../../components/home/Hero.astro";
+import SignalFlow from "../../components/home/SignalFlow.astro";
+import Features from "../../components/home/Features.astro";
+import Compatibility from "../../components/home/Compatibility.astro";
+import Install from "../../components/home/Install.astro";
+import { SITE_TITLE } from "../../consts";
+import { getLangFromUrl, useTranslations } from "../../i18n";
+import { getLangPaths } from "../../i18n/getLangPaths";
+
+export const getStaticPaths = getLangPaths;
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+---
+
+<MainLayout title={`${SITE_TITLE} - ${t("site.titleSuffix")}`}>
+  <Hero />
+  <SignalFlow />
+  <Features />
+  <Compatibility />
+  <Install />
+</MainLayout>

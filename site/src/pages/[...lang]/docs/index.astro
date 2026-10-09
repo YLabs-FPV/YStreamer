@@ -1,0 +1,26 @@
+---
+import { render } from "astro:content";
+import DocsLayout from "../../../layouts/DocsLayout.astro";
+import { getSortedDocs } from "../../../lib/docs";
+import { languages } from "../../../i18n";
+
+export async function getStaticPaths() {
+  return Promise.all(
+    Object.keys(languages).map(async (lang) => {
+      const [entry] = await getSortedDocs(lang);
+      return { params: { lang }, props: { entry } };
+    }),
+  );
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+---
+
+<DocsLayout
+  title={entry.data.title}
+  description={entry.data.description}
+  currentId={entry.id}
+>
+  <Content />
+</DocsLayout>

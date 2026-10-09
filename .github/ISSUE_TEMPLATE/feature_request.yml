@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest an idea or improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: What are you trying to do that's hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like YStreamer to do?
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Related hardware or software (if any)
+      placeholder: "Goggles N3, OBS, QGroundControl..."
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds you currently use, or other approaches you thought about.

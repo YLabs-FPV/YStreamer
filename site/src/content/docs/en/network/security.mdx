@@ -1,0 +1,54 @@
+---
+title: Password and SSH
+description: Protect the web interface, and log in over SSH.
+order: 30
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+## Web interface password
+
+The web interface has no password until you set one. Until then, anyone who
+can reach the device can change its settings.
+
+Under **System → General → Access**:
+
+- **Set password…**: at least 6 characters.
+- **Change…** and **Remove…** ask for the current password first.
+
+Once a password is set:
+
+- Changing settings needs a login. A login lasts 30 days in that browser.
+- Without logging in, people can still **watch** the video, unless you turn
+  on **Require password to watch**.
+- Setting a new password logs out every other browser.
+
+<Admonition type="tip" title="Forgot the password?">
+  Over SSH, set a new one with `sudo ystreamer password`. Without SSH, reset the
+  settings, which also removes the password: see [backup and
+  reset](/docs/maintenance/backup-and-reset).
+</Admonition>
+
+The [command line](/docs/maintenance/command-line) can also set or remove the
+password: `sudo ystreamer password`, or `--clear` to remove it.
+
+## SSH
+
+On the ready-made image, SSH is off. Turn on **Allow SSH** under
+**System → General → SSH**.
+
+- **User:** `ystreamer`
+- **Password:** `ystreamer` until you change it
+
+The card warns while the password is still the default one: change it under
+**Password**, at least 8 characters. It's the device's own login password, not
+the web interface's.
+
+```sh
+ssh ystreamer@ystreamer.local
+```
+
+<Admonition type="info">
+  With the install script, SSH and your user account stay as you set them up,
+  and these controls don't appear.
+</Admonition>

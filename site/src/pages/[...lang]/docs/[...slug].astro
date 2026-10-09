@@ -1,0 +1,32 @@
+---
+import { render } from "astro:content";
+import DocsLayout from "../../../layouts/DocsLayout.astro";
+import { docPath, getSortedDocs } from "../../../lib/docs";
+import { languages } from "../../../i18n";
+
+export async function getStaticPaths() {
+  const paths = [];
+  for (const lang of Object.keys(languages)) {
+    const sorted = await getSortedDocs(lang);
+    // Every page at its path; the first is also at /docs (docs/index.astro)
+    for (const entry of sorted) {
+      paths.push({
+        params: { lang, slug: docPath(entry.id) },
+        props: { entry },
+      });
+    }
+  }
+  return paths;
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+---
+
+<DocsLayout
+  title={entry.data.title}
+  description={entry.data.description}
+  currentId={entry.id}
+>
+  <Content />
+</DocsLayout>

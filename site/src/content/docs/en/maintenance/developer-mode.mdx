@@ -1,0 +1,76 @@
+---
+title: Developer mode
+description: The extra tools for troubleshooting and development, and how to turn them on.
+order: 60
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Developer mode shows tools that most people never need: more detailed logs, a
+shell on the device, and views of what's going on with the video sources. It's
+meant for troubleshooting and for working on YStreamer itself.
+
+## Turning it on
+
+Go to **System → About** and tap the **YStreamer** version 7 times. After a
+few taps, a message counts down the rest. Once it's on, the tools are under
+**System → Developer**.
+
+To turn it off, use the **Developer mode** switch under **System → Developer**.
+
+<Admonition type="info" title="It's per browser">
+  Developer mode is remembered in the browser you turned it on in, not on the
+  device. Other browsers, and other people, don't see the extra tools until
+  they turn it on too. The settings below, though, belong to the device.
+</Admonition>
+
+## What it adds
+
+### Verbose logging
+
+Under **System → Developer**. The service writes much more detail to the
+[logs](/docs/maintenance/diagnostics), such as how much video arrives from the
+goggles each second. Turn it on while reproducing a problem, then off again:
+it makes the logs harder to read the rest of the time.
+
+### Terminal
+
+A shell on the device, in the browser, as **root** or as the device's own user
+account (`ystreamer` on the image). It's a page of its own in the sidebar,
+under **Diagnostics**.
+
+1. [Set a web interface password](/docs/network/security) first. The terminal
+   refuses to run without one.
+2. Turn on **Terminal** under **System → Developer** and **Save**.
+3. Open **Terminal** in the sidebar.
+
+Leaving the page closes the shell and stops what it was running. Use
+**New shell** to start again.
+
+<Admonition type="warning" title="Root access">
+  Anyone logged in to the web interface can then run anything on the device.
+  Keep it off unless you need it, and see the
+  [security checklist](/docs/network/security-checklist).
+</Admonition>
+
+### Goggles link monitor
+
+**System → Developer** also shows the **DUML monitor**: the control messages
+DJI goggles exchange with YStreamer over USB, one row per kind of message,
+with how often each arrives and its latest content.
+
+- Turn on **Live** to start watching.
+- **Mark**, then change something on the aircraft or the goggles: the rows that
+  changed since the mark are highlighted.
+- **Clear** empties the list.
+
+It can also send a message to the goggles. Only do that if you know what the
+message does.
+
+### Raw capture for FPV Goggles V1 / V2
+
+With **FPV Goggles V1/V2** selected under **Input**, the card for those goggles
+gets **Capture the raw stream**. It saves the next 8 MB exactly as the goggles
+send it, then **Download** gives you the file. Attach it to a
+[bug report](/docs/help) when those goggles misbehave: it lets the problem be
+looked into without the hardware.

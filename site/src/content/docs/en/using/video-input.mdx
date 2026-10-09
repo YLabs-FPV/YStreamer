@@ -1,0 +1,73 @@
+---
+title: Video input
+description: Choose the video source - DJI goggles, the first FPV goggles or a USB camera.
+order: 20
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+Pick the source under **Input → Video source**. One is used at a time.
+
+## DJI goggles
+
+For **Goggles 2, Integra, Goggles 3 and N3**. Connect them to the Pi's
+**USB-C** port with a USB-C data cable. You get the video, the air unit's
+[camera settings](/docs/using/camera-settings), the goggles' battery and the link
+quality.
+
+The video is the goggles' own H.264 stream. YStreamer passes it on as it is,
+without encoding it again.
+
+<Admonition type="tip" title="No OSD in the feed">
+  To keep the OSD out of the video, turn off **Camera View Recording** in the
+  goggles, under Settings → Camera → Advanced Camera Settings.
+</Admonition>
+
+## FPV Goggles V1 / V2
+
+The first DJI FPV Goggles. Connect them to one of the Pi's **USB-A** ports.
+Video only: no camera settings, battery or link quality.
+
+<Admonition type="warning" title="Experimental">
+  This source hasn't been tried on real hardware by the maintainers yet.
+</Admonition>
+
+The card shows what it sees:
+
+- **Receiving video.**
+- **Goggles found, no video yet**: power the aircraft and wait for the
+  picture in the goggles.
+- **No goggles found**: check the cable and the port.
+
+## USB camera
+
+Webcams, HDMI capture sticks and analog receivers, in one of the **USB-A**
+ports.
+
+| Setting            | What it does                                                             |
+| ------------------ | ------------------------------------------------------------------------ |
+| Device             | Which camera. **First one found** uses whichever is plugged in.          |
+| Resolution         | A mode the camera offers. **Best available** goes up to 1080p at 30 fps. |
+| Bitrate (kbit/s)   | 500 to 20000. About 6000 for 1080p, 2500 for an analog receiver.         |
+| Keyframe every (s) | 1 to 10. Shorter means players start sooner after joining.               |
+
+**Refresh** looks for cameras again after you plug one in.
+
+The camera's picture is encoded to H.264 by the Pi's hardware encoder. A
+camera that sends H.264 itself is passed through as it is, and its own
+bitrate applies.
+
+<Admonition type="info" title="Software encoding">
+  If the hardware encoder isn't available, the Input page says so and encoding
+  falls back to the CPU, at 720p at most. That's usually too little video
+  memory: add `gpu_mem=256` to `/boot/firmware/config.txt` and reboot. The image
+  and the install script already set it.
+</Admonition>
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/input-card.webp"
+  alt="The Input page with a USB camera selected"
+  width={1554}
+  height={928}
+/>

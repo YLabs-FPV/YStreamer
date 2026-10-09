@@ -1,0 +1,63 @@
+---
+title: Віддалений доступ
+description: Доступ до пристрою звідусіль через Tailscale або WireGuard.
+order: 20
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+import Screenshot from "../../../../components/docs/Screenshot.astro";
+
+У **Network → Remote access**. У готовому образі Tailscale і WireGuard уже
+встановлено. Після скрипта встановлення картка підкаже, що встановити, якщо
+їх немає. Обом потрібен інтернет на пристрої: через твою мережу, Ethernet
+або [телефон через USB](/docs/network/wifi-and-ethernet).
+
+<Admonition type="warning" title="Спершу встанови пароль">
+  Без [пароля](/docs/network/security) будь-хто у твоїй мережі Tailscale або VPN
+  може змінювати налаштування.
+</Admonition>
+
+## Tailscale
+
+1. Натисни **Set up**. Картка покаже посилання.
+2. Відкрий його на будь-якому пристрої та увійди в Tailscale. Картка сама
+   оновиться.
+3. Після підключення картка покаже адресу пристрою в Tailscale. Відкривай її
+   з будь-якого пристрою у своїй мережі Tailscale.
+
+Картка також показує пристрої, які ним користуються, і чи кожне з'єднання
+**Direct** чи **Relayed**. Relayed додає затримку.
+
+**Disconnect** тимчасово відключає пристрій від Tailscale; **Sign out**
+видаляє його з твоєї мережі Tailscale. Щоб налаштувати знову, потрібне
+з'єднання з локальної мережі.
+
+<Screenshot
+  themed="/images/docs/ystreamer-ui/{theme}/tailscale.webp"
+  alt="Картка Tailscale, підключено"
+  width={1364}
+  height={624}
+/>
+
+## WireGuard
+
+Для твого власного сервера WireGuard.
+
+1. Створи на сервері конфігурацію для пристрою: файл `.conf` з `[Interface]`
+   і `[Peer]`.
+2. Натисни **Upload configuration** і обери файл.
+3. Натисни **Switch on**.
+
+Картка показує адресу пристрою в тунелі, останню відповідь сервера та
+отримані й надіслані дані.
+
+<Admonition type="tip" title="PersistentKeepalive">
+  Пристрій зазвичай стоїть за роутером, тож сервер може дістатися до нього, лише
+  поки з'єднання підтримується відкритим. Додай `PersistentKeepalive = 25` у
+  `[Peer]`; картка попередить, якщо цього немає.
+</Admonition>
+
+Конфігурація з `AllowedIPs = 0.0.0.0/0` спрямовує весь інтернет-трафік
+пристрою через тунель, зокрема потоки RTMP і SRT.
+
+**Remove** видаляє конфігурацію та її ключі з пристрою.

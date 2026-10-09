@@ -1,0 +1,147 @@
+---
+import HeaderLink from "./HeaderLink.astro";
+import ThemeToggle from "./ThemeToggle.svelte";
+import LanguageSelector from "./LanguageSelector.svelte";
+import Socials from "./Socials.astro";
+import { Icon } from "astro-icon/components";
+import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const homeUrl = getLocalizedUrl(lang, "/");
+const themeLabels = {
+  toggle: t("nav.theme.toggle"),
+  auto: t("nav.theme.auto"),
+  light: t("nav.theme.light"),
+  dark: t("nav.theme.dark"),
+};
+
+const links = [
+  {
+    href: getLocalizedUrl(lang, "/"),
+    label: t("nav.home"),
+    icon: "mdi:home-variant",
+  },
+  {
+    href: getLocalizedUrl(lang, "/download"),
+    label: t("nav.download"),
+    icon: "mdi:download",
+  },
+  {
+    href: getLocalizedUrl(lang, "/docs"),
+    label: t("nav.docs"),
+    icon: "mdi:book-open-variant",
+  },
+];
+---
+
+<header class="w-full py-3.5 px-6 bg-[rgb(var(--color-header-bg))] border-b border-[rgb(var(--color-border))] sticky top-0 z-30 shadow-sm">
+  <div class="max-w-7xl mx-auto">
+    <nav class="flex items-center justify-between">
+      <a href={homeUrl} class="flex items-center gap-2 no-underline">
+        <Icon name="logo" class="h-8 w-8" />
+        <span class="brand-name text-xl font-bold tracking-tight leading-none">
+          YStreamer
+        </span>
+      </a>
+
+      <div class="hidden lg:flex items-center space-x-1 absolute left-1/2 transform -translate-x-1/2">
+        {links.map((l) => (
+          <HeaderLink href={l.href}>
+            <Icon name={l.icon} class="w-4 h-4" />
+            {l.label}
+          </HeaderLink>
+        ))}
+      </div>
+
+      <div class="hidden lg:flex items-center gap-2">
+        <LanguageSelector
+          currentLang={lang}
+          label={t("nav.changeLanguage")}
+          client:idle
+        />
+        <ThemeToggle labels={themeLabels} client:idle />
+        <Socials />
+      </div>
+
+      <div class="lg:hidden flex items-center gap-2">
+        <LanguageSelector
+          currentLang={lang}
+          label={t("nav.changeLanguage")}
+          client:idle
+        />
+        <ThemeToggle labels={themeLabels} client:idle />
+        <button
+          id="mobile-menu-toggle"
+          class="flex items-center justify-center w-8 h-8 rounded-lg text-[rgb(var(--color-text))] hover:bg-[rgb(var(--color-secondary))] transition-colors focus:outline-none focus:ring-2 focus:ring-[rgb(var(--color-primary))]"
+          aria-label={t("nav.toggleMenu")}
+          aria-expanded="false"
+        >
+          <Icon name="mdi:menu" id="hamburger-icon" class="w-7 h-7" />
+          <Icon name="mdi:close" id="close-icon" class="w-7 h-7 hidden" />
+        </button>
+      </div>
+    </nav>
+
+    <div
+      id="mobile-menu"
+      class="lg:hidden absolute left-0 right-0 top-full bg-[rgb(var(--color-header-bg))] border-b border-[rgb(var(--color-border))] shadow-lg transform -translate-y-full opacity-0 invisible transition-all duration-300 ease-in-out"
+    >
+      <div class="px-6 py-4 space-y-2">
+        <div class="space-y-1 border-b border-[rgb(var(--color-border))] pb-4 mb-4">
+          {links.map((l) => (
+            <HeaderLink href={l.href} class="w-full">
+              <Icon name={l.icon} class="w-4 h-4" />
+              {l.label}
+            </HeaderLink>
+          ))}
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-[rgb(var(--color-text-light))] font-medium">
+            {t("nav.links")}:
+          </span>
+          <Socials />
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  const toggleButton = document.getElementById("mobile-menu-toggle");
+  const mobileMenu = document.getElementById("mobile-menu");
+  const hamburgerIcon = document.getElementById("hamburger-icon");
+  const closeIcon = document.getElementById("close-icon");
+
+  let isOpen = false;
+
+  const toggleMenu = () => {
+    isOpen = !isOpen;
+    toggleButton?.setAttribute("aria-expanded", isOpen.toString());
+    hamburgerIcon?.classList.toggle("hidden", isOpen);
+    closeIcon?.classList.toggle("hidden", !isOpen);
+    mobileMenu?.classList.toggle("-translate-y-full", !isOpen);
+    mobileMenu?.classList.toggle("opacity-0", !isOpen);
+    mobileMenu?.classList.toggle("invisible", !isOpen);
+    mobileMenu?.classList.toggle("translate-y-0", isOpen);
+    mobileMenu?.classList.toggle("opacity-100", isOpen);
+    mobileMenu?.classList.toggle("visible", isOpen);
+  };
+
+  toggleButton?.addEventListener("click", toggleMenu);
+  mobileMenu?.querySelectorAll("a[href]").forEach((link) => {
+    link.addEventListener("click", () => isOpen && toggleMenu());
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isOpen) toggleMenu();
+  });
+  document.addEventListener("click", (e) => {
+    if (
+      isOpen &&
+      !toggleButton?.contains(e.target as Node) &&
+      !mobileMenu?.contains(e.target as Node)
+    ) {
+      toggleMenu();
+    }
+  });
+</script>

@@ -1,0 +1,17 @@
+[Unit]
+Description=YStreamer data partition
+# Needs the block devices and a writable system partition, and has to be done
+# before YStreamer reads its settings
+After=systemd-remount-fs.service systemd-udev-settle.service local-fs.target
+Before=ystreamer.service
+ConditionPathExists=/etc/ystreamer/image
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/ystreamer/ystreamer-data
+# Formatting a large card takes a while the first time
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
