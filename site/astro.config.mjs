@@ -13,6 +13,7 @@ import rehypeExternalLinks from "./src/lib/rehype-external-links.mjs";
 export default defineConfig({
   site: "https://ystreamer.yarosfpv.com",
   compressHTML: true,
+  session: false,
 
   markdown: {
     remarkPlugins: [remarkLocalizeDocLinks],
