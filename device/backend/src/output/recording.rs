@@ -287,6 +287,26 @@ impl Recorder {
             .map_err(|e| format!("pipeline: {e}"))?;
         gst::Element::link_many([&appsrc, &parse, &sink]).map_err(|e| format!("link: {e}"))?;
 
+        // h264parse leaves the second picture starting in one chunk without a
+        // time, and mp4mux gives up on those: reuse the previous picture's
+        if let Some(pad) = parse.static_pad("src") {
+            let last = Mutex::new(None::<gst::ClockTime>);
+            pad.add_probe(gst::PadProbeType::BUFFER, move |_, info| {
+                if let Some(gst::PadProbeData::Buffer(ref mut buffer)) = info.data {
+                    let mut last = last.lock().unwrap();
+                    match buffer.pts() {
+                        Some(pts) => *last = Some(pts),
+                        None => {
+                            let buffer = buffer.make_mut();
+                            buffer.set_pts(*last);
+                            buffer.set_dts(*last);
+                        }
+                    }
+                }
+                gst::PadProbeReturn::Ok
+            });
+        }
+
         pipeline
             .set_state(gst::State::Playing)
             .map_err(|e| format!("Couldn't start recording: {e}"))?;
