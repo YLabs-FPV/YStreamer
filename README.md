@@ -142,7 +142,7 @@ mise run image:full         # .deb plus the SD card image (needs Docker)
 ```
 
 On Debian or Raspberry Pi OS, `mise run backend:deps` installs the GStreamer
-headers the backend builds against. `mise tasks` lists everything else.
+headers the backend builds against and the plugins it runs with. `mise tasks` lists everything else.
 
 Planning to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md) for the dev setup
 and how to submit changes.

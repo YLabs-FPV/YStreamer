@@ -45,7 +45,7 @@ The YStreamer service, in Rust, with GStreamer for the video. To run it with
 the goggles, the USB-C link and HDMI, it needs a Raspberry Pi:
 
 ```bash
-mise run backend:deps         # GStreamer and GLib headers (Debian / Raspberry Pi OS)
+mise run backend:deps         # GStreamer and GLib headers, GStreamer plugins (Debian / Raspberry Pi OS)
 mise run backend:boot-config  # boot settings for the USB-C link and the encoder; reboot after
 mise run backend:run          # build and run it as root, as the hardware and port 80 need
 mise run backend:test

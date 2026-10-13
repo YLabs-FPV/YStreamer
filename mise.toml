@@ -7,12 +7,14 @@ pnpm = "12.4.2"
 # --- Backend ---
 
 [tasks."backend:deps"]
-description = "Install the GLib and GStreamer headers the backend builds against (Debian/Raspberry Pi OS)"
+description = "Install the GLib and GStreamer headers the backend builds against, and the GStreamer plugins it runs with (Debian/Raspberry Pi OS)"
 run = """
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   pkg-config libglib2.0-dev libgstreamer1.0-dev \
-  libgstreamer-plugins-base1.0-dev libgstrtspserver-1.0-dev
+  libgstreamer-plugins-base1.0-dev libgstrtspserver-1.0-dev \
+  gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+  gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav
 """
 
 [tasks."backend:boot-config"]
