@@ -2,7 +2,7 @@ mod vmx;
 mod wire;
 
 use std::fs;
-use std::io::{ErrorKind, Read, Write};
+use std::io::{Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::ops::RangeInclusive;
 use std::os::fd::AsRawFd;
@@ -33,12 +33,15 @@ const QUEUE: usize = 2;
 const SEND_BUFFER: libc::c_int = 256 * 1024;
 /// A receiver that takes nothing for this long is gone
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
-/// Receivers ask for video as soon as they connect; anything that hasn't by
-/// now isn't one
+/// Receivers ask for video as soon as they connect; anything that hasn't
+/// this long after connecting isn't one, however much else it sent
 const SUBSCRIBE_TIMEOUT: Duration = Duration::from_secs(5);
 /// Every connection costs two threads, so a busy LAN can't pile them up.
 /// A mixer takes one each; eight leaves room for preview monitors
-const MAX_CONNECTIONS: usize = 8;
+const MAX_RECEIVERS: usize = 8;
+/// Connections yet to ask for video have their own, smaller allowance, so
+/// they can never keep receivers out
+const MAX_PENDING: usize = 4;
 /// avahi-daemon announces what's in its services folder
 const SERVICE_FILE: &str = "/etc/avahi/services/ystreamer-omt.service";
 
@@ -63,6 +66,50 @@ struct Flags {
 struct Connection {
     flags: Arc<Flags>,
     queue: SyncSender<Arc<Vec<u8>>>,
+    /// Kept to close it from the accept thread
+    socket: TcpStream,
+    since: Instant,
+}
+
+impl Connection {
+    fn subscribed(&self) -> bool {
+        self.flags.video.load(Ordering::Relaxed)
+    }
+
+    /// Ends both of its threads: the reader sees the socket close, the
+    /// writer sees `alive` drop
+    fn close(&self) {
+        self.flags.alive.store(false, Ordering::Relaxed);
+        let _ = self.socket.shutdown(Shutdown::Both);
+    }
+}
+
+/// Forgets connections that ended and closes those past the deadline to
+/// subscribe
+fn sweep(connections: &mut Vec<Connection>) {
+    for c in connections.iter() {
+        if !c.subscribed() && c.since.elapsed() >= SUBSCRIBE_TIMEOUT {
+            c.close();
+        }
+    }
+    connections.retain(|c| c.flags.alive.load(Ordering::Relaxed));
+}
+
+/// Makes room for a new connection, or says there's none
+fn admit(connections: &mut Vec<Connection>) -> bool {
+    sweep(connections);
+    if connections.iter().filter(|c| c.subscribed()).count() >= MAX_RECEIVERS {
+        return false;
+    }
+    let pending: Vec<_> = connections.iter().filter(|c| !c.subscribed()).collect();
+    // The oldest is the one least likely to be a receiver about to subscribe
+    if pending.len() >= MAX_PENDING
+        && let Some(oldest) = pending.iter().min_by_key(|c| c.since)
+    {
+        oldest.close();
+    }
+    connections.retain(|c| c.flags.alive.load(Ordering::Relaxed));
+    true
 }
 
 /// Takes receivers' connections and sends frames to those that asked for
@@ -94,15 +141,16 @@ impl Server {
                     match listener.accept() {
                         Ok((stream, _)) => {
                             let mut connections = connections.lock().unwrap();
-                            connections.retain(|c| c.flags.alive.load(Ordering::Relaxed));
-                            if connections.len() >= MAX_CONNECTIONS {
+                            if !admit(&mut connections) {
                                 let _ = stream.shutdown(Shutdown::Both);
                             } else if let Some(c) = connect(stream) {
                                 connections.push(c);
                             }
                         }
-                        Err(e) if e.kind() == ErrorKind::WouldBlock => thread::sleep(ACCEPT_POLL),
-                        Err(_) => thread::sleep(ACCEPT_POLL),
+                        Err(_) => {
+                            sweep(&mut connections.lock().unwrap());
+                            thread::sleep(ACCEPT_POLL);
+                        }
                     }
                 }
             })
@@ -122,16 +170,13 @@ impl Server {
     /// Receivers that asked for video; forgets the ones that left
     pub fn watching(&self) -> u32 {
         let mut connections = self.connections.lock().unwrap();
-        connections.retain(|c| c.flags.alive.load(Ordering::Relaxed));
-        connections
-            .iter()
-            .filter(|c| c.flags.video.load(Ordering::Relaxed))
-            .count() as u32
+        sweep(&mut connections);
+        connections.iter().filter(|c| c.subscribed()).count() as u32
     }
 
     pub fn send(&self, frame: Arc<Vec<u8>>) {
         for c in self.connections.lock().unwrap().iter() {
-            if c.flags.video.load(Ordering::Relaxed) {
+            if c.subscribed() {
                 match c.queue.try_send(Arc::clone(&frame)) {
                     Ok(()) | Err(TrySendError::Full(_)) => {}
                     Err(TrySendError::Disconnected(_)) => {
@@ -160,8 +205,6 @@ fn connect(stream: TcpStream) -> Option<Connection> {
     let _ = stream.set_nonblocking(false);
     let _ = stream.set_nodelay(true);
     let _ = stream.set_write_timeout(Some(WRITE_TIMEOUT));
-    // Cleared once the receiver subscribes; reads share the socket's options
-    let _ = stream.set_read_timeout(Some(SUBSCRIBE_TIMEOUT));
     // Safety: a valid socket and an int option
     unsafe {
         libc::setsockopt(
@@ -173,6 +216,7 @@ fn connect(stream: TcpStream) -> Option<Connection> {
         );
     }
     let reader = stream.try_clone().ok()?;
+    let socket = stream.try_clone().ok()?;
     let flags = Arc::new(Flags {
         video: AtomicBool::new(false),
         alive: AtomicBool::new(true),
@@ -186,13 +230,18 @@ fn connect(stream: TcpStream) -> Option<Connection> {
         let flags = Arc::clone(&flags);
         thread::spawn(move || read_requests(reader, &flags));
     }
-    Some(Connection { flags, queue })
+    Some(Connection {
+        flags,
+        queue,
+        socket,
+        since: Instant::now(),
+    })
 }
 
 fn write_frames(mut stream: TcpStream, frames: Queue<Arc<Vec<u8>>>, flags: &Flags) {
     let hello = wire::metadata(&wire::sender_info(env!("CARGO_PKG_VERSION")));
     if stream.write_all(&hello).is_ok() {
-        // Woken now and then to notice the reader giving up on the receiver
+        // Woken now and then to notice the connection being closed
         while flags.alive.load(Ordering::Relaxed) {
             match frames.recv_timeout(ACCEPT_POLL) {
                 Ok(frame) if stream.write_all(&frame).is_ok() => {}
@@ -221,12 +270,8 @@ fn read_requests(mut stream: TcpStream, flags: &Flags) {
         if !matches!((&mut stream).take(len).read_to_end(&mut data), Ok(n) if n as u64 == len) {
             break;
         }
-        if h.kind == wire::METADATA
-            && wire::wants_video(&data)
-            && !flags.video.swap(true, Ordering::Relaxed)
-        {
-            // A subscribed receiver may stay quiet for as long as it watches
-            let _ = stream.set_read_timeout(None);
+        if h.kind == wire::METADATA && wire::wants_video(&data) {
+            flags.video.store(true, Ordering::Relaxed);
         }
     }
     flags.alive.store(false, Ordering::Relaxed);

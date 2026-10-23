@@ -2,6 +2,7 @@ use super::*;
 
 use gstreamer as gst;
 use gstreamer::prelude::*;
+use std::io::ErrorKind;
 use std::sync::atomic::AtomicU16;
 
 /// Each test its own ports, away from a real OMT sender's
@@ -125,24 +126,81 @@ fn closed(stream: &mut TcpStream) -> Vec<u8> {
 #[test]
 fn turns_away_connections_over_the_cap() {
     let server = Server::start(ports()).unwrap();
-    let mut held: Vec<_> = (0..MAX_CONNECTIONS)
+    let mut held: Vec<_> = (0..MAX_RECEIVERS)
         .map(|_| subscribe(server.port()))
         .collect();
     wait_for("the receivers", || {
-        server.watching() == MAX_CONNECTIONS as u32
+        server.watching() == MAX_RECEIVERS as u32
     });
 
     // Closed at once, before the sender says hello
     let mut extra = TcpStream::connect(("127.0.0.1", server.port())).unwrap();
     assert!(closed(&mut extra).is_empty());
-    assert_eq!(open_connections(&server), MAX_CONNECTIONS);
+    assert_eq!(open_connections(&server), MAX_RECEIVERS);
 
     // A place frees up when a receiver leaves
     drop(held.pop());
     wait_for("the receiver to leave", || {
-        open_connections(&server) < MAX_CONNECTIONS
+        open_connections(&server) < MAX_RECEIVERS
     });
     let _next = subscribe(server.port());
+}
+
+/// Connected and past the sender's hello, without subscribing
+fn pending(port: u16) -> TcpStream {
+    let mut client = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
+    let _hello = read_frame(&mut client);
+    client
+}
+
+#[test]
+fn unsubscribed_connections_cant_keep_receivers_out() {
+    let server = Server::start(ports()).unwrap();
+    let mut first = pending(server.port());
+    let mut rest: Vec<_> = (1..MAX_PENDING).map(|_| pending(server.port())).collect();
+    wait_for("the connections", || {
+        open_connections(&server) == MAX_PENDING
+    });
+
+    // One more pushes out the oldest rather than being turned away
+    let started = Instant::now();
+    rest.push(pending(server.port()));
+    closed(&mut first);
+    assert!(started.elapsed() < SUBSCRIBE_TIMEOUT);
+
+    // Receivers still get in alongside them
+    let _receivers: Vec<_> = (0..MAX_RECEIVERS)
+        .map(|_| subscribe(server.port()))
+        .collect();
+    wait_for("the receivers", || {
+        server.watching() == MAX_RECEIVERS as u32
+    });
+}
+
+#[test]
+fn a_slow_drip_doesnt_buy_more_time() {
+    let server = Server::start(ports()).unwrap();
+    let mut client = pending(server.port());
+    let started = Instant::now();
+    let mut drip = client.try_clone().unwrap();
+    // Half a header, a byte at a time, so every read sees fresh data
+    let dripping = thread::spawn(move || {
+        while drip.write_all(&[1]).is_ok() {
+            thread::sleep(Duration::from_millis(500));
+        }
+    });
+    closed(&mut client);
+    let took = started.elapsed();
+    assert!(took >= SUBSCRIBE_TIMEOUT - Duration::from_millis(500));
+    assert!(
+        took < SUBSCRIBE_TIMEOUT + Duration::from_secs(2),
+        "took {took:?}"
+    );
+    wait_for("the connection to go", || open_connections(&server) == 0);
+    let _ = dripping.join();
 }
 
 #[test]
