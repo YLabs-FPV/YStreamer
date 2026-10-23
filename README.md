@@ -79,6 +79,7 @@ terminal needed.
 | Source                                        | Port  | Video | Camera settings | Battery & link |
 | --------------------------------------------- | :---: | :---: | :-------------: | :------------: |
 | DJI Goggles 2, Integra, Goggles 3, Goggles N3 | USB-C |  ✅   |       ✅        |       ✅       |
+| DJI Goggles 3, liveview _(experimental)_      | USB-A |  ✅   |       ❌        |       ❌       |
 | DJI FPV Goggles V1 / V2 _(experimental)_      | USB-A |  ✅   |       ❌        |       ❌       |
 | USB cameras, capture sticks, analog receivers | USB-A |  ✅   |        -        |       -        |
 
