@@ -5,7 +5,9 @@ use axum::response::IntoResponse;
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use tokio::sync::broadcast;
 
+use crate::input::duml::avata360;
 use crate::input::duml::camera::ExposureMode;
+use crate::input::duml::next_seq;
 use crate::web::auth::Access;
 
 use super::AppState;
@@ -50,7 +52,24 @@ enum ControlMsg {
     SetAntiFlicker {
         value: String,
     },
+    /// Sent again and again while the browser holds the gimbal
+    GimbalTilt {
+        deg: f32,
+    },
+    GimbalRelease,
+    SetViewHeading {
+        deg: f32,
+    },
+    SetLensFov {
+        value: f32,
+    },
+    SetVisionAssist {
+        on: bool,
+    },
 }
+
+/// DJI Fly sends the Vision Assist stream start this long after the setting
+const VISION_ASSIST_GAP: std::time::Duration = std::time::Duration::from_millis(170);
 
 pub(super) async fn control_ws_handler(
     ws: WebSocketUpgrade,
@@ -72,6 +91,7 @@ async fn control_socket(socket: WebSocket, state: AppState, admin: bool) {
         super::devices_msg(&state.services.session.devices()),
         super::input_msg(&state.services),
         super::overlay_msg(&state.services),
+        super::aircraft_msg(&state.services),
     ];
     for msg in current {
         if sink.send(Message::Text(msg.into())).await.is_err() {
@@ -118,6 +138,7 @@ fn apply_command(state: &AppState, cmd: ControlMsg) {
             eprintln!("[web] command send failed: {}", e);
         }
     };
+    let aircraft = || state.services.store.get().aircraft;
 
     match cmd {
         ControlMsg::SetIso { value } => {
@@ -173,6 +194,39 @@ fn apply_command(state: &AppState, cmd: ControlMsg) {
         ControlMsg::SetAntiFlicker { value } => {
             if let Some(p) = cam.build_anti_flicker(&value) {
                 send(p);
+            }
+        }
+        // The Avata 360 has its own command for the view, and no tilt
+        ControlMsg::GimbalTilt { deg } => {
+            let a = aircraft();
+            if a.gimbal_control && !a.avata360 {
+                state.gimbal.tilt(deg);
+            }
+        }
+        // Always honoured, so turning the setting off can't strand a hold
+        ControlMsg::GimbalRelease => state.gimbal.release(),
+        ControlMsg::SetViewHeading { deg } => {
+            let a = aircraft();
+            if a.gimbal_control && a.avata360 {
+                state.gimbal.avata360_heading(deg);
+            }
+        }
+        ControlMsg::SetLensFov { value } => {
+            if aircraft().avata360 {
+                send(avata360::lens_fov(value, next_seq()));
+            }
+        }
+        ControlMsg::SetVisionAssist { on } => {
+            if aircraft().avata360 {
+                send(avata360::vision_assist_param(on, next_seq()));
+                let goggles = state.services.goggles.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(VISION_ASSIST_GAP).await;
+                    let stream = avata360::vision_assist_stream(on, next_seq());
+                    if let Err(e) = goggles.send(&stream) {
+                        eprintln!("[web] command send failed: {}", e);
+                    }
+                });
             }
         }
     }
