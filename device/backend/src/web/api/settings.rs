@@ -5,7 +5,9 @@ use axum::{
 };
 use serde::Serialize;
 
-use crate::settings::{Settings, validate_hostname, validate_timezone};
+use crate::settings::{
+    InputMode, RtmpInputSettings, Settings, validate_hostname, validate_timezone,
+};
 use crate::system;
 
 use super::display::overlay_changed;
@@ -59,6 +61,13 @@ pub(super) fn validate(s: &Settings) -> Result<(), String> {
     validate_hostname(&s.device.hostname)?;
     validate_timezone(&s.device.timezone)?;
     s.input.uvc.validate()?;
+    s.input.rtmp.validate()?;
+    if s.input.mode == InputMode::Rtmp && s.rtsp.enabled && s.rtsp.port == s.input.rtmp.port {
+        return Err(format!(
+            "Port {} is the RTSP server's; pick another for the RTMP input",
+            s.rtsp.port
+        ));
+    }
     s.overlay.validate()?;
     s.wifi.validate()?;
     s.ethernet.validate()?;
@@ -72,7 +81,11 @@ pub(super) fn validate(s: &Settings) -> Result<(), String> {
 
 pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>, ApiError> {
     // Also covers reset and import, which bring "System" modes along
-    let next = next.for_install();
+    let mut next = next.for_install();
+    // Picking RTMP makes up its key, so the input is never open to anyone
+    if next.input.mode == InputMode::Rtmp && next.input.rtmp.key.is_empty() {
+        next.input.rtmp.key = RtmpInputSettings::new_key();
+    }
     validate(&next).map_err(bad)?;
     let prev = sv.store.get();
     let mut notice = None;
@@ -110,6 +123,9 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
     if next.input != prev.input {
         sv.input.set_mode(next.input.mode);
         sv.uvc.apply(&next.input.uvc);
+        if next.input.rtmp != prev.input.rtmp {
+            sv.rtmp_input.apply(&next.input.rtmp);
+        }
     }
 
     // Never refused: an unreachable server is retried in the background
@@ -134,6 +150,9 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
         if next.input != prev.input {
             sv.input.set_mode(prev.input.mode);
             sv.uvc.apply(&prev.input.uvc);
+            if next.input.rtmp != prev.input.rtmp {
+                sv.rtmp_input.apply(&prev.input.rtmp);
+            }
         }
         if display_changed {
             let _ = sv.player.apply(&prev.display);

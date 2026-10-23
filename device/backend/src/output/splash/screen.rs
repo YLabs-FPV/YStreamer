@@ -266,6 +266,11 @@ impl Screen {
             (InputMode::Uvc, LinkState::Unplugged) => {
                 (MUTED, "Connect a USB camera or receiver".to_string())
             }
+            // The key isn't shown: the splash goes out on every stream too
+            (InputMode::Rtmp, LinkState::Unplugged | LinkState::Connecting) => (
+                MUTED,
+                "Waiting for an RTMP stream, see the Input page for the address".to_string(),
+            ),
             (InputMode::Uvc, LinkState::Connecting) => (
                 WARN_SOFT,
                 format!(
@@ -280,6 +285,7 @@ impl Screen {
                     self.goggles_name.as_deref().unwrap_or(match source {
                         InputMode::DjiFpv | InputMode::DjiFpvLegacy => "Goggles",
                         InputMode::Uvc => "USB camera",
+                        InputMode::Rtmp => "RTMP app",
                     })
                 ),
             ),

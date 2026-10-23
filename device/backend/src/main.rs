@@ -112,6 +112,8 @@ fn run() -> anyhow::Result<()> {
     );
 
     let legacy = input::legacy::LegacySource::start(Arc::clone(&input), Arc::clone(&fanout));
+    let rtmp_input =
+        input::rtmp::RtmpSource::start(Arc::clone(&input), &cfg.input.rtmp, Arc::clone(&fanout));
 
     let services = api::Services {
         store: Arc::clone(&store),
@@ -133,6 +135,7 @@ fn run() -> anyhow::Result<()> {
         metrics,
         uvc,
         legacy,
+        rtmp_input,
         overlay: Arc::clone(&overlay),
     };
 
