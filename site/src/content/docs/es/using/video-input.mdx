@@ -104,7 +104,11 @@ Cambiar la clave o **Only from** corta la app que está enviando.
 Una app tiene 10 segundos desde que se conecta para empezar a enviar con la
 clave correcta. Tras 3 claves erróneas desde una dirección, esa dirección se
 rechaza durante un minuto, y el doble tras cada clave errónea más, hasta 15
-minutos.
+minutos. Entre todas las direcciones se admiten unas 6 claves erróneas por
+minuto. Pasado eso, una dirección que ya envió una clave errónea se rechaza
+sin comprobar su clave, y una sola clave errónea desde cualquier otra
+dirección hace que también se rechace. La clave correcta desde una dirección
+que no esté rechazada sigue entrando.
 
 <Admonition type="tip" title="Usa la dirección IP">
   Muchas apps del móvil no encuentran `ystreamer.local`. Abre la interfaz web

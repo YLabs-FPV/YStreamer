@@ -415,6 +415,24 @@ fn repeated_wrong_keys_turn_the_address_away() {
     assert!(error.contains("too many wrong keys"), "{error}");
 }
 
+#[test]
+fn the_right_key_gets_in_with_the_shared_budget_spent() {
+    let (source, _state, _received, port) = source(&settings(""));
+    source.strikes.lock().unwrap().budget = 0;
+    let app = Client::publish(port, KEY);
+    assert!(app.is_some(), "the right key was turned away");
+    drop(app);
+    assert!(
+        wait_until(|| (source.status().state == RtmpInputState::Waiting).then_some(())).is_some()
+    );
+
+    // But a wrong key now, from anyone, is banned at once
+    assert!(Client::publish(port, "guessing12").is_none());
+    assert!(Client::publish(port, KEY).is_none());
+    let error = source.status().error.unwrap_or_default();
+    assert!(error.contains("too many wrong keys"), "{error}");
+}
+
 mod strikes {
     use super::*;
 
@@ -424,8 +442,8 @@ mod strikes {
 
     #[test]
     fn bans_after_a_few_wrong_keys_and_doubles_each_time() {
-        let mut s = Strikes::default();
         let t = Instant::now();
+        let mut s = Strikes::new(t);
         assert_eq!(s.strike(ip(1), t), None);
         assert_eq!(s.strike(ip(1), t), None);
         assert_eq!(s.strike(ip(1), t), Some(FIRST_BAN));
@@ -444,14 +462,14 @@ mod strikes {
 
     #[test]
     fn the_right_key_and_time_forgive() {
-        let mut s = Strikes::default();
         let t = Instant::now();
+        let mut s = Strikes::new(t);
         s.strike(ip(1), t);
         s.strike(ip(1), t);
         s.forget(ip(1));
         assert_eq!(s.strike(ip(1), t), None);
 
-        let mut s = Strikes::default();
+        let mut s = Strikes::new(t);
         s.strike(ip(1), t);
         s.strike(ip(1), t);
         assert_eq!(s.strike(ip(1), t + STRIKE_MEMORY), None);
@@ -459,13 +477,84 @@ mod strikes {
 
     #[test]
     fn remembers_a_bounded_number_of_addresses() {
-        let mut s = Strikes::default();
         let t = Instant::now();
+        let mut s = Strikes::new(t);
+        // One a refill apart, so the shared budget never runs out
         for n in 0..1000 {
-            s.strike(ip(n), t + Duration::from_millis(n as u64));
+            s.strike(ip(n), t + GLOBAL_REFILL * n);
         }
         assert!(s.by_ip.len() <= MAX_TRACKED);
         // The newest are the ones kept
         assert!(s.by_ip.contains_key(&ip(999)));
+    }
+
+    /// Bans every address in a full table, one wrong key each
+    fn full_of_bans(t: Instant) -> Strikes {
+        let mut s = Strikes::new(t);
+        s.budget = 0;
+        for n in 0..MAX_TRACKED as u32 {
+            assert_eq!(s.strike(ip(n), t), Some(FIRST_BAN));
+        }
+        s
+    }
+
+    #[test]
+    fn making_room_never_drops_a_ban() {
+        let t = Instant::now();
+        let mut s = full_of_bans(t);
+        // A newcomer's wrong key can't push a ban out, and it's turned away
+        assert!(s.strike(ip(1000), t).is_some());
+        assert_eq!(s.by_ip.len(), MAX_TRACKED);
+        assert!(!s.by_ip.contains_key(&ip(1000)));
+        for n in 0..MAX_TRACKED as u32 {
+            assert!(
+                s.banned(ip(n), t).is_some(),
+                "the ban on {} was dropped",
+                ip(n)
+            );
+        }
+        assert!(s.banned(ip(1000), t).is_some());
+
+        // Once the bans run out, newcomers are let in again
+        let later = t + FIRST_BAN + Duration::from_secs(1);
+        assert!(s.banned(ip(1000), later).is_none());
+    }
+
+    #[test]
+    fn an_unbanned_address_makes_room_before_a_banned_one() {
+        let t = Instant::now();
+        let mut s = full_of_bans(t);
+        // Address 0's ban runs out first
+        let lapsed = s.by_ip.get_mut(&ip(0)).unwrap();
+        lapsed.banned_until = Some(t);
+        s.budget = GLOBAL_BUDGET;
+        let soon = t + Duration::from_secs(1);
+        assert_eq!(s.strike(ip(1000), soon), None);
+        assert!(!s.by_ip.contains_key(&ip(0)));
+        assert!(s.by_ip.contains_key(&ip(1000)));
+        assert!(s.banned(ip(1), soon).is_some());
+    }
+
+    #[test]
+    fn moving_address_buys_little_once_the_shared_budget_is_spent() {
+        let t = Instant::now();
+        let mut s = Strikes::new(t);
+        // One wrong key from each of several addresses: none banned alone
+        for n in 0..GLOBAL_BUDGET {
+            assert_eq!(s.strike(ip(n), t), None);
+        }
+        // Spent: whoever sent a wrong key is turned away unchecked
+        assert!(s.banned(ip(0), t).is_some());
+        // An address that hasn't still gets its key checked, so the real
+        // app gets in; one wrong key and it's banned too
+        assert!(s.banned(ip(100), t).is_none());
+        assert_eq!(s.strike(ip(100), t), Some(FIRST_BAN));
+        assert!(s.banned(ip(100), t).is_some());
+
+        // The budget comes back a little at a time
+        let later = t + GLOBAL_REFILL;
+        assert!(s.banned(ip(0), later).is_none());
+        assert_eq!(s.strike(ip(0), later), None);
+        assert!(s.banned(ip(1), later).is_some());
     }
 }
