@@ -24,22 +24,25 @@ const AUD: [u8; 6] = [0, 0, 0, 1, 0x09, 0xf0];
 
 /// How H.265 becomes the H.264 every output takes. The Pi 4 decodes
 /// H.265 in hardware but only encodes H.264, so this is the one
-/// conversion the device makes; outputs stay as they are
+/// conversion the device makes; outputs stay as they are. Only the
+/// hardware codecs: on the CPU an RC-N3 + Neo 2 stream decoded at 27
+/// pictures a second and the delay grew by the second
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Converter {
+    /// The H.265 decoder's pictures come out tiled, which neither the
+    /// encoder nor the converter take from GStreamer, so they're untiled
+    /// on the CPU first
     Hardware,
-    /// Decoding on the CPU, e.g. without the H.265 decoder's overlay
-    SoftwareDecode,
-    /// Everything on the CPU, at 720p
-    Software,
 }
 
-const CONVERTERS: [Converter; 3] = [
-    Converter::Hardware,
-    Converter::SoftwareDecode,
-    Converter::Software,
-];
+const CONVERTERS: [Converter; 1] = [Converter::Hardware];
+
+/// The newest picture only. The decoder keeps up with anything a remote
+/// sends (150 pictures a second at 1080p), so nothing queues in front of
+/// it; when untiling or the encoder fall behind they skip pictures rather
+/// than queue them, which would grow the delay without end
+const LATEST: &str = "queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 leaky=downstream";
 
 impl Converter {
     fn elements(self) -> String {
@@ -49,17 +52,9 @@ impl Converter {
             BITRATE_KBPS * 1000
         );
         match self {
-            Self::Hardware => {
-                format!("v4l2slh265dec ! v4l2convert ! video/x-raw,format=I420 ! {hw_encode}")
-            }
-            Self::SoftwareDecode => {
-                format!("avdec_h265 ! videoconvert ! video/x-raw,format=I420 ! {hw_encode}")
-            }
-            Self::Software => format!(
-                "avdec_h265 ! videoconvert ! videoscale ! \
-                 video/x-raw,format=I420,width=1280,height=720 ! \
-                 x264enc tune=zerolatency speed-preset=ultrafast bitrate={BITRATE_KBPS} \
-                 key-int-max={KEYFRAME_FRAMES} ! video/x-h264,profile=(string)constrained-baseline"
+            Self::Hardware => format!(
+                "v4l2slh265dec ! video/x-raw,format=NV12_128C8 ! {LATEST} ! \
+                 videoconvert n-threads=4 ! video/x-raw,format=NV12 ! {hw_encode}"
             ),
         }
     }
