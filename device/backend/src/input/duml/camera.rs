@@ -37,6 +37,10 @@ const POLLED: [u8; 10] = [
 
 // D-Cinelike is the O3's flat profile, D-Log the O4 Pro's
 const COLOR_PROFILES: [(&str, u8); 3] = [("normal", 0x00), ("dcinelike", 0x06), ("dlog", 0x3D)];
+/// The goggles' battery frame; shorter ones under the same command are
+/// something else
+const BATTERY_FRAME_LEN: usize = 40;
+
 const ANTI_FLICKER: [(&str, u8); 4] = [("auto", 0), ("60hz", 1), ("50hz", 2), ("off", 3)];
 
 fn to_wire(table: &[(&str, u8)], name: &str) -> Option<u8> {
@@ -363,8 +367,9 @@ pub fn parse_duml_response(cmd_set: u8, cmd_id: u8, payload: &[u8]) -> Option<Ca
             return Some(s);
         }
     } else if cmd_set == 6 {
-        // Goggles / RC telemetry: battery
-        if cmd_id == 30 && payload.len() > 4 {
+        // Goggles battery. Two frames share this command; only the long
+        // one carries the percentage, and the short one would read as noise
+        if cmd_id == 30 && payload.len() >= BATTERY_FRAME_LEN {
             s.goggles_battery = Some(payload[4]);
             return Some(s);
         }

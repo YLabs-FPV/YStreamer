@@ -6,9 +6,16 @@ fn snapshot() -> Vec<u8> {
 
 #[test]
 fn reads_the_goggles_battery() {
-    let s = parse_duml_response(6, 30, &[0, 0, 0, 0, 87]).unwrap();
+    let mut p = [0u8; 48];
+    p[4] = 87;
+    let s = parse_duml_response(6, 30, &p).unwrap();
     assert_eq!(s.goggles_battery, Some(87));
     assert_eq!(s.iso, None);
+}
+
+#[test]
+fn ignores_the_short_frame_under_the_battery_command() {
+    assert!(parse_duml_response(6, 30, &[0, 0, 0, 0, 87, 0, 0, 0]).is_none());
 }
 
 #[test]

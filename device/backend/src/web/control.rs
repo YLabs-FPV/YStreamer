@@ -156,8 +156,12 @@ fn apply_command(state: &AppState, cmd: ControlMsg) {
             send(cam.build_wb(auto, t));
         }
         ControlMsg::SetVideoFormat { res, ar, fps } => {
-            let res_wire = crate::input::duml::camera::res_ar_to_wire(&res, &ar).unwrap_or(10);
-            send(cam.build_video_format(res_wire, fps));
+            // A format the air unit doesn't know would otherwise quietly
+            // become 1080p
+            match crate::input::duml::camera::res_ar_to_wire(&res, &ar) {
+                Some(res_wire) => send(cam.build_video_format(res_wire, fps)),
+                None => eprintln!("[web] unknown video format {res} {ar}"),
+            }
         }
         ControlMsg::SetSharpness { value } => send(cam.build_sharpness(value)),
         ControlMsg::SetNr { value } => {
