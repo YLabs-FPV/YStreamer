@@ -8,11 +8,15 @@
   import TextField from "@/components/ui/TextField.svelte";
   import Select from "@/components/ui/Select.svelte";
   import Segmented from "@/components/ui/Segmented.svelte";
+  import Switch from "@/components/ui/Switch.svelte";
   import { btn } from "@/components/ui/buttons";
   import { snackbar } from "@/stores/snackbar.svelte";
   import { developer } from "@/stores/developer.svelte";
 
-  let { input = $bindable() }: { input: Settings["input"] } = $props();
+  let {
+    input = $bindable(),
+    aircraft = $bindable(),
+  }: { input: Settings["input"]; aircraft: Settings["aircraft"] } = $props();
 
   const SOURCES = [
     { label: "DJI goggles", value: "dji_fpv" },
@@ -201,6 +205,25 @@
       {/if}
     </div>
   </Card>
+
+  {#if input.mode === "dji_fpv"}
+    <Card title="Aircraft controls">
+      <Field
+        label="Gimbal control"
+        for="gimbal-control"
+        help="Move the camera from the Watch page, with the mouse or a gamepad. While the browser holds an Avata 2's gimbal, the remote can't move it."
+      >
+        <Switch id="gimbal-control" bind:checked={aircraft.gimbal_control} />
+      </Field>
+      <Field
+        label="Avata 360"
+        for="avata360"
+        help="The goggles don't say when the aircraft is an Avata 360. Turn this on for its view, lens and Vision Assist controls."
+      >
+        <Switch id="avata360" bind:checked={aircraft.avata360} />
+      </Field>
+    </Card>
+  {/if}
 
   {#if input.mode === "dji_fpv_legacy"}
     <Card title="FPV Goggles V1/V2">
