@@ -7,7 +7,9 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::ops::RangeInclusive;
 use std::os::fd::AsRawFd;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::{Receiver as Queue, SyncSender, TrySendError, sync_channel};
+use std::sync::mpsc::{
+    Receiver as Queue, RecvTimeoutError, SyncSender, TrySendError, sync_channel,
+};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -31,6 +33,12 @@ const QUEUE: usize = 2;
 const SEND_BUFFER: libc::c_int = 256 * 1024;
 /// A receiver that takes nothing for this long is gone
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+/// Receivers ask for video as soon as they connect; anything that hasn't by
+/// now isn't one
+const SUBSCRIBE_TIMEOUT: Duration = Duration::from_secs(5);
+/// Every connection costs two threads, so a busy LAN can't pile them up.
+/// A mixer takes one each; eight leaves room for preview monitors
+const MAX_CONNECTIONS: usize = 8;
 /// avahi-daemon announces what's in its services folder
 const SERVICE_FILE: &str = "/etc/avahi/services/ystreamer-omt.service";
 
@@ -76,7 +84,7 @@ impl Server {
         listener
             .set_nonblocking(true)
             .map_err(|e| format!("OMT port {port}: {e}"))?;
-        let connections = Arc::new(Mutex::new(Vec::new()));
+        let connections: Arc<Mutex<Vec<Connection>>> = Arc::new(Mutex::new(Vec::new()));
         let stop = Arc::new(AtomicBool::new(false));
         let accept = {
             let connections = Arc::clone(&connections);
@@ -85,8 +93,12 @@ impl Server {
                 while !stop.load(Ordering::Relaxed) {
                     match listener.accept() {
                         Ok((stream, _)) => {
-                            if let Some(c) = connect(stream) {
-                                connections.lock().unwrap().push(c);
+                            let mut connections = connections.lock().unwrap();
+                            connections.retain(|c| c.flags.alive.load(Ordering::Relaxed));
+                            if connections.len() >= MAX_CONNECTIONS {
+                                let _ = stream.shutdown(Shutdown::Both);
+                            } else if let Some(c) = connect(stream) {
+                                connections.push(c);
                             }
                         }
                         Err(e) if e.kind() == ErrorKind::WouldBlock => thread::sleep(ACCEPT_POLL),
@@ -148,6 +160,8 @@ fn connect(stream: TcpStream) -> Option<Connection> {
     let _ = stream.set_nonblocking(false);
     let _ = stream.set_nodelay(true);
     let _ = stream.set_write_timeout(Some(WRITE_TIMEOUT));
+    // Cleared once the receiver subscribes; reads share the socket's options
+    let _ = stream.set_read_timeout(Some(SUBSCRIBE_TIMEOUT));
     // Safety: a valid socket and an int option
     unsafe {
         libc::setsockopt(
@@ -178,9 +192,12 @@ fn connect(stream: TcpStream) -> Option<Connection> {
 fn write_frames(mut stream: TcpStream, frames: Queue<Arc<Vec<u8>>>, flags: &Flags) {
     let hello = wire::metadata(&wire::sender_info(env!("CARGO_PKG_VERSION")));
     if stream.write_all(&hello).is_ok() {
-        while let Ok(frame) = frames.recv() {
-            if stream.write_all(&frame).is_err() {
-                break;
+        // Woken now and then to notice the reader giving up on the receiver
+        while flags.alive.load(Ordering::Relaxed) {
+            match frames.recv_timeout(ACCEPT_POLL) {
+                Ok(frame) if stream.write_all(&frame).is_ok() => {}
+                Err(RecvTimeoutError::Timeout) => {}
+                _ => break,
             }
         }
     }
@@ -190,6 +207,7 @@ fn write_frames(mut stream: TcpStream, frames: Queue<Arc<Vec<u8>>>, flags: &Flag
 
 fn read_requests(mut stream: TcpStream, flags: &Flags) {
     let mut header = [0u8; wire::HEADER_LEN];
+    let mut data = Vec::new();
     while stream.read_exact(&mut header).is_ok() {
         let Some(h) = wire::parse_header(&header) else {
             break;
@@ -197,15 +215,22 @@ fn read_requests(mut stream: TcpStream, flags: &Flags) {
         if h.data_len > wire::MAX_INCOMING {
             break;
         }
-        let mut data = vec![0; h.data_len];
-        if stream.read_exact(&mut data).is_err() {
+        // Grows with what actually arrives, not with what the header claims
+        data.clear();
+        let len = h.data_len as u64;
+        if !matches!((&mut stream).take(len).read_to_end(&mut data), Ok(n) if n as u64 == len) {
             break;
         }
-        if h.kind == wire::METADATA && wire::wants_video(&data) {
-            flags.video.store(true, Ordering::Relaxed);
+        if h.kind == wire::METADATA
+            && wire::wants_video(&data)
+            && !flags.video.swap(true, Ordering::Relaxed)
+        {
+            // A subscribed receiver may stay quiet for as long as it watches
+            let _ = stream.set_read_timeout(None);
         }
     }
     flags.alive.store(false, Ordering::Relaxed);
+    let _ = stream.shutdown(Shutdown::Both);
 }
 
 struct Running {

@@ -102,6 +102,89 @@ fn stopping_closes_the_connections() {
     assert!(client.read_to_end(&mut rest).is_ok());
 }
 
+fn open_connections(server: &Server) -> usize {
+    let mut connections = server.connections.lock().unwrap();
+    connections.retain(|c| c.flags.alive.load(Ordering::Relaxed));
+    connections.len()
+}
+
+/// Read until the server closes, failing if it doesn't within the timeout
+fn closed(stream: &mut TcpStream) -> Vec<u8> {
+    stream
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
+    let mut rest = Vec::new();
+    match stream.read_to_end(&mut rest) {
+        Ok(_) => {}
+        Err(e) if e.kind() == ErrorKind::ConnectionReset => {}
+        Err(e) => panic!("still open: {e}"),
+    }
+    rest
+}
+
+#[test]
+fn turns_away_connections_over_the_cap() {
+    let server = Server::start(ports()).unwrap();
+    let mut held: Vec<_> = (0..MAX_CONNECTIONS)
+        .map(|_| subscribe(server.port()))
+        .collect();
+    wait_for("the receivers", || {
+        server.watching() == MAX_CONNECTIONS as u32
+    });
+
+    // Closed at once, before the sender says hello
+    let mut extra = TcpStream::connect(("127.0.0.1", server.port())).unwrap();
+    assert!(closed(&mut extra).is_empty());
+    assert_eq!(open_connections(&server), MAX_CONNECTIONS);
+
+    // A place frees up when a receiver leaves
+    drop(held.pop());
+    wait_for("the receiver to leave", || {
+        open_connections(&server) < MAX_CONNECTIONS
+    });
+    let _next = subscribe(server.port());
+}
+
+#[test]
+fn drops_a_header_that_claims_too_much() {
+    let server = Server::start(ports()).unwrap();
+    let mut client = TcpStream::connect(("127.0.0.1", server.port())).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
+    let _hello = read_frame(&mut client);
+    let mut frame = wire::metadata("");
+    frame[12..16].copy_from_slice(&(wire::MAX_INCOMING as i32 + 1).to_le_bytes());
+    client.write_all(&frame).unwrap();
+    closed(&mut client);
+    wait_for("the connection to go", || open_connections(&server) == 0);
+}
+
+#[test]
+fn drops_a_client_that_never_subscribes() {
+    let server = Server::start(ports()).unwrap();
+    let mut client = TcpStream::connect(("127.0.0.1", server.port())).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
+    let _hello = read_frame(&mut client);
+    let started = Instant::now();
+    closed(&mut client);
+    assert!(started.elapsed() >= SUBSCRIBE_TIMEOUT - Duration::from_millis(500));
+    wait_for("the connection to go", || open_connections(&server) == 0);
+}
+
+#[test]
+fn a_subscribed_receiver_may_stay_quiet() {
+    let server = Server::start(ports()).unwrap();
+    let mut client = subscribe(server.port());
+    wait_for("the subscription", || server.watching() == 1);
+    thread::sleep(SUBSCRIBE_TIMEOUT + Duration::from_secs(1));
+    assert_eq!(server.watching(), 1);
+    server.send(Arc::new(wire::metadata("<x />")));
+    assert_eq!(read_frame(&mut client).0.kind, wire::METADATA);
+}
+
 #[cfg(target_arch = "aarch64")]
 #[test]
 fn encodes_a_picture() {

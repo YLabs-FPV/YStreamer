@@ -12,8 +12,9 @@ const VMX1: u32 = u32::from_le_bytes(*b"VMX1");
 const BT709: i32 = 709;
 /// Nothing is sent to a receiver until it asks for video with this
 const SUBSCRIBE_VIDEO: &str = r#"<OMTSubscribe Video="true" />"#;
-/// Larger metadata from a receiver means the connection is out of step
-pub const MAX_INCOMING: usize = 1 << 20;
+/// Receivers only send short XML; anything larger means the connection is
+/// out of step, or isn't a receiver
+pub const MAX_INCOMING: usize = 64 * 1024;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Header {
