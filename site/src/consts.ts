@@ -53,6 +53,13 @@ export const TESTED_HARDWARE: TestedSetup[] = [
     by: "maintainer",
   },
   {
+    device: "DJI Goggles N3",
+    airUnits: ["O4 Lite"],
+    result: "worksPartial",
+    by: "community",
+    notes: "Connected once the goggles' case no longer covered the USB-C port.",
+  },
+  {
     device: "Eachine ROTG02 Analog Receiver",
     piRevision: "1.5",
     result: "worksFull",
