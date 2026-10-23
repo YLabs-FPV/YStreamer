@@ -112,8 +112,15 @@ fn a_restarted_converter_gets_the_parameter_sets_it_missed() {
 
 #[test]
 fn another_camera_gets_a_fresh_converter_of_the_kind_that_worked() {
-    if !have(&["x265enc", "avdec_h265", "x264enc", "h265parse", "h264parse"]) {
-        eprintln!("skipped: GStreamer plugins for H.265 aren't installed");
+    // H.265 is converted with the Pi's codecs only (see the H.265 change)
+    if !have(&[
+        "x265enc",
+        "v4l2slh265dec",
+        "v4l2h264enc",
+        "h265parse",
+        "h264parse",
+    ]) {
+        eprintln!("skipped: needs the Pi's H.265 decoder and H.264 encoder");
         return;
     }
     let pictures: Arc<StdMutex<Vec<Vec<u8>>>> = Arc::default();
