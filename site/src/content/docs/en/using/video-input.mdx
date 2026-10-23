@@ -30,6 +30,21 @@ CPU, and at worst converts everything on the CPU at 720p.
   goggles, under Settings → Camera → Advanced Camera Settings.
 </Admonition>
 
+## DJI RC-N2 / RC-N3 remote
+
+For aircraft flown with DJI Fly and an **RC-N2 or RC-N3** remote, such as the
+Neo 2 or the Mini series. Connect the remote's USB-C port (the one a phone
+uses) to the Pi's **USB-C** port, and keep the **DJI goggles / RC-N** source.
+YStreamer stands in for the phone and shows the live view. The remote sends
+H.265, which is converted to H.264 as described above.
+
+<Admonition type="tip" title="Plug the remote in last">
+  The remote sends the settings its video needs only once, when the cable goes
+  in. If YStreamer restarted with the remote already plugged in, it reconnects
+  the USB link once by itself; if the picture still doesn't come, the Input page
+  asks you to unplug the remote's cable and plug it back in.
+</Admonition>
+
 ## FPV Goggles V1 / V2
 
 The first DJI FPV Goggles. Connect them to one of the Pi's **USB-A** ports.

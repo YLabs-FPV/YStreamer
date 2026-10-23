@@ -158,7 +158,10 @@ fn run() -> anyhow::Result<()> {
         });
     }
 
-    let mut video = input::dji::DjiVideo::new(Arc::clone(&fanout));
+    let mut video = {
+        let goggles = goggles.clone();
+        input::dji::DjiVideo::new(Arc::clone(&fanout), Box::new(move || goggles.reset()))
+    };
     let mut last_mode = None;
     let alive = goggles.clone();
     goggles.run(|data| {

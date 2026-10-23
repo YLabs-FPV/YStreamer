@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
@@ -11,6 +12,10 @@ use crate::settings::InputMode;
 /// Held while the codec is still unknown. An RC-N remote's parameter sets
 /// come in its first few chunks, and are never repeated
 const MAX_PENDING: usize = 8 * 1024 * 1024;
+/// H.265 this long without parameter sets means the remote sent them before
+/// we were listening, e.g. YStreamer restarted with the cable in
+const MISSED_START: Duration = Duration::from_secs(3);
+const REPLUG_PROMPT: &str = "The remote started sending before YStreamer was listening: unplug its cable and plug it back in";
 
 #[derive(Serialize, Clone, Debug, Default, PartialEq)]
 pub struct DjiStatus {
@@ -31,10 +36,13 @@ pub struct DjiVideo {
     params: ParamSets,
     transcoder: Transcoder,
     generation: u64,
+    missed: MissedStart,
+    /// Drops the link and brings it back, as unplugging would
+    replug: Box<dyn Fn() + Send>,
 }
 
 impl DjiVideo {
-    pub fn new(fanout: Arc<Fanout>) -> Self {
+    pub fn new(fanout: Arc<Fanout>, replug: Box<dyn Fn() + Send>) -> Self {
         Self {
             transcoder: {
                 let fanout = Arc::clone(&fanout);
@@ -48,6 +56,8 @@ impl DjiVideo {
             pending: Vec::new(),
             params: ParamSets::new(),
             generation: 0,
+            missed: MissedStart::default(),
+            replug,
         }
     }
 
@@ -86,6 +96,25 @@ impl DjiVideo {
                     }
                     return false;
                 }
+                let have_params = self.params.annex_b().is_some();
+                match self.missed.check(Instant::now(), have_params) {
+                    Recovery::Wait => {}
+                    Recovery::Replug => {
+                        println!(
+                            "[video] no stream settings from the remote, reconnecting the link"
+                        );
+                        (self.replug)();
+                        return false;
+                    }
+                    Recovery::AskUser => {
+                        self.publish(Some(REPLUG_PROMPT.into()));
+                        return false;
+                    }
+                }
+                if !have_params {
+                    // Nothing can decode it yet
+                    return false;
+                }
                 let result = self.transcoder.push(data, &self.params);
                 self.publish(result.as_ref().err().cloned());
                 result.is_ok()
@@ -101,6 +130,7 @@ impl DjiVideo {
         self.pending.clear();
         self.params.clear();
         self.transcoder.stop();
+        self.missed.new_link();
         self.publish(None);
     }
 
@@ -116,3 +146,48 @@ impl DjiVideo {
         }
     }
 }
+
+#[derive(Debug, PartialEq)]
+enum Recovery {
+    Wait,
+    Replug,
+    AskUser,
+}
+
+/// An RC-N remote sends its parameter sets once, when the cable goes in.
+/// Joining later, nothing can decode the stream until it starts over, which
+/// a replug makes it do. One is tried on our side; if that doesn't help,
+/// the user is asked to do it by hand
+#[derive(Default)]
+struct MissedStart {
+    since: Option<Instant>,
+    replugs: u32,
+}
+
+impl MissedStart {
+    fn check(&mut self, now: Instant, have_params: bool) -> Recovery {
+        if have_params {
+            *self = Self::default();
+            return Recovery::Wait;
+        }
+        let since = *self.since.get_or_insert(now);
+        if now.duration_since(since) < MISSED_START {
+            return Recovery::Wait;
+        }
+        if self.replugs == 0 {
+            self.replugs += 1;
+            self.since = None;
+            return Recovery::Replug;
+        }
+        Recovery::AskUser
+    }
+
+    /// The count of replugs carries over: the one we made starts a new link
+    fn new_link(&mut self) {
+        self.since = None;
+    }
+}
+
+#[cfg(test)]
+#[path = "dji.test.rs"]
+mod tests;
