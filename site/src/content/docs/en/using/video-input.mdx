@@ -1,6 +1,6 @@
 ---
 title: Video input
-description: Choose the video source - DJI goggles, the first FPV goggles or a USB camera.
+description: Choose the video source - DJI goggles, the first FPV goggles, a USB camera or an RTMP stream.
 order: 20
 ---
 
@@ -71,3 +71,67 @@ bitrate applies.
   width={1554}
   height={928}
 />
+
+## RTMP stream
+
+Another device streams to YStreamer over the network: OBS, a phone app such
+as Larix Broadcaster, or DJI Fly's live streaming. Its video then goes to
+HDMI, the browser, the streams and recordings, like the goggles' video does.
+
+The app must be on the same network as the device: the same Wi-Fi, or joined
+to YStreamer's access point.
+
+1. Pick **RTMP stream** under **Input → Video source** and **Save**. A random
+   stream key is made the first time.
+2. The **RTMP stream** card shows the address to stream to, like
+   `rtmp://192.168.1.50/live/<key>`. **Copy** copies it with the key.
+3. Enter it in the app. Apps that ask for a server and a stream key separately
+   take `rtmp://192.168.1.50/live` as the server and the key on its own.
+
+The card says when an app is connected and when video arrives. The splash
+screen shows until the first keyframe.
+
+| Setting    | What it does                                                                            |
+| ---------- | --------------------------------------------------------------------------------------- |
+| Stream key | Only an app that knows it can stream here. **New** makes another; save to use it.       |
+| Port       | 1935, what apps expect when the address has none. Or 1024 to 65535.                     |
+| Only from  | IP addresses allowed to stream, comma separated. Empty lets in any device with the key. |
+
+One app streams at a time; a second one is turned away until the first stops.
+Changing the key or **Only from** drops the app streaming now.
+
+<Admonition type="tip" title="Use the IP address">
+  Many phone apps can't find `ystreamer.local`. Open the web interface by the
+  device's IP address, and the card shows the address with it.
+</Admonition>
+
+### OBS
+
+1. **Settings → Stream**: set **Service** to **Custom**, **Server** to
+   `rtmp://192.168.1.50/live` and **Stream Key** to the key.
+2. **Settings → Output**, with **Output Mode** on **Advanced**: pick an H.264
+   encoder, set **Keyframe Interval** to 1 or 2 s, and for x264 the **Tune**
+   to `zerolatency`, which leaves out B-frames.
+3. **Start Streaming**.
+
+### Phone apps and DJI Fly
+
+Look for a custom RTMP server in the app's streaming settings and enter the
+address from the card. In DJI Fly that's the live streaming option with
+**RTMP**.
+
+### What it takes
+
+- **H.264**, up to 1080p. H.265, AV1 and the rest are turned away, and the card
+  says which codec the app sent. Set the app to H.264.
+- **No B-frames**, for the least delay. They still play, but decoders hold
+  pictures back. The card warns when the stream has them.
+- **Short keyframe intervals**, 1 to 2 s. Players and the splash screen wait
+  for a keyframe.
+- The app's **sound is left out**: no output carries it.
+
+<Admonition type="info" title="Ports">
+  The RTMP input listens on TCP port 1935, only while it's the selected source.
+  It doesn't collide with the RTSP server (554), SRT (9000) or the RTMP
+  _output_, which connects out to a server and opens no port.
+</Admonition>
