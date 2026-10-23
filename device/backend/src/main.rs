@@ -15,6 +15,7 @@ use input::duml::monitor::Monitor;
 use input::duml::session::Session;
 use input::duml::{self, DumlReassemblyBuffer};
 use input::goggles::Goggles;
+use input::passthrough::Passthrough;
 use input::uvc::UvcSource;
 use input::{Fanout, InputState};
 use net::network;
@@ -112,6 +113,12 @@ fn run() -> anyhow::Result<()> {
     );
 
     let legacy = input::legacy::LegacySource::start(Arc::clone(&input), Arc::clone(&fanout));
+    let passthrough = Passthrough::start(
+        cfg.input.passthrough,
+        Arc::clone(&input),
+        goggles.clone(),
+        Arc::clone(&monitor),
+    );
 
     let services = api::Services {
         store: Arc::clone(&store),
@@ -133,6 +140,7 @@ fn run() -> anyhow::Result<()> {
         metrics,
         uvc,
         legacy,
+        passthrough: Arc::clone(&passthrough),
         overlay: Arc::clone(&overlay),
     };
 
@@ -162,6 +170,7 @@ fn run() -> anyhow::Result<()> {
     let mut last_mode = None;
     let alive = goggles.clone();
     goggles.run(|data| {
+        passthrough.forward(data);
         duml.process(
             data,
             |chunk| {

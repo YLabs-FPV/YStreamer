@@ -12,11 +12,24 @@ pub enum InputMode {
     DjiFpvLegacy,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct InputSettings {
     pub mode: InputMode,
     pub uvc: UvcSettings,
+    /// Pass the goggles' link through to DJI Fly on a phone in a USB-A port.
+    /// On by default: nothing happens until an Android phone is plugged in
+    pub passthrough: bool,
+}
+
+impl Default for InputSettings {
+    fn default() -> Self {
+        Self {
+            mode: InputMode::default(),
+            uvc: UvcSettings::default(),
+            passthrough: true,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
