@@ -21,6 +21,7 @@ import type {
   UpdateStatus,
 } from "@/types/system";
 import type { DumlStatus } from "@/types/duml";
+import type { AircraftAction, AircraftOutcome } from "@/types/aircraft";
 import type { AuthStatus } from "@/types/auth";
 import type { InputStatus, UvcDevice } from "@/types/input";
 import type {
@@ -173,6 +174,9 @@ export const api = {
     cmd_id: number;
     payload: string;
   }) => request<void>("POST", "/duml/send", frame),
+  /** Waits for the aircraft's answer, a couple of seconds at most */
+  aircraftAction: (action: AircraftAction) =>
+    request<AircraftOutcome>("POST", `/aircraft/${action}`),
   overlay: () => request<OverlayStatus>("GET", "/overlay"),
   uploadOverlay: (png: Blob) => request<void>("PUT", "/overlay/image", png),
   removeOverlay: () => request<void>("DELETE", "/overlay/image"),
