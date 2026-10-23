@@ -1,13 +1,14 @@
 ---
 title: Streaming
-description: RTSP, SRT, RTMP and UDP, and which one to use.
+description: RTSP, SRT, RTMP, UDP, NDI and OMT, and which one to use.
 order: 80
 ---
 
 import Admonition from "../../../../components/docs/Admonition.astro";
 
-All outputs can run at the same time, under **Streaming**. Each carries the
-same H.264 video, without sound.
+All outputs can run at the same time, under **Streaming**. RTSP, SRT, RTMP and
+UDP carry the same H.264 video, without sound. NDI and OMT carry it decoded,
+for video mixers on the local network.
 
 With DJI goggles, that's the live feed the goggles receive, passed on as it is:
 the same picture as in the goggles, not the air unit's higher-quality onboard
@@ -19,8 +20,11 @@ recording. See [recording](/docs/using/recording).
 | SRT    | Either way                    | OBS, over Wi-Fi or the internet: copes with loss |
 | RTMP   | The device sends              | YouTube, Twitch, Facebook, RTMP servers          |
 | UDP    | The device sends              | QGroundControl, Mission Planner, multicast       |
+| NDI    | Mixers find the device        | vMix, OBS (DistroAV), TriCaster, on the LAN      |
+| OMT    | Mixers find the device        | vMix, on the LAN. Open, nothing to install.      |
 
 For step-by-step setups, see [VLC](/docs/other-software/vlc), [OBS](/docs/other-software/obs),
+[NDI and OMT](/docs/other-software/ndi-and-omt),
 [ground stations](/docs/other-software/ground-stations) and
 [live platforms](/docs/other-software/live-platforms).
 
@@ -91,6 +95,29 @@ Sends the video to fixed receivers, with no connection set up.
   UDP can't tell whether anyone receives it. If nothing shows up, check the
   receiver's address and port, and its firewall.
 </Admonition>
+
+## NDI and OMT
+
+Both put a source on the local network that vMix, OBS and other mixers list by
+themselves, as **HOSTNAME (YStreamer)**. Neither can carry the H.264 as it is,
+so the device decodes the video and compresses each picture again, in
+software. That only runs while a receiver is connected.
+
+- **NDI** needs NDI's runtime on the device, which you install yourself: it's
+  NDI's own software and doesn't come with YStreamer. Until it's there, the
+  card says so and can't be turned on.
+- **OMT** (Open Media Transport) is open and needs nothing extra.
+
+| Setting      | What it does                                                                                                |
+| ------------ | ----------------------------------------------------------------------------------------------------------- |
+| Source name  | The name in the list of sources, after the device's hostname. `YStreamer` by default.                       |
+| Picture size | Larger video is scaled down to this height: 480p to 1080p, 720p by default. Smaller video is left as it is. |
+| Frame rate   | At most 30 (the default) or 60 frames per second.                                                           |
+
+Each picture is compressed on its own, which takes far more bandwidth than
+H.264. Connect the device and the mixer by Ethernet. The card shows how many
+receivers are connected and the size being sent. The NDI and OMT guide has the
+setup in each mixer: [NDI and OMT](/docs/other-software/ndi-and-omt).
 
 ## The splash screen in streams
 
