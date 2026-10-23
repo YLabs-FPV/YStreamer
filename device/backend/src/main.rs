@@ -62,6 +62,7 @@ fn run() -> anyhow::Result<()> {
     let network = network::Network::new();
 
     let input = InputState::new(cfg.input.mode);
+    input.set_camera(cfg.input.camera);
 
     let listener = web::bind()?;
     let web_port = listener.local_addr()?.port();
@@ -167,9 +168,9 @@ fn run() -> anyhow::Result<()> {
     goggles.run(|data| {
         duml.process(
             data,
-            |chunk| {
+            |lane, chunk| {
                 alive.mark_alive();
-                if video.push(alive.generation(), chunk) {
+                if video.push(alive.generation(), lane, chunk) {
                     chunk_count.fetch_add(1, Ordering::Relaxed);
                 }
             },

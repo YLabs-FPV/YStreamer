@@ -45,6 +45,35 @@ H.265, which is converted to H.264 as described above.
   asks you to unplug the remote's cable and plug it back in.
 </Admonition>
 
+### Two-camera aircraft
+
+An aircraft with two cameras, such as the **Avata 360**, sends both over the
+remote's link. One goes to the outputs: HDMI, the browser, the streams and the
+recordings. Once YStreamer sees the second camera, the Input page shows a
+**Cameras** card with what each one is sending, and lets you choose the
+**Camera on the outputs**:
+
+| Choice | What goes out                                                                                        |
+| ------ | ---------------------------------------------------------------------------------------------------- |
+| Auto   | The bigger stream, which is the live view. It follows it when DJI Fly's picture-in-picture moves it. |
+| Main   | Always the link's first camera stream.                                                               |
+| Second | Always the other one.                                                                                |
+
+Saving the choice switches the camera at once, without restarting anything. The
+switch waits for the other camera's next keyframe, so the picture never mixes
+the two.
+
+<Admonition type="info" title="Only once armed">
+  The aircraft sends its second camera only once it's armed. On the bench the
+  card doesn't appear yet.
+</Admonition>
+
+<Admonition type="warning" title="The picture size can change">
+  The two cameras have different sizes, for example 1920 × 1080 and 640 × 360. A
+  switch during a recording or a stream changes the picture size mid-way, which
+  some players and streaming sites don't handle.
+</Admonition>
+
 ## FPV Goggles V1 / V2
 
 The first DJI FPV Goggles. Connect them to one of the Pi's **USB-A** ports.

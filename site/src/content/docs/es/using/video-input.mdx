@@ -46,6 +46,35 @@ envía H.265, que se convierte a H.264 como se explica arriba.
   pide desconectar el cable del mando y volver a conectarlo.
 </Admonition>
 
+### Aeronaves con dos cámaras
+
+Una aeronave con dos cámaras, como la **Avata 360**, envía las dos por el
+enlace del mando. Una va a las salidas: HDMI, el navegador, las emisiones y las
+grabaciones. En cuanto YStreamer ve la segunda cámara, la página Input muestra
+una tarjeta **Cameras** con lo que envía cada una, y te deja elegir la
+**Camera on the outputs**:
+
+| Opción | Qué sale                                                                                                      |
+| ------ | ------------------------------------------------------------------------------------------------------------- |
+| Auto   | La emisión más grande, que es la vista en directo. La sigue cuando el picture-in-picture de DJI Fly la mueve. |
+| Main   | Siempre la primera emisión de cámara del enlace.                                                              |
+| Second | Siempre la otra.                                                                                              |
+
+Al guardar la opción, la cámara cambia en el momento, sin reiniciar nada. El
+cambio espera al siguiente fotograma clave de la otra cámara, así que la imagen
+nunca mezcla las dos.
+
+<Admonition type="info" title="Solo una vez armada">
+  La aeronave envía su segunda cámara solo cuando está armada. En el banco de
+  pruebas la tarjeta todavía no aparece.
+</Admonition>
+
+<Admonition type="warning" title="El tamaño de la imagen puede cambiar">
+  Las dos cámaras tienen tamaños distintos, por ejemplo 1920 × 1080 y 640 × 360.
+  Un cambio durante una grabación o una emisión cambia el tamaño de la imagen a
+  mitad, algo que algunos reproductores y plataformas de streaming no aceptan.
+</Admonition>
+
 ## FPV Goggles V1 / V2
 
 Las primeras DJI FPV Goggles. Conéctalas a uno de los puertos **USB-A** de la

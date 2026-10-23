@@ -146,6 +146,19 @@ impl Transcoder {
         *self.retry_at.lock().unwrap() = None;
     }
 
+    /// A fresh pipeline on the next push, with the converter that worked:
+    /// for another camera, whose pictures mustn't be decoded against the
+    /// last one's
+    pub fn restart(&self) {
+        let mut running = self.running.lock().unwrap();
+        if let Some(r) = running.as_ref()
+            && let Some(i) = CONVERTERS.iter().position(|&c| c == r.converter)
+        {
+            *self.next.lock().unwrap() = i;
+        }
+        stop(running.take());
+    }
+
     fn failed(&self, r: &Running) -> Option<String> {
         if let Some(e) = bus_error(&r.pipeline) {
             return Some(e);

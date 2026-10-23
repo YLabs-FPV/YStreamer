@@ -11,11 +11,15 @@ fn have(elements: &[&str]) -> bool {
 
 /// A short H.265 clip, as one byte stream
 fn h265_clip() -> Vec<u8> {
-    let pipeline = gst::parse::launch(
-        "videotestsrc num-buffers=45 ! video/x-raw,width=640,height=360,framerate=30/1 ! \
+    h265_clip_sized(640, 360)
+}
+
+fn h265_clip_sized(width: u32, height: u32) -> Vec<u8> {
+    let pipeline = gst::parse::launch(&format!(
+        "videotestsrc num-buffers=45 ! video/x-raw,width={width},height={height},framerate=30/1 ! \
          x265enc speed-preset=ultrafast key-int-max=15 ! h265parse ! \
          video/x-h265,stream-format=byte-stream ! appsink name=sink sync=false",
-    )
+    ))
     .unwrap()
     .dynamic_cast::<gst::Pipeline>()
     .unwrap();
@@ -104,4 +108,51 @@ fn a_restarted_converter_gets_the_parameter_sets_it_missed() {
         std::thread::sleep(Duration::from_millis(100));
     }
     assert!(*pictures.lock().unwrap() >= 5);
+}
+
+#[test]
+fn another_camera_gets_a_fresh_converter_of_the_kind_that_worked() {
+    if !have(&["x265enc", "avdec_h265", "x264enc", "h265parse", "h264parse"]) {
+        eprintln!("skipped: GStreamer plugins for H.265 aren't installed");
+        return;
+    }
+    let pictures: Arc<StdMutex<Vec<Vec<u8>>>> = Arc::default();
+    let seen = Arc::clone(&pictures);
+    let t = Transcoder::new(Arc::new(move |au: &[u8]| {
+        seen.lock().unwrap().push(au.to_vec());
+    }));
+    let play = |clip: &[u8], wanted: usize| {
+        let mut params = ParamSets::new();
+        for chunk in clip.chunks(4080) {
+            params.feed(chunk);
+            let _ = t.push(chunk, &params);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while pictures.lock().unwrap().len() < wanted && Instant::now() < deadline {
+            let _ = t.push(&[], &params);
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    };
+
+    // The live view, then the other camera at its own size
+    play(&h265_clip_sized(640, 360), 5);
+    let before = pictures.lock().unwrap().len();
+    assert!(before >= 5, "only {before} pictures");
+    let converter = t.converter();
+    assert!(converter.is_some());
+
+    t.restart();
+    assert_eq!(t.converter(), None);
+    play(&h265_clip_sized(320, 180), before + 5);
+    let pictures = pictures.lock().unwrap();
+    assert!(
+        pictures.len() >= before + 5,
+        "only {} after",
+        pictures.len() - before
+    );
+    // Not back through the ones that failed here
+    assert_eq!(t.converter(), converter);
+    // The outputs can pick it up from its first picture
+    assert!(h264::nals(&pictures[before]).any(|n| n.kind == h264::SPS));
 }

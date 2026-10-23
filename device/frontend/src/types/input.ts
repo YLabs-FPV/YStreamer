@@ -1,5 +1,26 @@
 export type InputMode = "dji_fpv" | "uvc" | "dji_fpv_legacy";
 
+/** Which camera of a two-camera DJI aircraft goes to the outputs */
+export type CameraChoice = "auto" | "main" | "second";
+
+export type Lane = "main" | "second";
+
+/** One camera's stream on the USB-C link */
+export interface LaneStatus {
+  kbps: number;
+  width: number | null;
+  height: number | null;
+  live: boolean;
+}
+
+/** A two-camera aircraft, such as the Avata 360 */
+export interface Cameras {
+  /** The one the outputs get */
+  program: Lane;
+  main: LaneStatus;
+  second: LaneStatus;
+}
+
 export type UvcFormat = "h264" | "mjpeg" | "raw";
 
 export interface UvcMode {
@@ -43,6 +64,8 @@ export interface DjiStatus {
   /** How H.265 is turned into H.264, while it is */
   converter: "hardware" | "software_decode" | "software" | null;
   error: string | null;
+  /** Set once a second camera is seen on the link */
+  cameras: Cameras | null;
 }
 
 export interface InputStatus {

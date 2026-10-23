@@ -2,7 +2,12 @@
   import { onMount, onDestroy } from "svelte";
   import { api, message } from "@/api/client";
   import type { Settings } from "@/types/settings";
-  import type { InputStatus, UvcDevice, UvcMode } from "@/types/input";
+  import type {
+    InputStatus,
+    LaneStatus,
+    UvcDevice,
+    UvcMode,
+  } from "@/types/input";
   import Card from "@/components/ui/Card.svelte";
   import Field from "@/components/ui/Field.svelte";
   import TextField from "@/components/ui/TextField.svelte";
@@ -61,6 +66,24 @@
       ? { text: `H.265, ${CONVERTER[d.converter]}.`, tone: "text-ok" }
       : { text: "H.265, starting the conversion…", tone: "text-warn" };
   });
+
+  const CAMERAS = [
+    { label: "Auto", value: "auto" },
+    { label: "Main", value: "main" },
+    { label: "Second", value: "second" },
+  ];
+
+  // Only offered once a second camera is on the link
+  const cameras = $derived(
+    status?.mode === "dji_fpv" ? status.dji.cameras : null,
+  );
+
+  function laneLabel(lane: LaneStatus) {
+    if (!lane.live) return "not sending";
+    const size =
+      lane.width && lane.height ? `${lane.width} × ${lane.height} · ` : "";
+    return `${size}${(lane.kbps / 1000).toFixed(1)} Mbit/s`;
+  }
 
   const legacySummary = $derived.by(() => {
     switch (legacy?.state) {
@@ -224,6 +247,40 @@
       {/if}
     </div>
   </Card>
+
+  {#if input.mode === "dji_fpv" && cameras}
+    <Card
+      title="Cameras"
+      description="This aircraft sends two cameras. One goes to HDMI, the browser, the streams and recordings."
+    >
+      <Field
+        label="Camera on the outputs"
+        help="Auto follows the bigger stream, which is the live view, also when DJI Fly's picture-in-picture moves it."
+        stacked
+      >
+        <div class="w-full">
+          <Segmented
+            options={CAMERAS}
+            value={input.camera}
+            onchange={(v) => (input.camera = v)}
+          />
+        </div>
+      </Field>
+      {#each [["main", "Main"], ["second", "Second"]] as const as [lane, label]}
+        <div class="flex items-center justify-between gap-4 px-4 py-3">
+          <span class="text-[13px] text-fg">
+            {label}
+            {#if cameras.program === lane}
+              <span class="ml-2 text-[12px] text-ok">on the outputs</span>
+            {/if}
+          </span>
+          <span class="font-mono text-[12px] text-muted tabular-nums">
+            {laneLabel(cameras[lane])}
+          </span>
+        </div>
+      {/each}
+    </Card>
+  {/if}
 
   {#if input.mode === "dji_fpv_legacy"}
     <Card title="FPV Goggles V1/V2">
