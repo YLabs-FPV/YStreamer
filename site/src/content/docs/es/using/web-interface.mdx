@@ -50,6 +50,75 @@ La vista en directo, con:
 - **Camera**: los ajustes de cámara de la unidad aérea, con gafas DJI. Ver
   [ajustes de cámara](/docs/using/camera-settings).
 - La grabación propia de la unidad aérea: si está grabando y en qué tarjeta.
+- **Telemetry**: la batería, el GPS, la altitud, la velocidad y el camino a
+  casa de la aeronave, con gafas DJI. Ver [telemetría](#telemetría).
+
+### Telemetría
+
+Con gafas DJI, el panel **Telemetry** muestra los datos que la aeronave envía
+por el enlace, los mismos que muestran las gafas:
+
+| Campo    | Muestra                                                                                    |
+| -------- | ------------------------------------------------------------------------------------------ |
+| Battery  | La batería de la aeronave                                                                  |
+| Altitude | La altura sobre el punto de despegue                                                       |
+| Vertical | La velocidad de subida (↑) o de bajada (↓)                                                 |
+| Speed    | La velocidad sobre el suelo                                                                |
+| GPS      | Los satélites, o un nivel de GPS de 0 a 5; **No fix** hasta que la aeronave tiene posición |
+| Home     | La distancia y la dirección al punto de origen                                             |
+
+La flecha apunta a casa respecto a hacia dónde mira la aeronave, así que
+arriba es de frente. El punto cardinal y los grados a su lado se miden desde
+el norte.
+
+El panel solo aparece mientras una aeronave envía datos. Un dato que no llega
+durante unos segundos se queda en blanco (—) en lugar de mostrar un valor
+viejo. Los espectadores sin sesión iniciada también ven el panel, pero nunca
+dónde está la aeronave.
+
+<Admonition type="note">
+  Qué datos llegan depende de la unidad aérea. Se identificaron con un Avata 2 y
+  unas Goggles 3; otras unidades pueden dejar alguno en blanco.
+</Admonition>
+
+#### Para estaciones de tierra
+
+`GET /api/telemetry` devuelve los mismos datos en JSON, y además las
+coordenadas de la aeronave y del punto de origen. Consultarlo hasta 5 veces
+por segundo es más que suficiente. Lo que la aeronave no ha enviado
+últimamente es `null`, nunca `0`. Con una contraseña puesta, la petición
+necesita una sesión iniciada, como el resto de la API.
+
+```json
+{
+  "battery_percent": 81,
+  "gps_fix": true,
+  "satellites": 17,
+  "gps_level": null,
+  "lat": 45.000912,
+  "lon": 7.000134,
+  "altitude_m": 21.5,
+  "vertical_speed_mps": -0.5,
+  "horizontal_speed_mps": 4.2,
+  "pitch_deg": 1.3,
+  "roll_deg": -1.2,
+  "yaw_deg": -113.9,
+  "home_set": true,
+  "home_lat": 45.0,
+  "home_lon": 7.0,
+  "home_altitude_m": 240.3,
+  "home_distance_m": 102.0,
+  "home_bearing_deg": 185.9,
+  "rc_signal": 4,
+  "vtx_signal": null
+}
+```
+
+`vertical_speed_mps` es positiva al subir. `home_altitude_m` es la altitud GPS
+del punto de origen, no una altura sobre él. `satellites` viene de las
+unidades O4, `gps_level` de las que envían un nivel. Aún no está confirmado
+cuál de `rc_signal` y `vtx_signal` (de 0 a 5 barras) es el enlace del control
+remoto y cuál el del vídeo.
 
 ### Atajos de teclado
 
