@@ -278,7 +278,9 @@ fn read_loop(inbox: Sender<Rx>) {
         logged = false;
         let closed = loop {
             match ep.read(&mut buf) {
-                Ok(0) => break io::Error::from(io::ErrorKind::UnexpectedEof),
+                // A zero-length packet, which the remote sends; a link that
+                // goes down fails the read instead
+                Ok(0) => {}
                 Ok(n) => {
                     if inbox.send(Rx::Data(buf[..n].to_vec())).is_err() {
                         return;
