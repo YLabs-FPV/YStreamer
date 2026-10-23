@@ -91,14 +91,18 @@ to YStreamer's access point.
 The card says when an app is connected and when video arrives. The splash
 screen shows until the first keyframe.
 
-| Setting    | What it does                                                                            |
-| ---------- | --------------------------------------------------------------------------------------- |
-| Stream key | Only an app that knows it can stream here. **New** makes another; save to use it.       |
-| Port       | 1935, what apps expect when the address has none. Or 1024 to 65535.                     |
-| Only from  | IP addresses allowed to stream, comma separated. Empty lets in any device with the key. |
+| Setting    | What it does                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| Stream key | At least 10 characters. Only an app that knows it can stream here. **New** makes another; save to use it. |
+| Port       | 1935, what apps expect when the address has none. Or 1024 to 65535.                                       |
+| Only from  | IP addresses allowed to stream, comma separated. Empty lets in any device with the key.                   |
 
 One app streams at a time; a second one is turned away until the first stops.
 Changing the key or **Only from** drops the app streaming now.
+
+An app has 10 seconds from connecting to start streaming with the right key.
+After 3 wrong keys from one address, that address is turned away for a
+minute, and for twice as long after each further wrong key, up to 15 minutes.
 
 <Admonition type="tip" title="Use the IP address">
   Many phone apps can't find `ystreamer.local`. Open the web interface by the

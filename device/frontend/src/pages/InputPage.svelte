@@ -350,7 +350,7 @@
       <Field
         label="Stream key"
         for="rtmp-in-key"
-        help="Only an app that knows it can stream here. Made up when you first save."
+        help="At least 10 characters. Only an app that knows it can stream here. Made up when you first save."
       >
         <TextField id="rtmp-in-key" secret mono bind:value={input.rtmp.key} />
         <button type="button" class={btn.plain} onclick={newKey}>New</button>

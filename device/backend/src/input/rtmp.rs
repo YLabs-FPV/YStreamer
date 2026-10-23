@@ -3,7 +3,7 @@
 //! runs in-process, so there's no second program to ship and no extra hop
 //! between the app's H.264 and the outputs.
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
@@ -16,10 +16,11 @@ use rml_rtmp::sessions::{
     ServerSession, ServerSessionConfig, ServerSessionEvent, ServerSessionResult,
 };
 use serde::Serialize;
+use subtle::ConstantTimeEq;
 
 use super::flv::{AvcTags, TagError};
 use super::{Fanout, InputState};
-use crate::settings::{InputMode, RtmpInputSettings};
+use crate::settings::{InputMode, RTMP_MIN_KEY_LEN, RtmpInputSettings};
 
 const POLL: Duration = Duration::from_millis(100);
 const RETRY: Duration = Duration::from_secs(2);
@@ -27,9 +28,21 @@ const RETRY: Duration = Duration::from_secs(2);
 const IDLE: Duration = Duration::from_secs(10);
 /// No picture for this long and the app counts as connected but not sending
 const STALL: Duration = Duration::from_secs(3);
-/// Connections handled at once; more are turned away, so a port scan or a
-/// stuck app can't pile up threads
-const MAX_CONNECTIONS: usize = 4;
+/// From connecting to streaming with the right key. Without it, clients
+/// sending a byte now and then would hold their slots for good
+const LOGIN: Duration = Duration::from_secs(10);
+/// Connections not streaming yet, handled at once; more are turned away, so
+/// a port scan or a stuck app can't pile up threads. The app streaming
+/// isn't counted, so these can't lock it out
+const MAX_PENDING: usize = 4;
+/// Wrong keys from one address before it's turned away for a while
+const MAX_STRIKES: u32 = 3;
+const FIRST_BAN: Duration = Duration::from_secs(60);
+const MAX_BAN: Duration = Duration::from_secs(15 * 60);
+/// Wrong keys are forgotten after this long without another
+const STRIKE_MEMORY: Duration = Duration::from_secs(15 * 60);
+/// Addresses remembered at once, so guessing from many can't use up memory
+const MAX_TRACKED: usize = 64;
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Where the access units go: the fan-out, or a test
@@ -71,7 +84,9 @@ pub struct RtmpSource {
     generation: AtomicU64,
     /// One app streams at a time
     publishing: AtomicBool,
-    connections: AtomicUsize,
+    pending: AtomicUsize,
+    strikes: Mutex<Strikes>,
+    login: Duration,
 }
 
 impl RtmpSource {
@@ -94,12 +109,23 @@ impl RtmpSource {
         cfg: &RtmpInputSettings,
         pictures: Pictures,
     ) -> Arc<Self> {
+        Self::launch(state, cfg, pictures, LOGIN)
+    }
+
+    fn launch(
+        state: Arc<InputState>,
+        cfg: &RtmpInputSettings,
+        pictures: Pictures,
+        login: Duration,
+    ) -> Arc<Self> {
         let this = Arc::new(Self {
             state,
             cfg: Mutex::new(cfg.clone()),
             generation: AtomicU64::new(0),
             publishing: AtomicBool::new(false),
-            connections: AtomicUsize::new(0),
+            pending: AtomicUsize::new(0),
+            strikes: Mutex::new(Strikes::default()),
+            login,
         });
         let listener = Arc::clone(&this);
         thread::spawn(move || listener.run(pictures));
@@ -203,8 +229,24 @@ impl RtmpSource {
             ));
             return;
         }
-        if self.connections.fetch_add(1, Ordering::SeqCst) >= MAX_CONNECTIONS {
-            self.connections.fetch_sub(1, Ordering::SeqCst);
+        // Turned away quietly: logging each try would let a guesser fill the log
+        if let Some(left) = self
+            .strikes
+            .lock()
+            .unwrap()
+            .banned(peer.ip(), Instant::now())
+        {
+            self.update(|s| {
+                s.error = Some(format!(
+                    "Turned away {}: too many wrong keys, let in again in {} s",
+                    peer.ip(),
+                    left.as_secs().max(1)
+                ))
+            });
+            return;
+        }
+        if self.pending.fetch_add(1, Ordering::SeqCst) >= MAX_PENDING {
+            self.pending.fetch_sub(1, Ordering::SeqCst);
             return;
         }
         let this = Arc::clone(self);
@@ -218,6 +260,8 @@ impl RtmpSource {
                 generation,
                 pictures,
                 tags: AvcTags::new(),
+                accepted: Instant::now(),
+                pending: true,
                 publishing: false,
                 last_picture: None,
                 bad_tags: 0,
@@ -225,8 +269,6 @@ impl RtmpSource {
             if let Err(e) = conn.serve() {
                 eprintln!("[rtmp-in] {}: {e}", conn.peer);
             }
-            drop(conn);
-            this.connections.fetch_sub(1, Ordering::SeqCst);
         });
     }
 
@@ -255,6 +297,9 @@ struct Connection<'a> {
     generation: u64,
     pictures: Pictures,
     tags: AvcTags,
+    accepted: Instant,
+    /// Holds one of the source's slots for connections not streaming yet
+    pending: bool,
     /// Holds the source's one publishing slot
     publishing: bool,
     last_picture: Option<Instant>,
@@ -320,6 +365,12 @@ impl Connection<'_> {
         loop {
             if !self.source.current(self.generation) {
                 return Ok(None);
+            }
+            if !self.publishing && self.accepted.elapsed() > self.source.login {
+                return Err(format!(
+                    "didn't start streaming within {} s",
+                    self.source.login.as_secs_f32()
+                ));
             }
             match self.stream.read(buf) {
                 Ok(0) => return Ok(None),
@@ -391,9 +442,23 @@ impl Connection<'_> {
             } => {
                 // Some apps add query parameters to the key
                 let key = stream_key.split('?').next().unwrap_or_default();
-                let refusal = if self.key.is_empty() {
-                    Some("no stream key is set on the device")
-                } else if key != self.key {
+                let right: bool = key.as_bytes().ct_eq(self.key.as_bytes()).into();
+                let refusal = if self.key.len() < RTMP_MIN_KEY_LEN {
+                    Some("no usable stream key is set on the device")
+                } else if !right {
+                    let ban = self
+                        .source
+                        .strikes
+                        .lock()
+                        .unwrap()
+                        .strike(self.peer, Instant::now());
+                    if let Some(ban) = ban {
+                        eprintln!(
+                            "[rtmp-in] {}: too many wrong keys, turned away for {} s",
+                            self.peer,
+                            ban.as_secs()
+                        );
+                    }
                     Some("wrong stream key")
                 } else if self.source.publishing.swap(true, Ordering::SeqCst) {
                     Some("another app is already streaming")
@@ -410,6 +475,9 @@ impl Connection<'_> {
                     return Ok(None);
                 }
                 self.publishing = true;
+                self.pending = false;
+                self.source.pending.fetch_sub(1, Ordering::SeqCst);
+                self.source.strikes.lock().unwrap().forget(self.peer);
                 eprintln!("[rtmp-in] {} is streaming", self.peer);
                 let peer = self.peer.to_string();
                 self.source.update(|s| {
@@ -478,6 +546,9 @@ impl Connection<'_> {
 
 impl Drop for Connection<'_> {
     fn drop(&mut self) {
+        if self.pending {
+            self.source.pending.fetch_sub(1, Ordering::SeqCst);
+        }
         if !self.publishing {
             return;
         }
@@ -490,6 +561,66 @@ impl Drop for Connection<'_> {
                 s.reorders = false;
             }
         });
+    }
+}
+
+/// Wrong keys per address, for turning away one that keeps guessing
+#[derive(Default)]
+struct Strikes {
+    by_ip: HashMap<IpAddr, Record>,
+}
+
+#[derive(Clone, Copy)]
+struct Record {
+    wrong: u32,
+    last: Instant,
+    banned_until: Option<Instant>,
+}
+
+impl Strikes {
+    /// How long `ip` is still turned away for, if it is
+    fn banned(&self, ip: IpAddr, now: Instant) -> Option<Duration> {
+        let until = self.by_ip.get(&ip.to_canonical())?.banned_until?;
+        (until > now).then(|| until - now)
+    }
+
+    /// Counts a wrong key; the length of the ban it earns, if it earns one.
+    /// Each wrong key past the limit doubles the ban
+    fn strike(&mut self, ip: IpAddr, now: Instant) -> Option<Duration> {
+        let ip = ip.to_canonical();
+        self.by_ip.retain(|_, r| {
+            now.duration_since(r.last) < STRIKE_MEMORY || r.banned_until > Some(now)
+        });
+        if !self.by_ip.contains_key(&ip) && self.by_ip.len() >= MAX_TRACKED {
+            let oldest = self
+                .by_ip
+                .iter()
+                .min_by_key(|(_, r)| r.last)
+                .map(|(ip, _)| *ip);
+            if let Some(oldest) = oldest {
+                self.by_ip.remove(&oldest);
+            }
+        }
+        let r = self.by_ip.entry(ip).or_insert(Record {
+            wrong: 0,
+            last: now,
+            banned_until: None,
+        });
+        r.wrong += 1;
+        r.last = now;
+        if r.wrong < MAX_STRIKES {
+            return None;
+        }
+        let ban = FIRST_BAN
+            .saturating_mul(1 << (r.wrong - MAX_STRIKES).min(10))
+            .min(MAX_BAN);
+        r.banned_until = Some(now + ban);
+        Some(ban)
+    }
+
+    /// The right key: what came before is forgiven
+    fn forget(&mut self, ip: IpAddr) {
+        self.by_ip.remove(&ip.to_canonical());
     }
 }
 

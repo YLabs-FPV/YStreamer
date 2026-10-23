@@ -7,7 +7,7 @@ use rml_rtmp::sessions::{
 };
 use rml_rtmp::time::RtmpTimestamp;
 
-const KEY: &str = "testkey1";
+const KEY: &str = "testkey123";
 
 type Received = Arc<Mutex<Vec<Vec<u8>>>>;
 
@@ -22,13 +22,21 @@ fn settings(allowed_from: &str) -> RtmpInputSettings {
 
 /// A listening source and the pictures it hands on
 fn source(cfg: &RtmpInputSettings) -> (Arc<RtmpSource>, Arc<InputState>, Received, u16) {
+    source_with_login(cfg, LOGIN)
+}
+
+fn source_with_login(
+    cfg: &RtmpInputSettings,
+    login: Duration,
+) -> (Arc<RtmpSource>, Arc<InputState>, Received, u16) {
     let state = InputState::new(InputMode::Rtmp);
     let received: Received = Arc::default();
     let sink = Arc::clone(&received);
-    let source = RtmpSource::start_with(
+    let source = RtmpSource::launch(
         Arc::clone(&state),
         cfg,
         Arc::new(move |au: &[u8]| sink.lock().unwrap().push(au.to_vec())),
+        login,
     );
     let port = wait_until(|| source.status().port).expect("the source never listened");
     (source, state, received, port)
@@ -151,7 +159,8 @@ struct Client {
 }
 
 impl Client {
-    fn connect(port: u16) -> Self {
+    /// None if the server hangs up during the handshake
+    fn connect(port: u16) -> Option<Self> {
         let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
@@ -162,8 +171,10 @@ impl Client {
             .unwrap();
         let mut buf = vec![0u8; 16 * 1024];
         let rest = loop {
-            let n = stream.read(&mut buf).unwrap();
-            assert!(n > 0, "closed during the handshake");
+            let n = match stream.read(&mut buf) {
+                Ok(0) | Err(_) => return None,
+                Ok(n) => n,
+            };
             match handshake.process_bytes(&buf[..n]).unwrap() {
                 HandshakeProcessResult::InProgress { response_bytes } => {
                     stream.write_all(&response_bytes).unwrap()
@@ -185,7 +196,7 @@ impl Client {
         };
         let results = client.session.handle_input(&rest).unwrap();
         client.send_all(results);
-        client
+        Some(client)
     }
 
     fn send_all(&mut self, results: Vec<ClientSessionResult>) -> Vec<ClientSessionEvent> {
@@ -220,7 +231,7 @@ impl Client {
 
     /// Connected and publishing under `key`, or None if turned away
     fn publish(port: u16, key: &str) -> Option<Self> {
-        let mut c = Self::connect(port);
+        let mut c = Self::connect(port)?;
         let r = c.session.request_connection("live".into()).unwrap();
         c.send_all(vec![r]);
         if !c.wait_for(|e| matches!(e, ClientSessionEvent::ConnectionRequestAccepted)) {
@@ -306,7 +317,7 @@ fn a_new_key_drops_the_app_streaming() {
     let (source, _state, _received, port) = source(&settings(""));
     let mut client = Client::publish(port, KEY).expect("publishing was refused");
     source.apply(&RtmpInputSettings {
-        key: "otherkey".into(),
+        key: "otherkey12".into(),
         ..settings("")
     });
     assert!(client.hung_up());
@@ -322,4 +333,139 @@ fn closes_the_port_when_another_input_is_picked() {
     drop(client);
     thread::sleep(POLL * 3);
     assert!(TcpStream::connect(("127.0.0.1", port)).is_err());
+}
+
+/// Connected and sending a byte now and then, never finishing the handshake
+fn dribblers(port: u16, n: usize) -> Vec<TcpStream> {
+    (0..n)
+        .map(|_| {
+            let s = TcpStream::connect(("127.0.0.1", port)).unwrap();
+            s.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+            s
+        })
+        .collect()
+}
+
+fn dribble(streams: &mut [TcpStream]) {
+    for s in streams {
+        let _ = s.write_all(&[3]);
+    }
+}
+
+/// Whether the server has hung up, past whatever it sent first
+fn closed(s: &mut TcpStream) -> bool {
+    let mut buf = [0u8; 4096];
+    loop {
+        match s.read(&mut buf) {
+            Ok(0) => return true,
+            Ok(_) => {}
+            Err(e) => return !matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut),
+        }
+    }
+}
+
+#[test]
+fn slow_clients_are_dropped_at_the_login_deadline() {
+    let (_source, _state, _received, port) =
+        source_with_login(&settings(""), Duration::from_secs(1));
+    let mut slow = dribblers(port, MAX_PENDING);
+    thread::sleep(Duration::from_millis(300));
+    // Every slot is taken, so the next one is turned away at once
+    let mut extra = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    extra
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    assert!(closed(&mut extra));
+
+    // A byte every 250 ms never trips the idle limit, the deadline still holds
+    for _ in 0..6 {
+        dribble(&mut slow);
+        thread::sleep(Duration::from_millis(250));
+    }
+    for s in &mut slow {
+        assert!(closed(s), "a slow client outlived the login deadline");
+    }
+    assert!(Client::publish(port, KEY).is_some());
+}
+
+#[test]
+fn the_app_streaming_isnt_held_to_the_deadline_or_the_pending_slots() {
+    let (source, _state, _received, port) =
+        source_with_login(&settings(""), Duration::from_secs(1));
+    let _app = Client::publish(port, KEY).expect("publishing was refused");
+    let mut slow = dribblers(port, MAX_PENDING);
+    for _ in 0..6 {
+        dribble(&mut slow);
+        thread::sleep(Duration::from_millis(250));
+    }
+    let status = source.status();
+    assert_eq!(status.state, RtmpInputState::Connected);
+    assert_eq!(status.publisher.as_deref(), Some("127.0.0.1"));
+}
+
+#[test]
+fn repeated_wrong_keys_turn_the_address_away() {
+    let (source, _state, _received, port) = source(&settings(""));
+    for _ in 0..MAX_STRIKES {
+        assert!(Client::publish(port, "guessing12").is_none());
+    }
+    // Even the right key, for now
+    assert!(Client::publish(port, KEY).is_none());
+    let error = source.status().error.unwrap_or_default();
+    assert!(error.contains("too many wrong keys"), "{error}");
+}
+
+mod strikes {
+    use super::*;
+
+    fn ip(n: u32) -> IpAddr {
+        IpAddr::from(std::net::Ipv4Addr::from(0x0a00_0000 + n))
+    }
+
+    #[test]
+    fn bans_after_a_few_wrong_keys_and_doubles_each_time() {
+        let mut s = Strikes::default();
+        let t = Instant::now();
+        assert_eq!(s.strike(ip(1), t), None);
+        assert_eq!(s.strike(ip(1), t), None);
+        assert_eq!(s.strike(ip(1), t), Some(FIRST_BAN));
+        assert!(s.banned(ip(1), t).is_some());
+        assert!(s.banned(ip(2), t).is_none());
+
+        let later = t + FIRST_BAN + Duration::from_secs(1);
+        assert!(s.banned(ip(1), later).is_none());
+        assert_eq!(s.strike(ip(1), later), Some(FIRST_BAN * 2));
+        assert_eq!(s.strike(ip(1), later), Some(FIRST_BAN * 4));
+        for _ in 0..20 {
+            s.strike(ip(1), later);
+        }
+        assert_eq!(s.strike(ip(1), later), Some(MAX_BAN));
+    }
+
+    #[test]
+    fn the_right_key_and_time_forgive() {
+        let mut s = Strikes::default();
+        let t = Instant::now();
+        s.strike(ip(1), t);
+        s.strike(ip(1), t);
+        s.forget(ip(1));
+        assert_eq!(s.strike(ip(1), t), None);
+
+        let mut s = Strikes::default();
+        s.strike(ip(1), t);
+        s.strike(ip(1), t);
+        assert_eq!(s.strike(ip(1), t + STRIKE_MEMORY), None);
+    }
+
+    #[test]
+    fn remembers_a_bounded_number_of_addresses() {
+        let mut s = Strikes::default();
+        let t = Instant::now();
+        for n in 0..1000 {
+            s.strike(ip(n), t + Duration::from_millis(n as u64));
+        }
+        assert!(s.by_ip.len() <= MAX_TRACKED);
+        // The newest are the ones kept
+        assert!(s.by_ip.contains_key(&ip(999)));
+    }
 }

@@ -77,36 +77,53 @@ mod rtmp {
 
     #[test]
     fn checks_port_and_key() {
-        assert!(rtmp(1935, "abcd", "").validate().is_ok());
-        assert!(rtmp(19350, "my-key_2.0", "").validate().is_ok());
+        assert!(rtmp(1935, "abcd123456", "").validate().is_ok());
+        assert!(rtmp(19350, "my-key_2.0-x", "").validate().is_ok());
 
-        assert!(rtmp(554, "abcd", "").validate().is_err());
-        assert!(rtmp(8080, "abcd", "").validate().is_err());
+        assert!(rtmp(554, "abcd123456", "").validate().is_err());
+        assert!(rtmp(8080, "abcd123456", "").validate().is_err());
         assert!(rtmp(1935, "abc", "").validate().is_err());
+        assert!(rtmp(1935, "abcdefghij", "").validate().is_ok());
         assert!(rtmp(1935, &"a".repeat(65), "").validate().is_err());
-        assert!(rtmp(1935, "my key", "").validate().is_err());
-        assert!(rtmp(1935, "key?x=1", "").validate().is_err());
+        assert!(rtmp(1935, "my key 123", "").validate().is_err());
+        assert!(rtmp(1935, "key?x=1234", "").validate().is_err());
+    }
+
+    #[test]
+    fn short_keys_are_refused_with_a_clear_reason() {
+        let error = rtmp(1935, "abcdefghi", "").validate().unwrap_err();
+        assert!(error.contains("10-64 characters"), "{error}");
+        // Empty is fine: one is made when RTMP is picked
+        assert!(rtmp(1935, "", "").validate().is_ok());
     }
 
     #[test]
     fn reads_the_allowed_addresses() {
-        let r = rtmp(1935, "abcd", "192.168.1.20, 10.0.0.5 fe80::1");
+        let r = rtmp(1935, "abcd123456", "192.168.1.20, 10.0.0.5 fe80::1");
         assert!(r.validate().is_ok());
         assert_eq!(r.allowed_list().unwrap().len(), 3);
 
-        assert!(rtmp(1935, "abcd", "192.168.1").validate().is_err());
-        assert!(rtmp(1935, "abcd", "phone.local").validate().is_err());
-        assert!(rtmp(1935, "abcd", "192.168.1.0/24").validate().is_err());
+        assert!(rtmp(1935, "abcd123456", "192.168.1").validate().is_err());
+        assert!(rtmp(1935, "abcd123456", "phone.local").validate().is_err());
+        assert!(
+            rtmp(1935, "abcd123456", "192.168.1.0/24")
+                .validate()
+                .is_err()
+        );
         let many = (1..=9).map(|i| format!("10.0.0.{i}")).collect::<Vec<_>>();
-        assert!(rtmp(1935, "abcd", &many.join(",")).validate().is_err());
+        assert!(
+            rtmp(1935, "abcd123456", &many.join(","))
+                .validate()
+                .is_err()
+        );
     }
 
     #[test]
     fn lets_in_only_the_allowed_addresses() {
         let ip = |s: &str| s.parse::<IpAddr>().unwrap();
-        assert!(rtmp(1935, "abcd", "").allows(ip("203.0.113.9")));
+        assert!(rtmp(1935, "abcd123456", "").allows(ip("203.0.113.9")));
 
-        let r = rtmp(1935, "abcd", "192.168.1.20");
+        let r = rtmp(1935, "abcd123456", "192.168.1.20");
         assert!(r.allows(ip("192.168.1.20")));
         assert!(r.allows(ip("::ffff:192.168.1.20")));
         assert!(!r.allows(ip("192.168.1.21")));

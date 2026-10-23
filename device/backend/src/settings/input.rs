@@ -69,6 +69,8 @@ impl UvcSettings {
 
 /// The usual RTMP port, what apps assume when the URL has none
 pub const RTMP_INPUT_PORT: u16 = 1935;
+/// As long as the made-up keys, so a key can't be guessed in a few tries
+pub const RTMP_MIN_KEY_LEN: usize = 10;
 const MAX_ALLOWED_PUBLISHERS: usize = 8;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -99,7 +101,7 @@ impl RtmpInputSettings {
     pub fn new_key() -> String {
         const CHARS: &[u8] = b"abcdefghijkmnpqrstuvwxyz23456789";
         let mut rng = rand::rng();
-        (0..10)
+        (0..RTMP_MIN_KEY_LEN)
             .map(|_| CHARS[rng.random_range(0..CHARS.len())] as char)
             .collect()
     }
@@ -131,8 +133,10 @@ impl RtmpInputSettings {
         if self.port == 8080 {
             return Err("Port 8080 is used by the web interface".into());
         }
-        if !self.key.is_empty() && !(4..=64).contains(&self.key.len()) {
-            return Err("RTMP stream key must be 4-64 characters".into());
+        if !self.key.is_empty() && !(RTMP_MIN_KEY_LEN..=64).contains(&self.key.len()) {
+            return Err(format!(
+                "RTMP stream key must be {RTMP_MIN_KEY_LEN}-64 characters; New makes one"
+            ));
         }
         if !self
             .key
