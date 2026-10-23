@@ -22,8 +22,9 @@ without encoding it again.
 Some links carry H.265 instead. YStreamer works out which one it gets, and
 converts H.265 to H.264 once, on the Pi's hardware decoder and encoder, so
 every output keeps working. **Input → Video source** shows which codec
-arrived and how it's converted. Without the hardware decoder it decodes on the
-CPU, and at worst converts everything on the CPU at 720p.
+arrived and how it's converted. It needs the Pi 4's hardware H.265 decoder;
+the CPU is too slow for a live H.265 stream. When the Pi can't keep up it
+skips pictures rather than fall behind.
 
 <Admonition type="tip" title="No OSD in the feed">
   To keep the OSD out of the video, turn off **Camera View Recording** in the

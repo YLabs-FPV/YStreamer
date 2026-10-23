@@ -39,8 +39,14 @@ fn h265_clip_sized(width: u32, height: u32) -> Vec<u8> {
 
 #[test]
 fn converts_h265_to_h264_pictures() {
-    if !have(&["x265enc", "avdec_h265", "x264enc", "h265parse", "h264parse"]) {
-        eprintln!("skipped: GStreamer plugins for H.265 aren't installed");
+    if !have(&[
+        "x265enc",
+        "v4l2slh265dec",
+        "v4l2h264enc",
+        "h265parse",
+        "h264parse",
+    ]) {
+        eprintln!("skipped: needs the Pi's H.265 decoder and H.264 encoder");
         return;
     }
     let clip = h265_clip();
@@ -56,8 +62,6 @@ fn converts_h265_to_h264_pictures() {
     // In link-sized chunks, as the goggles' parser hands them over
     for chunk in clip.chunks(4080) {
         params.feed(chunk);
-        // On a machine without the Pi's codecs the first converters fail
-        // and the software one takes over
         let _ = t.push(chunk, &params);
         std::thread::sleep(Duration::from_millis(5));
     }
@@ -81,8 +85,14 @@ fn converts_h265_to_h264_pictures() {
 
 #[test]
 fn a_restarted_converter_gets_the_parameter_sets_it_missed() {
-    if !have(&["x265enc", "avdec_h265", "x264enc", "h265parse", "h264parse"]) {
-        eprintln!("skipped: GStreamer plugins for H.265 aren't installed");
+    if !have(&[
+        "x265enc",
+        "v4l2slh265dec",
+        "v4l2h264enc",
+        "h265parse",
+        "h264parse",
+    ]) {
+        eprintln!("skipped: needs the Pi's H.265 decoder and H.264 encoder");
         return;
     }
     // The encoder sends its parameter sets once, at the start, as a remote does

@@ -62,7 +62,7 @@ export interface DjiStatus {
   /** What the link carries, once worked out */
   codec: "h264" | "h265" | null;
   /** How H.265 is turned into H.264, while it is */
-  converter: "hardware" | "software_decode" | "software" | null;
+  converter: "hardware" | null;
   error: string | null;
   /** Set once a second camera is seen on the link */
   cameras: Cameras | null;
