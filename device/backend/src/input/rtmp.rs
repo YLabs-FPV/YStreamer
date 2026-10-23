@@ -44,10 +44,12 @@ const STRIKE_MEMORY: Duration = Duration::from_secs(15 * 60);
 /// Addresses remembered at once, so guessing from many can't use up memory
 const MAX_TRACKED: usize = 64;
 /// Wrong keys from all addresses together, refilled one at a time. Once
-/// spent, an address that has sent a wrong key is turned away without its
-/// key being checked, and one wrong key from any other gets it banned
+/// spent, each wrong key is answered only after a delay, which slows down
+/// moving between addresses without keeping anyone out: keys are still
+/// checked, and the pending-slot limit bounds how many can wait
 const GLOBAL_BUDGET: u32 = 6;
 const GLOBAL_REFILL: Duration = Duration::from_secs(10);
+const SLOW_ANSWER: Duration = Duration::from_secs(2);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Where the access units go: the fan-out, or a test
@@ -451,13 +453,16 @@ impl Connection<'_> {
                 let refusal = if self.key.len() < RTMP_MIN_KEY_LEN {
                     Some("no usable stream key is set on the device")
                 } else if !right {
-                    let ban = self
+                    let strike = self
                         .source
                         .strikes
                         .lock()
                         .unwrap()
                         .strike(self.peer, Instant::now());
-                    if let Some(ban) = ban {
+                    if strike.slow {
+                        thread::sleep(SLOW_ANSWER);
+                    }
+                    if let Some(ban) = strike.ban {
                         eprintln!(
                             "[rtmp-in] {}: too many wrong keys, turned away for {} s",
                             self.peer,
@@ -570,10 +575,10 @@ impl Drop for Connection<'_> {
 }
 
 /// Wrong keys per address, for turning away one that keeps guessing, and
-/// across all of them, so moving to another address buys little
+/// across all of them, for slowing down moving to another address
 struct Strikes {
     by_ip: HashMap<IpAddr, Record>,
-    /// Wrong keys anyone may still send before the stricter rules apply
+    /// Wrong keys anyone may still send before answers to them are delayed
     budget: u32,
     refilled: Instant,
 }
@@ -588,6 +593,23 @@ struct Record {
 impl Record {
     fn banned_at(&self, now: Instant) -> bool {
         self.banned_until.is_some_and(|until| until > now)
+    }
+}
+
+/// What a wrong key earned
+#[derive(Debug, PartialEq)]
+struct Strike {
+    /// Its address is turned away for this long
+    ban: Option<Duration>,
+    /// The shared budget is spent, so the answer waits
+    slow: bool,
+}
+
+/// One device gets a whole IPv6 /64, so that's what counts as an address
+fn address_of(ip: IpAddr) -> IpAddr {
+    match ip.to_canonical() {
+        IpAddr::V6(v6) => IpAddr::V6((u128::from(v6) & !(u64::MAX as u128)).into()),
+        v4 => v4,
     }
 }
 
@@ -614,38 +636,19 @@ impl Strikes {
         };
     }
 
-    /// How long `ip` is still turned away for, if it is. With the shared
-    /// budget spent, that's every address that has sent a wrong key; one
-    /// that hasn't still gets its key checked, so the real app gets in
-    fn banned(&mut self, ip: IpAddr, now: Instant) -> Option<Duration> {
-        self.refill(now);
-        let next_refill = self.refilled + GLOBAL_REFILL;
-        match self.by_ip.get(&ip.to_canonical()) {
-            Some(r) if r.banned_at(now) => r.banned_until.map(|until| until - now),
-            Some(_) if self.budget == 0 => Some(next_refill - now),
-            Some(_) => None,
-            // No room left to note a wrong key from it: turned away rather
-            // than forgetting someone's ban
-            None => self.full_of_bans(now),
-        }
+    /// How long `ip` is still turned away for, if it is. Only its own wrong
+    /// keys count: any other address gets its key checked, so the real app
+    /// always gets in
+    fn banned(&self, ip: IpAddr, now: Instant) -> Option<Duration> {
+        let until = self.by_ip.get(&address_of(ip))?.banned_until?;
+        (until > now).then(|| until - now)
     }
 
-    /// When every remembered address is banned, how long until one isn't
-    fn full_of_bans(&self, now: Instant) -> Option<Duration> {
-        if self.by_ip.len() < MAX_TRACKED || self.by_ip.values().any(|r| !r.banned_at(now)) {
-            return None;
-        }
-        let soonest = self.by_ip.values().filter_map(|r| r.banned_until).min()?;
-        Some(soonest - now)
-    }
-
-    /// Counts a wrong key; the length of the ban it earns, if it earns one.
-    /// Each wrong key past the limit doubles the ban, and with the shared
-    /// budget spent the first one already earns it
-    fn strike(&mut self, ip: IpAddr, now: Instant) -> Option<Duration> {
-        let ip = ip.to_canonical();
+    /// Counts a wrong key. Each one past the limit doubles the ban
+    fn strike(&mut self, ip: IpAddr, now: Instant) -> Strike {
+        let ip = address_of(ip);
         self.refill(now);
-        let spent = self.budget == 0;
+        let slow = self.budget == 0;
         self.budget = self.budget.saturating_sub(1);
         self.by_ip
             .retain(|_, r| now.duration_since(r.last) < STRIKE_MEMORY || r.banned_at(now));
@@ -661,7 +664,9 @@ impl Strikes {
                 Some(oldest) => {
                     self.by_ip.remove(&oldest);
                 }
-                None => return self.full_of_bans(now),
+                // Every slot holds a ban: this one goes unrecorded, which
+                // only means it isn't counted
+                None => return Strike { ban: None, slow },
             }
         }
         let r = self.by_ip.entry(ip).or_insert(Record {
@@ -671,19 +676,22 @@ impl Strikes {
         });
         r.wrong += 1;
         r.last = now;
-        if r.wrong < MAX_STRIKES && !spent {
-            return None;
+        if r.wrong < MAX_STRIKES {
+            return Strike { ban: None, slow };
         }
         let ban = FIRST_BAN
-            .saturating_mul(1 << r.wrong.saturating_sub(MAX_STRIKES).min(10))
+            .saturating_mul(1 << (r.wrong - MAX_STRIKES).min(10))
             .min(MAX_BAN);
         r.banned_until = Some(now + ban);
-        Some(ban)
+        Strike {
+            ban: Some(ban),
+            slow,
+        }
     }
 
     /// The right key: what came before is forgiven
     fn forget(&mut self, ip: IpAddr) {
-        self.by_ip.remove(&ip.to_canonical());
+        self.by_ip.remove(&address_of(ip));
     }
 }
 

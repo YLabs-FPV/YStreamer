@@ -103,10 +103,10 @@ Changing the key or **Only from** drops the app streaming now.
 An app has 10 seconds from connecting to start streaming with the right key.
 After 3 wrong keys from one address, that address is turned away for a
 minute, and for twice as long after each further wrong key, up to 15 minutes.
-All addresses together get about 6 wrong keys a minute. Past that, an address
-that has sent a wrong key is turned away without its key being checked, and
-one wrong key from any other address gets it turned away too. The right key
-from an address that isn't turned away still gets in.
+An IPv6 address counts together with the rest of its /64. Past about 6 wrong
+keys a minute from all addresses together, each wrong key is answered only
+after 2 seconds. The right key from an address that isn't turned away always
+gets in.
 
 <Admonition type="tip" title="Use the IP address">
   Many phone apps can't find `ystreamer.local`. Open the web interface by the
