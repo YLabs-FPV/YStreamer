@@ -1,13 +1,14 @@
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
-use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-const DEVICE_PATH: &str = "/dev/ttyGS0";
+use super::gadget::{EP_IN, EP_OUT};
+
 const UDC_DIR: &str = "/sys/class/udc";
 const SUSPENDED_PATH: &str = "/sys/bus/gadget/devices/gadget.0/suspended";
 
@@ -17,11 +18,14 @@ const POLL_SLICE: Duration = Duration::from_millis(250);
 // A short blip isn't always enough for the goggles to drop the old session
 const REPLUG_OFF: Duration = Duration::from_secs(3);
 const FIRST_BYTES_LOGGED: usize = 32;
+// Frames waiting for the goggles to collect them
+const SEND_QUEUE: usize = 64;
 
-/// Holds a writable clone of the current device fd, or None while disconnected.
-/// All writes to the goggles (registration, replies, commands) go through this
-/// single Mutex, so they can never interleave mid-packet
-type WriteHandle = Arc<Mutex<Option<File>>>;
+/// What the reader thread hands the session
+enum Rx {
+    Data(Vec<u8>),
+    Closed(io::Error),
+}
 
 enum SessionEnd {
     LinkDown,
@@ -40,7 +44,12 @@ pub enum LinkState {
 
 #[derive(Clone)]
 pub struct Goggles {
-    write: WriteHandle,
+    /// Every write to the goggles (registration, replies, commands) goes
+    /// through this one queue, so frames can never interleave mid-packet
+    outbox: SyncSender<Vec<u8>>,
+    /// The other end of `outbox`, until `run` starts the thread that writes
+    unsent: Arc<Mutex<Option<Receiver<Vec<u8>>>>>,
+    open: Arc<AtomicBool>,
     reset: Arc<AtomicBool>,
     state: Arc<AtomicU8>,
     generation: Arc<AtomicU64>,
@@ -49,8 +58,11 @@ pub struct Goggles {
 
 impl Goggles {
     pub fn new() -> Self {
+        let (outbox, unsent) = mpsc::sync_channel(SEND_QUEUE);
         Self {
-            write: Arc::new(Mutex::new(None)),
+            outbox,
+            unsent: Arc::new(Mutex::new(Some(unsent))),
+            open: Arc::new(AtomicBool::new(false)),
             reset: Arc::new(AtomicBool::new(false)),
             state: Arc::new(AtomicU8::new(LinkState::Unplugged as u8)),
             generation: Arc::new(AtomicU64::new(0)),
@@ -83,16 +95,16 @@ impl Goggles {
     }
 
     pub fn send(&self, bytes: &[u8]) -> io::Result<()> {
-        match self.write.lock().unwrap().as_mut() {
-            Some(file) => {
-                file.write_all(bytes)?;
-                file.flush()
-            }
-            None => Err(io::Error::new(
-                io::ErrorKind::NotConnected,
-                "goggles not connected",
-            )),
+        let not_connected = || io::Error::new(io::ErrorKind::NotConnected, "goggles not connected");
+        if !self.open.load(Ordering::Relaxed) {
+            return Err(not_connected());
         }
+        self.outbox.try_send(bytes.to_vec()).map_err(|e| match e {
+            TrySendError::Full(_) => {
+                io::Error::new(io::ErrorKind::WouldBlock, "goggles aren't taking data")
+            }
+            TrySendError::Disconnected(_) => not_connected(),
+        })
     }
 
     pub fn reset(&self) {
@@ -102,6 +114,11 @@ impl Goggles {
     /// Own the device forever: wait for the goggles and hand every read to
     /// `on_data`, reconnecting whenever the link drops
     pub fn run(&self, mut on_data: impl FnMut(&[u8])) -> ! {
+        if let Some(unsent) = self.unsent.lock().unwrap().take() {
+            thread::spawn(move || write_loop(unsent));
+        }
+        let (inbox_tx, inbox) = mpsc::channel();
+        thread::spawn(move || read_loop(inbox_tx));
         let mut quiet = false;
         loop {
             if !link_up() {
@@ -110,7 +127,7 @@ impl Goggles {
             }
             self.set_state(LinkState::Connecting);
 
-            match self.run_session(&mut on_data, quiet) {
+            match self.run_session(&mut on_data, &inbox, quiet) {
                 SessionEnd::LinkDown => {
                     eprintln!("[usb] Goggles disconnected");
                     quiet = false;
@@ -141,33 +158,30 @@ impl Goggles {
         }
     }
 
-    fn run_session(&self, on_data: &mut impl FnMut(&[u8]), quiet: bool) -> SessionEnd {
+    fn run_session(
+        &self,
+        on_data: &mut impl FnMut(&[u8]),
+        inbox: &Receiver<Rx>,
+        quiet: bool,
+    ) -> SessionEnd {
         self.reset.store(false, Ordering::Relaxed);
 
-        let Some(file) = open_device() else {
-            return if link_up() {
-                eprintln!("[usb] Could not open {}", DEVICE_PATH);
-                SessionEnd::Retry
-            } else {
-                SessionEnd::LinkDown
-            };
+        // A close left over from the last session isn't this one's. Data
+        // is kept: the remote sends its only parameter sets right away
+        let mut next = loop {
+            match inbox.try_recv() {
+                Ok(Rx::Closed(_)) => continue,
+                Ok(data) => break Some(data),
+                Err(_) => break None,
+            }
         };
 
-        // Publish a writable clone so registration + commands can reach the fd
-        match file.try_clone() {
-            Ok(w) => *self.write.lock().unwrap() = Some(w),
-            Err(e) => {
-                eprintln!("[usb] write-clone failed: {}", e);
-                return SessionEnd::Retry;
-            }
-        }
+        self.open.store(true, Ordering::Relaxed);
         self.generation.fetch_add(1, Ordering::Relaxed);
         if !quiet {
             eprintln!("[usb] Device open");
         }
 
-        let mut reader = file; // read side (writes go via the handle clone)
-        let mut buf = vec![0u8; 128 * 1024];
         let mut last_rx = Instant::now();
         let mut saw_telemetry = false;
         let mut frames = self.frames.load(Ordering::Relaxed);
@@ -184,37 +198,36 @@ impl Goggles {
                 break SessionEnd::Replug;
             }
 
-            if wait_readable(&reader, POLL_SLICE) {
-                match reader.read(&mut buf) {
-                    Ok(0) => {
-                        eprintln!("[usb] EOF on {}", DEVICE_PATH);
-                        break SessionEnd::Retry;
+            let rx = match next.take() {
+                Some(rx) => Ok(rx),
+                None => inbox.recv_timeout(POLL_SLICE),
+            };
+            match rx {
+                Ok(Rx::Data(data)) => {
+                    let n = data.len();
+                    bytes += n as u64;
+                    if first.len() < FIRST_BYTES_LOGGED {
+                        let take = n.min(FIRST_BYTES_LOGGED - first.len());
+                        first.extend_from_slice(&data[..take]);
                     }
-                    Ok(n) => {
-                        bytes += n as u64;
-                        if first.len() < FIRST_BYTES_LOGGED {
-                            let take = n.min(FIRST_BYTES_LOGGED - first.len());
-                            first.extend_from_slice(&buf[..take]);
+                    on_data(&data);
+                    let now = self.frames.load(Ordering::Relaxed);
+                    if now != frames {
+                        frames = now;
+                        last_rx = Instant::now();
+                        if !saw_telemetry {
+                            saw_telemetry = true;
+                            self.set_state(LinkState::Live);
+                            eprintln!("[usb] Link is live");
                         }
-                        on_data(&buf[..n]);
-                        let now = self.frames.load(Ordering::Relaxed);
-                        if now != frames {
-                            frames = now;
-                            last_rx = Instant::now();
-                            if !saw_telemetry {
-                                saw_telemetry = true;
-                                self.set_state(LinkState::Live);
-                                eprintln!("[usb] Link is live");
-                            }
-                        }
-                    }
-                    Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {}
-                    Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {}
-                    Err(e) => {
-                        eprintln!("[usb] Read error: {}", e);
-                        break SessionEnd::Retry;
                     }
                 }
+                Ok(Rx::Closed(e)) => {
+                    eprintln!("[usb] Link closed: {e}");
+                    break SessionEnd::Retry;
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => break SessionEnd::Retry,
             }
 
             if last_rx.elapsed() > SILENCE_TIMEOUT {
@@ -235,27 +248,68 @@ impl Goggles {
             }
         };
 
-        // Clear the write handle BEFORE `reader` drops, so every device fd
-        // clone is gone before the next open
-        *self.write.lock().unwrap() = None;
+        self.open.store(false, Ordering::Relaxed);
         end
     }
 }
 
-fn set_raw(file: &File) -> anyhow::Result<()> {
-    let fd = file.as_raw_fd();
-    unsafe {
-        let mut tios: libc::termios = std::mem::zeroed();
-        if libc::tcgetattr(fd, &mut tios) != 0 {
-            return Err(anyhow::anyhow!("tcgetattr failed"));
+/// Reads the link for as long as the process runs. A read blocks until the
+/// other end sends something (the endpoint can't be polled), so reading is
+/// done here, which leaves the session free to notice silence and resets
+fn read_loop(inbox: Sender<Rx>) {
+    let mut buf = vec![0u8; 128 * 1024];
+    let mut logged = false;
+    loop {
+        if !link_up() {
+            thread::sleep(POLL_SLICE);
+            continue;
         }
-        libc::cfmakeraw(&mut tios);
-        if libc::tcsetattr(fd, libc::TCSANOW, &tios) != 0 {
-            return Err(anyhow::anyhow!("tcsetattr failed"));
+        let mut ep = match File::open(EP_OUT) {
+            Ok(ep) => ep,
+            Err(e) => {
+                if !logged {
+                    eprintln!("[usb] Waiting for {EP_OUT}: {e}");
+                    logged = true;
+                }
+                thread::sleep(POLL_SLICE);
+                continue;
+            }
+        };
+        logged = false;
+        let closed = loop {
+            match ep.read(&mut buf) {
+                Ok(0) => break io::Error::from(io::ErrorKind::UnexpectedEof),
+                Ok(n) => {
+                    if inbox.send(Rx::Data(buf[..n].to_vec())).is_err() {
+                        return;
+                    }
+                }
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => break e,
+            }
+        };
+        if inbox.send(Rx::Closed(closed)).is_err() {
+            return;
         }
-        libc::tcflush(fd, libc::TCIFLUSH);
+        thread::sleep(POLL_SLICE);
     }
-    Ok(())
+}
+
+/// Writes queued frames. A write returns once the other end has collected
+/// it, or fails when the link goes down; the frame is dropped then
+fn write_loop(unsent: Receiver<Vec<u8>>) {
+    let mut ep: Option<File> = None;
+    for frame in unsent {
+        if ep.is_none() {
+            ep = File::options().write(true).open(EP_IN).ok();
+        }
+        let sent = ep
+            .as_mut()
+            .is_some_and(|file| file.write_all(&frame).is_ok());
+        if !sent {
+            ep = None;
+        }
+    }
 }
 
 fn udc() -> Option<PathBuf> {
@@ -318,33 +372,4 @@ fn wait_for_link() {
         thread::sleep(Duration::from_millis(100));
     }
     eprintln!("[usb] Goggles connected");
-}
-
-fn open_device() -> Option<File> {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    let mut logged = false;
-    while link_up() && Instant::now() < deadline {
-        match File::options().read(true).write(true).open(DEVICE_PATH) {
-            Ok(f) if set_raw(&f).is_ok() => return Some(f),
-            Ok(_) => eprintln!("[usb] {} is not a usable tty", DEVICE_PATH),
-            Err(e) => {
-                if !logged {
-                    eprintln!("[usb] Waiting for {}: {}", DEVICE_PATH, e);
-                    logged = true;
-                }
-            }
-        }
-        thread::sleep(Duration::from_millis(250));
-    }
-    None
-}
-
-fn wait_readable(file: &File, timeout: Duration) -> bool {
-    let mut pfd = libc::pollfd {
-        fd: file.as_raw_fd(),
-        events: libc::POLLIN,
-        revents: 0,
-    };
-    let n = unsafe { libc::poll(&mut pfd, 1, timeout.as_millis() as libc::c_int) };
-    n > 0 && pfd.revents != 0
 }
