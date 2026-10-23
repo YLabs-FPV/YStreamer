@@ -73,11 +73,15 @@
       bind:srt={settings.draft.srt}
       bind:rtmp={settings.draft.rtmp}
       bind:udp={settings.draft.udp}
+      bind:ndi={settings.draft.ndi}
+      bind:omt={settings.draft.omt}
       bind:viewer={settings.draft.viewer}
       saved={settings.saved.rtsp}
       savedSrt={settings.saved.srt}
       savedRtmp={settings.saved.rtmp}
       savedUdp={settings.saved.udp}
+      savedNdi={settings.saved.ndi}
+      savedOmt={settings.saved.omt}
       {tab}
     />
   {:else if page.id === "recording"}

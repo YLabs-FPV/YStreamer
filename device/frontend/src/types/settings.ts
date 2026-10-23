@@ -55,6 +55,8 @@ export interface Settings {
     /** host:port list, comma separated */
     destinations: string;
   };
+  ndi: NetworkSource;
+  omt: NetworkSource;
   recording: {
     path: string;
     format: RecordingFormat;
@@ -124,6 +126,37 @@ export interface OverlayView {
 }
 
 export type SrtMode = "listener" | "caller";
+
+/** NDI or OMT: a source video software finds on the network by itself */
+export interface NetworkSource {
+  enabled: boolean;
+  /** Shown as "HOSTNAME (name)" */
+  name: string;
+  /** Larger pictures are scaled down to this height */
+  max_height: number;
+  max_fps: number;
+}
+
+export interface NdiStatus {
+  /** The NDI runtime is on the device */
+  installed: boolean;
+  active: boolean;
+  receivers: number;
+  width: number | null;
+  height: number | null;
+  error: string | null;
+}
+
+export interface OmtStatus {
+  active: boolean;
+  port: number | null;
+  /** Announced over mDNS, so receivers list it by themselves */
+  announced: boolean;
+  receivers: number;
+  width: number | null;
+  height: number | null;
+  error: string | null;
+}
 
 export interface UdpStatus {
   active: boolean;

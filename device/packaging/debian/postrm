@@ -13,12 +13,17 @@ remove_boot_settings() {
     echo "YStreamer: restored $CONFIG; reboot to get the USB-C port back." >&2
 }
 
+# The OMT output's mDNS announcement, if it was on
+OMT_SERVICE=/etc/avahi/services/ystreamer-omt.service
+
 case "$1" in
 remove)
     remove_boot_settings
+    rm -f "$OMT_SERVICE"
     ;;
 purge)
     remove_boot_settings
+    rm -f "$OMT_SERVICE"
     # Settings and the login; recordings in /var/lib/ystreamer stay
     rm -rf /etc/ystreamer
     ;;

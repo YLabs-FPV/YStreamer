@@ -368,7 +368,7 @@ fn build(cfg: &DisplaySettings, mode: &ModeInfo, fd: i32) -> Result<Running, Str
 }
 
 /// Patch SPS level for the Raspberry Pi 4's H.264 decoder, which is limited to level 4.2
-fn patch_sps_level(data: &mut [u8]) {
+pub(crate) fn patch_sps_level(data: &mut [u8]) {
     let Some(sps) = h264::nals(data).find(|nal| nal.kind == h264::SPS) else {
         return;
     };

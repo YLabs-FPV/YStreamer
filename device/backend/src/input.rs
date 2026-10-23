@@ -11,6 +11,8 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 use crate::output::hdmi::GstPlayer;
+use crate::output::ndi::NdiOutput;
+use crate::output::omt::OmtOutput;
 use crate::output::recording::Recorder;
 use crate::output::rtmp::RtmpOutput;
 use crate::output::rtsp::RtspServer;
@@ -62,6 +64,8 @@ pub struct Fanout {
     pub srt: Arc<SrtOutput>,
     pub rtmp: Arc<RtmpOutput>,
     pub udp: Arc<UdpOutput>,
+    pub ndi: Arc<NdiOutput>,
+    pub omt: Arc<OmtOutput>,
     pub recorder: Arc<Recorder>,
     pub web_tx: mpsc::UnboundedSender<Vec<u8>>,
     pub metrics: Arc<crate::system::metrics::Metrics>,
@@ -80,6 +84,8 @@ impl Fanout {
             self.srt.push(chunk);
             self.rtmp.push(chunk);
             self.udp.push(chunk);
+            self.ndi.push(chunk);
+            self.omt.push(chunk);
             self.recorder.push(chunk);
             let _ = self.web_tx.send(chunk.to_vec());
         });
@@ -95,6 +101,8 @@ impl Fanout {
             this.srt.push(au);
             this.rtmp.push(au);
             this.udp.push(au);
+            this.ndi.push_au(au);
+            this.omt.push_au(au);
             let _ = this.web_tx.send(au.to_vec());
         });
     }

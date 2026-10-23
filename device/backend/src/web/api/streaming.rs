@@ -6,6 +6,8 @@ use axum::{
 };
 use serde::Serialize;
 
+use crate::output::ndi::NdiStatus;
+use crate::output::omt::OmtStatus;
 use crate::output::rtmp::RtmpStatus;
 use crate::output::srt::SrtStatus;
 use crate::output::udp::UdpStatus;
@@ -64,6 +66,22 @@ pub(super) async fn input_devices() -> Json<Vec<crate::input::uvc::UvcDevice>> {
 
 pub(super) async fn udp_status(State(sv): State<Services>) -> Json<UdpStatus> {
     Json(sv.udp.status())
+}
+
+pub(super) async fn ndi_status(State(sv): State<Services>) -> Json<NdiStatus> {
+    Json(
+        tokio::task::spawn_blocking(move || {
+            let mut status = sv.ndi.status();
+            status.installed = status.installed || sv.ndi.installed();
+            status
+        })
+        .await
+        .unwrap_or_default(),
+    )
+}
+
+pub(super) async fn omt_status(State(sv): State<Services>) -> Json<OmtStatus> {
+    Json(sv.omt.status())
 }
 
 pub(super) async fn rtmp_status(State(sv): State<Services>) -> Json<RtmpStatus> {

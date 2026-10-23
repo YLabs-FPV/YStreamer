@@ -74,6 +74,12 @@ gpiocdev = "0.8.0"
 nusb = "0.2.7"
 rust-embed = { version = "8.12.0", features = ["mime-guess"] }
 ed25519-dalek = "3.0.0"
+# NDI's runtime is opened at run time when installed, never linked
+libloading = "0.8"
+
+[build-dependencies]
+# Compiles the vendored libvmx for the OMT output
+cc = "1"
 
 # Password hashing is far too slow unoptimized
 [profile.dev.package.sha2]

@@ -7,6 +7,8 @@ import type {
   OverlayStatus,
   RtmpStatus,
   UdpStatus,
+  NdiStatus,
+  OmtStatus,
   DisplayStatus,
 } from "@/types/settings";
 import type { NetworkStatus, ScanResult, WifiCountries } from "@/types/network";
@@ -159,6 +161,8 @@ export const api = {
   srt: () => request<SrtStatus>("GET", "/srt"),
   rtmp: () => request<RtmpStatus>("GET", "/rtmp"),
   udp: () => request<UdpStatus>("GET", "/udp"),
+  ndi: () => request<NdiStatus>("GET", "/ndi"),
+  omt: () => request<OmtStatus>("GET", "/omt"),
   display: () => request<DisplayStatus>("GET", "/display"),
   input: () => request<InputStatus>("GET", "/input"),
   /** Probes every device; not for polling */
