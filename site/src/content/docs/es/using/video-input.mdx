@@ -24,6 +24,43 @@ cual, sin volver a codificarlo.
   las gafas, en Settings → Camera → Advanced Camera Settings.
 </Admonition>
 
+## Passthrough a DJI Fly
+
+Con la fuente de gafas DJI, un teléfono Android con **DJI Fly** puede ir en uno
+de los puertos **USB-A** de la Pi. YStreamer le pasa el enlace de las gafas, así
+que sigues teniendo en DJI Fly los ajustes de cámara, los mapas y la vista de
+vuelo mientras YStreamer emite y graba. Lo que cambias en DJI Fly vuelve a las
+gafas.
+
+<Admonition type="warning" title="Experimental">
+  Los mantenedores aún no han probado el passthrough en hardware real.
+</Admonition>
+
+Viene activado, en **Input → DJI Fly passthrough**, y no hace nada hasta que
+conectas un teléfono Android.
+
+1. Conecta el teléfono a un puerto USB-A con un cable de datos.
+2. El teléfono pregunta qué app debe abrir el accesorio. Elige **DJI Fly**.
+3. La tarjeta muestra **DJI Fly is connected.**
+
+La tarjeta muestra lo que detecta:
+
+- **No phone**: conecta un teléfono Android con DJI Fly.
+- **Phone connected, waiting for DJI Fly**: abre DJI Fly, o responde al diálogo
+  del teléfono. Si el teléfono estaba bloqueado al conectarlo, YStreamer se lo
+  vuelve a ofrecer pasado más o menos medio minuto.
+- **DJI Fly is connected.**: DJI Fly está conectado.
+
+Si conectas teléfonos a la Pi solo para cargarlos, desactiva el interruptor y
+pulsa **Save**: mientras está activado, un teléfono Android pasa a modo
+accesorio y pide abrir DJI Fly. Un teléfono que comparte su internet por USB
+no se toca.
+
+<Admonition type="info" title="Solo Android">
+  El iPhone no está soportado: sus accesorios necesitan el programa MFi con
+  licencia de Apple.
+</Admonition>
+
 ## FPV Goggles V1 / V2
 
 Las primeras DJI FPV Goggles. Conéctalas a uno de los puertos **USB-A** de la

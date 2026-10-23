@@ -36,7 +36,8 @@ see. One USB-C cable in, and every output at the same time:
   automatically when video arrives, or with a physical button.
 
 It also changes the **air unit's camera settings** from the browser, shows the
-**goggles' battery and link quality**, offers **remote access** through
+**goggles' battery and link quality**, passes the goggles' link through to
+**DJI Fly** on an Android phone, offers **remote access** through
 Tailscale or WireGuard, and **updates itself** with signed releases that roll
 back if a new version doesn't start.
 
