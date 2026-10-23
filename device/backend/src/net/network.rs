@@ -12,6 +12,7 @@ const IFACE: &str = "wlan0";
 const AP_CON: &str = "ystreamer-ap";
 const CLIENT_CON: &str = "ystreamer-wifi";
 const ETH_CON: &str = "ystreamer-eth";
+const GOGGLES_CON: &str = "ystreamer-goggles";
 /// How long client mode may go without joining before the fallback AP
 const JOIN_TIMEOUT: Duration = Duration::from_secs(60);
 /// How long the device may be unreachable on every interface. Short: an
@@ -700,6 +701,7 @@ async fn ethernet_has_carrier(dev: &str) -> bool {
         .is_ok_and(|c| c.trim() == "1")
 }
 
+/// Goggles sharing their liveview are no way in or out, just a video source
 async fn ethernet_devices() -> Vec<String> {
     let Ok(out) = run("nmcli", &["-t", "-f", "DEVICE,TYPE", "dev"]).await else {
         return Vec::new();
@@ -709,6 +711,7 @@ async fn ethernet_devices() -> Vec<String> {
             let f = split_terse(l);
             (f.len() >= 2 && f[1] == "ethernet").then(|| f[0].clone())
         })
+        .filter(|dev| !crate::input::liveview::is_goggles(dev))
         .collect()
 }
 
@@ -824,6 +827,61 @@ async fn interface_status(dev: &str) -> InterfaceStatus {
         st.ssid = lines.next().filter(|s| !s.is_empty()).map(str::to_string);
     }
     st
+}
+
+/// Put us at 192.168.60.1 on the goggles' link, where they serve the
+/// liveview. Without a profile NetworkManager tries DHCP there, gets nothing
+/// and takes the link down again. Ours never becomes the default route, so
+/// streams to the internet keep leaving the way they did
+pub async fn goggles_link(dev: &str) -> Result<(), String> {
+    let bound = run(
+        "nmcli",
+        &[
+            "-g",
+            "connection.interface-name",
+            "con",
+            "show",
+            GOGGLES_CON,
+        ],
+    )
+    .await;
+    // The interface is named after the goggles' MAC: other goggles, another name
+    if bound.as_deref().map(str::trim) != Ok(dev) {
+        delete_con(GOGGLES_CON).await;
+        let address = format!("{}/24", crate::input::liveview::HOST);
+        run(
+            "nmcli",
+            &[
+                "con",
+                "add",
+                "type",
+                "ethernet",
+                "ifname",
+                dev,
+                "con-name",
+                GOGGLES_CON,
+                "autoconnect",
+                "yes",
+                // Above the "Wired connection" NetworkManager makes up for it
+                "connection.autoconnect-priority",
+                "100",
+                "ipv4.method",
+                "manual",
+                "ipv4.addresses",
+                &address,
+                "ipv4.never-default",
+                "yes",
+                "ipv6.method",
+                "disabled",
+            ],
+        )
+        .await?;
+    }
+    let active = run("nmcli", &["-g", "GENERAL.CONNECTION", "dev", "show", dev]).await;
+    if active.as_deref().map(str::trim) != Ok(GOGGLES_CON) {
+        run("nmcli", &["--wait", "15", "con", "up", GOGGLES_CON]).await?;
+    }
+    Ok(())
 }
 
 /// Split one line of `nmcli -t` output, honouring `\:` escapes

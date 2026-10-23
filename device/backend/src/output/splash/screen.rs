@@ -263,6 +263,14 @@ impl Screen {
             (InputMode::DjiFpvLegacy, LinkState::Connecting) => {
                 (WARN_SOFT, "Goggles found, connecting".to_string())
             }
+            (InputMode::DjiGogglesUsb, LinkState::Unplugged) => (
+                MUTED,
+                "Connect Goggles 3 to a USB-A port, liveview sharing on".to_string(),
+            ),
+            (InputMode::DjiGogglesUsb, LinkState::Connecting) => (
+                WARN_SOFT,
+                "Goggles found, turn on liveview sharing".to_string(),
+            ),
             (InputMode::Uvc, LinkState::Unplugged) => {
                 (MUTED, "Connect a USB camera or receiver".to_string())
             }
@@ -278,7 +286,8 @@ impl Screen {
                 format!(
                     "{} connected, waiting for video",
                     self.goggles_name.as_deref().unwrap_or(match source {
-                        InputMode::DjiFpv | InputMode::DjiFpvLegacy => "Goggles",
+                        InputMode::DjiFpv | InputMode::DjiFpvLegacy | InputMode::DjiGogglesUsb =>
+                            "Goggles",
                         InputMode::Uvc => "USB camera",
                     })
                 ),

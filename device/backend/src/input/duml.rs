@@ -80,19 +80,24 @@ pub fn calc_crc16(data: &[u8]) -> u16 {
 
 /// Build a DUML frame from us and wrap it for the LogicLink control channel
 pub fn encode(dst: u8, seq: u16, flags: u8, cmd_set: u8, cmd_id: u8, payload: &[u8]) -> Vec<u8> {
-    let duml_len = 11 + payload.len() + 2;
-    let mut out = Vec::with_capacity(8 + duml_len);
-
+    let duml = frame(dst, seq, flags, cmd_set, cmd_id, payload);
+    let mut out = Vec::with_capacity(8 + duml.len());
     // LogicLink: 55 CC, channel 0x49, version 0x57, u32 length
     out.extend_from_slice(&[0x55, 0xCC, 0x49, 0x57]);
-    out.extend_from_slice(&(duml_len as u32).to_le_bytes());
+    out.extend_from_slice(&(duml.len() as u32).to_le_bytes());
+    out.extend_from_slice(&duml);
+    out
+}
 
-    let start = out.len();
+/// A bare DUML frame from us, for links that carry it without LogicLink
+pub fn frame(dst: u8, seq: u16, flags: u8, cmd_set: u8, cmd_id: u8, payload: &[u8]) -> Vec<u8> {
+    let len = 11 + payload.len() + 2;
+    let mut out = Vec::with_capacity(len);
     out.push(0x55);
-    out.push((duml_len & 0xFF) as u8);
+    out.push((len & 0xFF) as u8);
     // Length high bits + protocol version 1
-    out.push((((duml_len >> 8) & 0x03) as u8) | (1 << 2));
-    out.push(calc_crc8(&out[start..start + 3]));
+    out.push((((len >> 8) & 0x03) as u8) | (1 << 2));
+    out.push(calc_crc8(&out[..3]));
     out.push(APP);
     out.push(dst);
     out.extend_from_slice(&seq.to_le_bytes());
@@ -100,7 +105,7 @@ pub fn encode(dst: u8, seq: u16, flags: u8, cmd_set: u8, cmd_id: u8, payload: &[
     out.push(cmd_set);
     out.push(cmd_id);
     out.extend_from_slice(payload);
-    let crc16 = calc_crc16(&out[start..]);
+    let crc16 = calc_crc16(&out);
     out.extend_from_slice(&crc16.to_le_bytes());
     out
 }

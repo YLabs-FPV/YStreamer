@@ -112,6 +112,7 @@ fn run() -> anyhow::Result<()> {
     );
 
     let legacy = input::legacy::LegacySource::start(Arc::clone(&input), Arc::clone(&fanout));
+    let liveview = input::liveview::LiveviewSource::start(Arc::clone(&input), Arc::clone(&fanout));
 
     let services = api::Services {
         store: Arc::clone(&store),
@@ -133,6 +134,7 @@ fn run() -> anyhow::Result<()> {
         metrics,
         uvc,
         legacy,
+        liveview,
         overlay: Arc::clone(&overlay),
     };
 

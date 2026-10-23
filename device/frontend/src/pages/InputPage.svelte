@@ -16,12 +16,15 @@
 
   const SOURCES = [
     { label: "DJI goggles", value: "dji_fpv" },
+    { label: "Goggles 3 USB-A", value: "dji_goggles_usb" },
     { label: "FPV Goggles V1/V2", value: "dji_fpv_legacy" },
     { label: "USB camera", value: "uvc" },
   ];
 
   const ABOUT: Record<string, string> = {
     dji_fpv: "DJI Goggles 2, Integra, 3 or N3 connected to the USB-C port.",
+    dji_goggles_usb:
+      "DJI Goggles 3 in one of the USB-A ports, with liveview sharing on. Video only: no camera settings, battery or link quality.",
     dji_fpv_legacy:
       "The first DJI FPV Goggles, V1 or V2, in one of the USB-A ports. Video only: no camera settings, battery or link quality.",
     uvc: "An analog receiver, HDMI capture stick or webcam in one of the USB-A ports. Its video is encoded to H.264 by the Pi's hardware encoder.",
@@ -58,6 +61,35 @@
         };
       case "error":
         return { text: `${legacy.error}. Retrying…`, tone: "text-down" };
+      default:
+        return null;
+    }
+  });
+
+  const liveview = $derived(
+    status?.mode === "dji_goggles_usb" ? status.liveview : null,
+  );
+  const liveviewSummary = $derived.by(() => {
+    switch (liveview?.state) {
+      case "live":
+        return { text: "Receiving video.", tone: "text-ok" };
+      case "connected":
+        return {
+          text: "Goggles connected, no video yet. Power the aircraft and wait for the picture in the goggles.",
+          tone: "text-warn",
+        };
+      case "waiting":
+        return {
+          text: "Goggles found, but they don't share their view. Turn on liveview sharing in the goggles.",
+          tone: "text-warn",
+        };
+      case "no_device":
+        return {
+          text: "No goggles found. Plug Goggles 3 into a USB-A port and turn on liveview sharing.",
+          tone: "text-muted",
+        };
+      case "error":
+        return { text: `${liveview.error}. Retrying…`, tone: "text-down" };
       default:
         return null;
     }
@@ -201,6 +233,21 @@
       {/if}
     </div>
   </Card>
+
+  {#if input.mode === "dji_goggles_usb"}
+    <Card title="Goggles 3 over USB-A">
+      <p class="px-4 py-3 text-[12px] text-muted">
+        Turn on liveview sharing in the goggles, then connect them to one of the
+        Pi's USB-A ports with a USB-A to USB-C data cable. The goggles' OSD is
+        part of the shared picture.
+      </p>
+      {#if liveviewSummary}
+        <p class="px-4 py-3 text-[12px] {liveviewSummary.tone}">
+          {liveviewSummary.text}
+        </p>
+      {/if}
+    </Card>
+  {/if}
 
   {#if input.mode === "dji_fpv_legacy"}
     <Card title="FPV Goggles V1/V2">

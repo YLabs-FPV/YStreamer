@@ -56,8 +56,45 @@ struct Custom {
 struct Feed {
     /// When the last goggles chunk arrived, or None while the splash is up
     live: Option<Instant>,
-    /// The stream since its latest SPS
-    gop: Vec<u8>,
+    gop: Gop,
+}
+
+/// The stream since its latest SPS, to freeze on. A stream without IDR
+/// pictures repaints a slice at a time, so one refresh cycle decoded on its
+/// own is partly grey; for those the cycle before it is kept too
+#[derive(Default)]
+struct Gop {
+    bytes: Vec<u8>,
+    /// Where the latest SPS starts in `bytes`
+    latest: usize,
+    idr: bool,
+}
+
+impl Gop {
+    fn push(&mut self, chunk: &[u8]) {
+        match h264::nals(chunk).find(|nal| nal.kind == h264::SPS) {
+            Some(sps) => {
+                if self.idr {
+                    self.bytes.clear();
+                } else {
+                    self.bytes.drain(..self.latest);
+                }
+                self.latest = self.bytes.len();
+                self.idr = false;
+                self.bytes.extend_from_slice(&chunk[sps.start..]);
+            }
+            None if !self.bytes.is_empty() => self.bytes.extend_from_slice(chunk),
+            None => return,
+        }
+        self.idr |= h264::nals(chunk).any(|nal| nal.kind == h264::IDR);
+        if self.bytes.len() > MAX_GOP_BYTES {
+            *self = Self::default();
+        }
+    }
+
+    fn take(&mut self) -> Vec<u8> {
+        std::mem::take(self).bytes
+    }
 }
 
 impl Splash {
@@ -78,7 +115,7 @@ impl Splash {
             input,
             feed: Mutex::new(Feed {
                 live: None,
-                gop: Vec::new(),
+                gop: Gop::default(),
             }),
             custom: Mutex::new(None),
             status: Mutex::new(None),
@@ -95,26 +132,14 @@ impl Splash {
     /// resumes at an SPS, so decoders never see frames missing references
     pub fn video(&self, chunk: &[u8], push: impl FnOnce()) {
         let mut feed = self.feed.lock().unwrap();
-        let sps = h264::nals(chunk).find(|nal| nal.kind == h264::SPS);
         if feed.live.is_none() {
-            if sps.is_none() {
+            if !h264::nals(chunk).any(|nal| nal.kind == h264::SPS) {
                 return;
             }
             println!("[video] goggles stream started");
         }
         feed.live = Some(Instant::now());
-
-        match sps {
-            Some(sps) => {
-                feed.gop.clear();
-                feed.gop.extend_from_slice(&chunk[sps.start..]);
-            }
-            None if !feed.gop.is_empty() => feed.gop.extend_from_slice(chunk),
-            None => {}
-        }
-        if feed.gop.len() > MAX_GOP_BYTES {
-            feed.gop = Vec::new();
-        }
+        feed.gop.push(chunk);
         push();
     }
 
@@ -218,6 +243,15 @@ impl Splash {
                 };
                 (InputMode::DjiFpvLegacy, state, None)
             }
+            InputMode::DjiGogglesUsb => {
+                use crate::input::liveview::LiveviewState;
+                let state = match self.input.liveview.lock().unwrap().state {
+                    LiveviewState::Waiting => LinkState::Connecting,
+                    LiveviewState::Connected | LiveviewState::Live => LinkState::Live,
+                    _ => LinkState::Unplugged,
+                };
+                (InputMode::DjiGogglesUsb, state, None)
+            }
         }
     }
 
@@ -316,7 +350,7 @@ impl Splash {
                 let mut feed = self.feed.lock().unwrap();
                 if feed.live.is_some_and(|t| t.elapsed() >= VIDEO_TIMEOUT) {
                     feed.live = None;
-                    Some(std::mem::take(&mut feed.gop))
+                    Some(feed.gop.take())
                 } else {
                     None
                 }
@@ -568,3 +602,7 @@ fn process(
     pipeline.set_state(gst::State::Null)?;
     result
 }
+
+#[cfg(test)]
+#[path = "splash.test.rs"]
+mod tests;
