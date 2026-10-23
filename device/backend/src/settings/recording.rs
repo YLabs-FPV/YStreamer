@@ -19,6 +19,8 @@ pub struct RecordingSettings {
     pub auto_start: bool,
     pub reserve_mb: u32,
     pub button: ButtonSettings,
+    /// Offer the recordings folder as a read-only network drive at `/dav/`
+    pub webdav: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -81,6 +83,7 @@ impl Default for RecordingSettings {
             auto_start: false,
             reserve_mb: 500,
             button: ButtonSettings::default(),
+            webdav: false,
         }
     }
 }

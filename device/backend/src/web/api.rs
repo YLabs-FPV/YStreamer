@@ -31,6 +31,8 @@ use crate::output::udp::UdpOutput;
 use crate::settings::SettingsStore;
 use crate::web::auth::{self, Auth};
 
+pub(crate) use recording::parse_range;
+
 #[derive(Clone)]
 pub struct Services {
     pub store: Arc<SettingsStore>,

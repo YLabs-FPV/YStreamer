@@ -69,6 +69,8 @@ export interface Settings {
       pin: number;
       led_pin: number | null;
     };
+    /** Read-only network drive at /dav/ */
+    webdav: boolean;
   };
   viewer: { transport: ViewerTransport; max_viewers: number };
   display: {

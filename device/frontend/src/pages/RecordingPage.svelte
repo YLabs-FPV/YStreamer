@@ -9,6 +9,7 @@
   import Card from "@/components/ui/Card.svelte";
   import FileList from "@/components/recording/FileList.svelte";
   import ButtonCard from "@/components/recording/ButtonCard.svelte";
+  import DriveCard from "@/components/recording/DriveCard.svelte";
   import Field from "@/components/ui/Field.svelte";
   import Switch from "@/components/ui/Switch.svelte";
   import TextField from "@/components/ui/TextField.svelte";
@@ -267,6 +268,11 @@
         />
       </Field>
     </Card>
+
+    <DriveCard
+      bind:on={config.webdav}
+      saved={settings.saved?.recording.webdav ?? false}
+    />
 
     <ButtonCard bind:button={config.button} />
   {/if}

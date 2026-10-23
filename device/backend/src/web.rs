@@ -1,6 +1,7 @@
 pub mod api;
 pub mod auth;
 mod control;
+pub mod dav;
 mod rtc;
 pub mod terminal;
 mod ui;
@@ -104,6 +105,10 @@ pub fn start(
             }
             crate::system::ensure_hostname(&services.store.get().device.hostname).await;
             crate::system::adopt_timezone(&services.store);
+            dav::start(
+                listener.local_addr().map_or(80, |a| a.port()),
+                services.store.get().recording.webdav,
+            );
             tokio::spawn(link_watch(services.clone(), control_tx.clone()));
             tokio::spawn(crate::system::drives::watch());
             tokio::spawn(crate::system::update::watch(Arc::clone(&services.store)));
@@ -150,11 +155,30 @@ pub fn start(
                     Arc::clone(&services.auth),
                     crate::web::auth::viewers_only,
                 ));
+            let drive = dav::Drive {
+                recorder: Arc::clone(&services.recorder),
+                auth: Arc::clone(&services.auth),
+            };
+            // Windows asks the server's root whether it speaks WebDAV
+            let root_options = {
+                let recorder = Arc::clone(&services.recorder);
+                move || async move {
+                    match recorder.shared_dir() {
+                        Some(_) => dav::options(),
+                        None => axum::response::IntoResponse::into_response(
+                            axum::http::StatusCode::METHOD_NOT_ALLOWED,
+                        ),
+                    }
+                }
+            };
             let app = Router::new()
                 .route("/health", get(health))
                 .nest("/api", crate::web::api::router(services).merge(watching))
+                .merge(dav::router(drive))
                 .fallback_service(
-                    get(ui::serve).layer(tower_http::compression::CompressionLayer::new()),
+                    get(ui::serve)
+                        .options(root_options)
+                        .layer(tower_http::compression::CompressionLayer::new()),
                 )
                 .with_state(state);
 

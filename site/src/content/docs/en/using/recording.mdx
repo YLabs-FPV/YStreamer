@@ -110,6 +110,96 @@ copy or move its recordings to the SD card.
 - One transfer runs at a time, and recordings can't be deleted until it's done.
   It carries on if you close the page.
 
+## Network drive
+
+The recordings can also be opened as a network drive, so Finder, File
+Explorer or a file manager shows them like any other folder. You can play them
+from there or copy them to the computer, without the web interface.
+
+Turn it on under **Recording → Settings → Network drive**, then connect to:
+
+```
+http://ystreamer.local/dav/
+```
+
+Use your device's name if you've renamed it, or its IP address.
+
+- It's read-only: nothing on the device can be changed or deleted through it.
+- It shows the folder under **Save to**, on the SD card or the USB drive.
+- With a [web interface password](/docs/network/security) set, log in with
+  any user name and that password. Without one, anyone on the network can open
+  it.
+- Linux file managers find it by themselves under **Network**, as
+  _ystreamer recordings_. On other systems, type the address.
+- The recording in progress is listed too, and grows as it's written.
+
+### macOS
+
+1. In Finder, choose **Go → Connect to Server** (`⌘`+`K`).
+2. Enter `http://ystreamer.local/dav/` and press **Connect**.
+3. With a password set, choose **Registered User**, type any name and the
+   password.
+
+The drive appears under **Locations** in the Finder sidebar.
+
+### Windows
+
+1. In File Explorer, right-click **This PC** and choose **Map network drive…**
+   (or **Add a network location**).
+2. Enter `http://ystreamer.local/dav/` as the folder. If Windows can't find
+   the name, use the device's IP address instead.
+
+Windows has two limits of its own for this kind of drive:
+
+- **Files over 50 MB won't copy.** Raise the limit to the largest Windows
+  allows, about 4 GB, in a Command Prompt run as administrator:
+
+  ```
+  reg add HKLM\SYSTEM\CurrentControlSet\Services\WebClient\Parameters /v FileSizeLimitInBytes /t REG_DWORD /d 4294967295 /f
+  net stop webclient
+  net start webclient
+  ```
+
+  Recordings over 4 GB still won't copy this way: keep **New file** at 10
+  minutes or less, or download them in the browser.
+
+- **With a password set, Windows won't send it** over a plain `http://`
+  address. To let it, the same way the web interface sends its own:
+
+  ```
+  reg add HKLM\SYSTEM\CurrentControlSet\Services\WebClient\Parameters /v BasicAuthLevel /t REG_DWORD /d 2 /f
+  net stop webclient
+  net start webclient
+  ```
+
+### Linux
+
+- **GNOME Files**: **Other Locations** lists _ystreamer recordings_ under
+  **Networks**. Or type `dav://ystreamer.local/dav/` into **Connect to
+  Server**.
+- **Dolphin (KDE)**: open **Network**, or type `webdav://ystreamer.local/dav/`
+  in the address bar.
+- From the command line, with davfs2:
+
+  ```sh
+  sudo mount -t davfs -o ro http://ystreamer.local/dav/ /mnt/ystreamer
+  ```
+
+### iPhone, iPad and Android
+
+The Files app on iPhone and iPad connects only to SMB servers, and Android has
+no network drives built in, so use a file manager app that supports WebDAV,
+such as Documents by Readdle or FE File Explorer on iOS, or Solid Explorer or
+CX File Explorer on Android. Add a WebDAV connection with:
+
+| Field    | Value                                                       |
+| -------- | ----------------------------------------------------------- |
+| Address  | `ystreamer.local`, or the device's IP address               |
+| Port     | `80`                                                        |
+| Path     | `/dav/`                                                     |
+| Security | Plain HTTP, not HTTPS                                       |
+| Login    | Any user name and the web interface password, if one is set |
+
 ## Where the files are
 
 Without the web interface, they're in `/var/lib/ystreamer/recordings`, or on
@@ -118,5 +208,5 @@ the USB drive.
 On the ready-made image, settings and recordings live on a partition of their
 own, so a power cut while recording can't damage the system. That partition is
 formatted for Linux (ext4): Windows and macOS can't read it if you put the SD
-card in a computer. Use a USB drive, or download the recordings, to get them
-onto a computer.
+card in a computer. Use a USB drive, the [network drive](#network-drive), or download the
+recordings to get them onto a computer.
