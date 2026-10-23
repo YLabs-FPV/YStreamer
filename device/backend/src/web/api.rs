@@ -5,6 +5,7 @@ mod recording;
 mod settings;
 mod streaming;
 mod system;
+mod telemetry;
 
 use std::sync::Arc;
 
@@ -47,6 +48,7 @@ pub struct Services {
     pub goggles: Goggles,
     pub session: Arc<Session>,
     pub monitor: Arc<Monitor>,
+    pub telemetry: Arc<crate::input::duml::telemetry::Tracker>,
     pub splash: Arc<Splash>,
     pub overlay: Arc<crate::output::overlay::Overlay>,
     pub input: Arc<crate::input::InputState>,
@@ -125,6 +127,7 @@ pub fn router<S>(services: Services) -> Router<S> {
         )
         .route("/duml", get(system::duml_status).delete(system::duml_clear))
         .route("/duml/send", post(system::duml_send))
+        .route("/telemetry", get(telemetry::telemetry))
         .route("/srt", get(streaming::srt_status))
         .route("/rtmp", get(streaming::rtmp_status))
         .route("/udp", get(streaming::udp_status))

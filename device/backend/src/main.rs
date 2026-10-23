@@ -59,6 +59,7 @@ fn run() -> anyhow::Result<()> {
     let goggles = Goggles::new();
     let session = Session::start(goggles.clone());
     let monitor = Arc::new(Monitor::new());
+    let telemetry = Arc::new(duml::telemetry::Tracker::new());
 
     let network = network::Network::new();
 
@@ -128,6 +129,7 @@ fn run() -> anyhow::Result<()> {
         goggles: goggles.clone(),
         session: Arc::clone(&session),
         monitor: Arc::clone(&monitor),
+        telemetry: Arc::clone(&telemetry),
         splash: Arc::clone(&splash),
         input: Arc::clone(&input),
         metrics,
@@ -174,6 +176,7 @@ fn run() -> anyhow::Result<()> {
                 alive.mark_alive();
                 monitor.record(frame);
                 session.on_frame(frame);
+                telemetry.on_frame(frame);
                 if let Some(quality) = link.on_frame(frame) {
                     let _ = state_tx.send(duml::camera::CameraState {
                         link_quality: Some(quality),
