@@ -36,7 +36,28 @@ pub struct Frame<'a> {
     pub payload: &'a [u8],
 }
 
-impl Frame<'_> {
+impl<'a> Frame<'a> {
+    /// The DUML frame a LogicLink frame carries, if its header checks out
+    pub fn decode(inner: &'a [u8]) -> Option<Self> {
+        if inner.len() < 13 || inner[0] != 0x55 {
+            return None;
+        }
+        let duml_len = (inner[1] as usize) | (((inner[2] as usize) & 0x03) << 8);
+        // Validate: length agrees AND CRC8 over the first 3 bytes matches
+        if duml_len != inner.len() || calc_crc8(&inner[0..3]) != inner[3] {
+            return None;
+        }
+        Some(Frame {
+            src: inner[4],
+            dst: inner[5],
+            seq: u16::from_le_bytes([inner[6], inner[7]]),
+            flags: inner[8],
+            cmd_set: inner[9],
+            cmd_id: inner[10],
+            payload: &inner[11..inner.len() - 2],
+        })
+    }
+
     pub fn is_response(&self) -> bool {
         self.flags & 0x80 != 0
     }
@@ -163,26 +184,10 @@ impl DumlReassemblyBuffer {
                 } else {
                     on_video(inner);
                 }
-            } else {
-                // DUML command response
-                if inner_len >= 13 && inner[0] == 0x55 {
-                    let duml_len = (inner[1] as usize) | (((inner[2] as usize) & 0x03) << 8);
-                    // Validate: length agrees AND CRC8 over the first 3 bytes matches
-                    if duml_len == inner_len && calc_crc8(&inner[0..3]) == inner[3] {
-                        let frame = Frame {
-                            src: inner[4],
-                            dst: inner[5],
-                            seq: u16::from_le_bytes([inner[6], inner[7]]),
-                            flags: inner[8],
-                            cmd_set: inner[9],
-                            cmd_id: inner[10],
-                            payload: &inner[11..inner_len - 2],
-                        };
-                        // Ignore our own outgoing packets (sender 2 or 5)
-                        if frame.src != 2 && frame.src != 5 {
-                            on_duml(&frame);
-                        }
-                    }
+            } else if let Some(frame) = Frame::decode(inner) {
+                // Ignore our own outgoing packets (sender 2 or 5)
+                if frame.src != 2 && frame.src != 5 {
+                    on_duml(&frame);
                 }
             }
 

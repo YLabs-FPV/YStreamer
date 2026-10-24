@@ -8,6 +8,7 @@
   import TextField from "@/components/ui/TextField.svelte";
   import Select from "@/components/ui/Select.svelte";
   import Segmented from "@/components/ui/Segmented.svelte";
+  import Switch from "@/components/ui/Switch.svelte";
   import { btn } from "@/components/ui/buttons";
   import { snackbar } from "@/stores/snackbar.svelte";
   import { developer } from "@/stores/developer.svelte";
@@ -64,6 +65,35 @@
         return null;
     }
   });
+
+  const phone = $derived(
+    status?.mode === "dji_fpv" ? status.passthrough : null,
+  );
+  const phoneSummary = $derived.by(() => {
+    if (phone?.error)
+      return { text: `${phone.error}. Retrying…`, tone: "text-down" };
+    switch (phone?.state) {
+      case "dji_fly":
+        return { text: "DJI Fly is connected.", tone: "text-ok" };
+      case "phone":
+        return {
+          text: "Phone connected, waiting for DJI Fly. Open it, or allow it in the dialog on the phone.",
+          tone: "text-warn",
+        };
+      case "no_phone":
+        return {
+          text: "No phone. Plug an Android phone with DJI Fly into a USB-A port.",
+          tone: "text-muted",
+        };
+      default:
+        return null;
+    }
+  });
+
+  const size = (n: number) =>
+    n < 1024 ** 2
+      ? `${Math.round(n / 1024)} KB`
+      : `${(n / 1024 ** 2).toFixed(1)} MB`;
 
   const CAPTURE_BYTES = 8 * 1024 * 1024;
   const capturing = $derived(
@@ -203,6 +233,36 @@
       {/if}
     </div>
   </Card>
+
+  {#if input.mode === "dji_fpv"}
+    <Card
+      title="DJI Fly passthrough"
+      description="Keep using DJI Fly on an Android phone in a USB-A port while YStreamer streams. iPhone isn't supported."
+    >
+      {#snippet aside()}
+        <Switch bind:checked={input.passthrough} label="DJI Fly passthrough" />
+      {/snippet}
+      <p class="bg-warn/10 px-4 py-3 text-[12px] text-fg">
+        Experimental: not tried on real hardware by maintainers
+      </p>
+      {#if input.passthrough && phoneSummary}
+        <p class="px-4 py-3 text-[12px] {phoneSummary.tone}">
+          {phoneSummary.text}
+        </p>
+      {/if}
+      {#if developer.enabled && phone && phone.state !== "off"}
+        <Field
+          label="Passed through"
+          help="Since the service started. Dropped is what the phone was too slow to take."
+        >
+          <span class="font-mono text-[12px] text-muted">
+            {size(phone.to_phone)} to the phone · {size(phone.from_phone)} back ·
+            {size(phone.dropped)} dropped
+          </span>
+        </Field>
+      {/if}
+    </Card>
+  {/if}
 
   {#if input.mode === "dji_fpv_legacy"}
     <Card title="FPV Goggles V1/V2">

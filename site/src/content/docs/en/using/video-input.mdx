@@ -24,6 +24,40 @@ without encoding it again.
   goggles, under Settings → Camera → Advanced Camera Settings.
 </Admonition>
 
+## DJI Fly passthrough
+
+With the DJI goggles source, an Android phone running **DJI Fly** can go in one
+of the Pi's **USB-A** ports. YStreamer passes the goggles' link through to it,
+so you keep DJI Fly's camera settings, maps and flight view while YStreamer
+streams and records. What you change in DJI Fly goes back to the goggles.
+
+<Admonition type="warning" title="Experimental">
+  Passthrough hasn't been tried on real hardware by the maintainers yet.
+</Admonition>
+
+It's on by default, under **Input → DJI Fly passthrough**, and does nothing
+until an Android phone is plugged in.
+
+1. Plug the phone into a USB-A port with a data cable.
+2. The phone asks which app should open the accessory. Choose **DJI Fly**.
+3. The card says **DJI Fly is connected.**
+
+The card shows what it sees:
+
+- **No phone**: plug in an Android phone with DJI Fly.
+- **Phone connected, waiting for DJI Fly**: open DJI Fly, or answer the dialog
+  on the phone. If the phone was locked when you plugged it in, YStreamer
+  offers it to the phone again after about half a minute.
+- **DJI Fly is connected.**
+
+If you plug phones into the Pi just to charge them, turn the switch off and
+**Save**: while it's on, an Android phone is switched into accessory mode and
+asks to open DJI Fly. A phone sharing its internet over USB is left alone.
+
+<Admonition type="info" title="Android only">
+  iPhone isn't supported: accessories for it need Apple's licensed MFi program.
+</Admonition>
+
 ## FPV Goggles V1 / V2
 
 The first DJI FPV Goggles. Connect them to one of the Pi's **USB-A** ports.

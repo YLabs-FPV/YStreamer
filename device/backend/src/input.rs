@@ -3,6 +3,7 @@ pub mod gadget;
 pub mod goggles;
 pub mod h264;
 pub mod legacy;
+pub mod passthrough;
 pub mod uvc;
 
 use std::sync::atomic::{AtomicU8, Ordering};
