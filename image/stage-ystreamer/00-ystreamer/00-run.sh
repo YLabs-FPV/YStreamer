@@ -73,7 +73,7 @@ test -L "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/ystreamer.serv
 test -x "${ROOTFS_DIR}/usr/bin/wg"
 test -x "${ROOTFS_DIR}/usr/bin/tailscale"
 test -L "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/tailscaled.service"
-for pkg in ystreamer network-manager gstreamer1.0-plugins-bad gstreamer1.0-libav linux-image-rpi-v8 firmware-brcm80211; do
+for pkg in ystreamer network-manager openssh-server gstreamer1.0-plugins-bad gstreamer1.0-libav linux-image-rpi-v8 firmware-brcm80211; do
 	dpkg-query --admindir="${ROOTFS_DIR}/var/lib/dpkg" -W -f='${db:Status-Abbrev}' "$pkg" | grep -q '^ii'
 done
 test ! -e "${ROOTFS_DIR}/usr/bin/gcc"
