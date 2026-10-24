@@ -7,19 +7,23 @@ use std::time::Duration;
 
 const CONFIGFS: &str = "/sys/kernel/config/usb_gadget";
 const CONTROLLERS: &str = "/sys/class/udc";
-const NAME: &str = "ystreamer";
+// Not the name older versions use: they'd add their serial function next to
+// this one's, and the controller won't take a gadget with an unserved
+// accessory function, so going back to one would leave no link
+const NAME: &str = "ystreamer-aoa";
+// What older versions build, with the generic serial function. Only unbound,
+// so a rollback finds it as it left it
+const OLD_NAME: &str = "ystreamer";
 // A FunctionFS function, so the interface can say what it is: vendor class
 // and subclass 0xFF, like any Android accessory. The RC-N2/N3 resets the bus
 // every couple of seconds on anything else (the generic serial function's
 // subclass is 0); the goggles take either
-const FUNCTION: &str = "ffs.accessory";
+const FUNCTION: &str = "ffs.ystreamer";
 const MOUNT: &str = "/run/ystreamer-usb";
 /// Bulk OUT: what the goggles or the remote send us
 pub const EP_OUT: &str = "/run/ystreamer-usb/ep1";
 /// Bulk IN: what we send them
 pub const EP_IN: &str = "/run/ystreamer-usb/ep2";
-// Left behind by versions that used the generic serial function
-const OLD_FUNCTION: &str = "gser.usb0";
 
 #[derive(Debug, PartialEq)]
 enum Outcome {
@@ -55,9 +59,9 @@ fn setup(configfs: &Path, controllers: &Path) -> Result<Outcome, String> {
         if bound.trim().is_empty() {
             continue;
         }
-        // Ours can only still be bound from an older version: the accessory
-        // function unbinds it when the process that served it exits
-        if gadget.file_name() != NAME {
+        // An older version's stays bound after it exits; this one's unbinds
+        // when its process does, so bound means another one is serving it
+        if gadget.file_name() != OLD_NAME {
             return Ok(Outcome::AlreadyThere(
                 gadget.file_name().to_string_lossy().into_owned(),
             ));
@@ -96,12 +100,6 @@ fn setup(configfs: &Path, controllers: &Path) -> Result<Outcome, String> {
     put("configs/c.1/strings/0x409/configuration", "Config 1: AOA")?;
     put("configs/c.1/MaxPower", "250")?;
 
-    let old = gadget.join("configs/c.1").join(OLD_FUNCTION);
-    if old.is_symlink() {
-        fs::remove_file(&old).map_err(|e| format!("{}: {e}", old.display()))?;
-        let _ = fs::remove_dir(gadget.join("functions").join(OLD_FUNCTION));
-    }
-
     let function = gadget.join("functions").join(FUNCTION);
     fs::create_dir_all(&function).map_err(|e| format!("{}: {e}", function.display()))?;
     let link = gadget.join("configs/c.1").join(FUNCTION);
@@ -137,12 +135,22 @@ fn start(gadget: &Path, controller: &str) -> Result<(), String> {
 }
 
 fn mount() -> Result<(), String> {
+    let instance = FUNCTION.trim_start_matches("ffs.");
     let mounts = fs::read_to_string("/proc/self/mounts").unwrap_or_default();
-    if mounts.lines().any(|l| l.split(' ').nth(1) == Some(MOUNT)) {
-        return Ok(());
+    let mounted = mounts.lines().find_map(|l| {
+        let mut fields = l.split(' ');
+        let source = fields.next()?;
+        (fields.next()? == MOUNT).then_some(source)
+    });
+    match mounted {
+        Some(source) if source == instance => return Ok(()),
+        // Another function's, from a build that named it differently
+        Some(_) => {
+            let _ = Command::new("umount").arg(MOUNT).status();
+        }
+        None => {}
     }
     fs::create_dir_all(MOUNT).map_err(|e| format!("{MOUNT}: {e}"))?;
-    let instance = FUNCTION.trim_start_matches("ffs.");
     match Command::new("mount")
         .args(["-t", "functionfs", instance, MOUNT])
         .status()

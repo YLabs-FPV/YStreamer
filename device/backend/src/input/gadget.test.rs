@@ -65,24 +65,39 @@ fn builds_an_android_accessory_with_an_accessory_function() {
 #[test]
 fn takes_over_the_serial_gadget_an_older_version_left_bound() {
     let sys = Sysfs::new(Some("fe980000.usb"));
-    let gadget = sys.configfs.join(NAME);
-    fs::create_dir_all(gadget.join("functions").join(OLD_FUNCTION)).unwrap();
-    fs::create_dir_all(gadget.join("configs/c.1")).unwrap();
+    let old = sys.configfs.join(OLD_NAME);
+    fs::create_dir_all(old.join("functions/gser.usb0")).unwrap();
+    fs::create_dir_all(old.join("configs/c.1")).unwrap();
     std::os::unix::fs::symlink(
-        gadget.join("functions").join(OLD_FUNCTION),
-        gadget.join("configs/c.1").join(OLD_FUNCTION),
+        old.join("functions/gser.usb0"),
+        old.join("configs/c.1/gser.usb0"),
     )
     .unwrap();
-    fs::write(gadget.join("UDC"), "fe980000.usb\n").unwrap();
+    fs::write(old.join("UDC"), "fe980000.usb\n").unwrap();
 
     assert_eq!(
         setup(&sys.configfs, &sys.controllers),
         Ok(Outcome::Ready("fe980000.usb".into()))
     );
-    assert_eq!(sys.read("UDC"), "\n");
-    assert!(!gadget.join("configs/c.1").join(OLD_FUNCTION).exists());
-    assert!(!gadget.join("functions").join(OLD_FUNCTION).exists());
-    assert!(gadget.join("configs/c.1").join(FUNCTION).exists());
+    assert_eq!(fs::read_to_string(old.join("UDC")).unwrap(), "\n");
+    // Left as it was, for a rollback to bind again
+    assert!(old.join("configs/c.1/gser.usb0").is_symlink());
+    assert!(!old.join("configs/c.1").join(FUNCTION).exists());
+    let gadget = sys.configfs.join(NAME);
+    assert!(gadget.join("configs/c.1").join(FUNCTION).is_symlink());
+    assert!(!gadget.join("configs/c.1/gser.usb0").exists());
+}
+
+#[test]
+fn leaves_its_own_gadget_alone_while_another_process_serves_it() {
+    let sys = Sysfs::new(Some("fe980000.usb"));
+    setup(&sys.configfs, &sys.controllers).unwrap();
+    fs::write(sys.configfs.join(NAME).join("UDC"), "fe980000.usb\n").unwrap();
+    assert_eq!(
+        setup(&sys.configfs, &sys.controllers),
+        Ok(Outcome::AlreadyThere(NAME.into()))
+    );
+    assert_eq!(sys.read("UDC"), "fe980000.usb\n");
 }
 
 #[test]
