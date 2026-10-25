@@ -39,6 +39,7 @@ cp "$HERE/config" "$PI_GEN/config"
 # A stage that runs starts from the one before it, not from its own leftovers
 echo CLEAN=1 >>"$PI_GEN/config"
 cp -r "$HERE/stage-ystreamer" "$PI_GEN/stage-ystreamer"
+cp -r "$HERE/export-image/." "$PI_GEN/export-image/"
 mkdir -p "$PI_GEN/stage-ystreamer/00-ystreamer/files"
 cp "$DEB" "$PI_GEN/stage-ystreamer/00-ystreamer/files/ystreamer.deb"
 # Only our stage's image is wanted, not plain Raspberry Pi OS Lite as well
