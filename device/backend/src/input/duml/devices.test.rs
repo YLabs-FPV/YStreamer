@@ -26,3 +26,11 @@ fn keeps_unknown_codes() {
     assert_eq!((d.name.as_str(), d.kind), ("XX123", Kind::Unknown));
     assert!(from_identity(0x48, &[0; 64]).is_none());
 }
+
+#[test]
+fn names_the_goggles_3_and_n3() {
+    let g3 = from_identity(0xBC, &record("ZV902")).unwrap();
+    assert_eq!((g3.name.as_str(), g3.kind), ("Goggles 3", Kind::Goggles));
+    let n3 = from_identity(0xBC, &record("ZV300")).unwrap();
+    assert_eq!((n3.name.as_str(), n3.kind), ("Goggles N3", Kind::Goggles));
+}

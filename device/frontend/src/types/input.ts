@@ -33,6 +33,8 @@ export interface UvcStatus {
 export interface LegacyStatus {
   state: "idle" | "no_device" | "waiting" | "live" | "error";
   error: string | null;
+  /** What to check when the goggles were found but send no video */
+  hint: string | null;
   /** Bytes of the raw stream saved so far, while or after capturing */
   captured: number | null;
 }
