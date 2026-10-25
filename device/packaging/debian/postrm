@@ -26,6 +26,10 @@ purge)
     rm -f "$OMT_SERVICE"
     # Settings and the login; recordings in /var/lib/ystreamer stay
     rm -rf /etc/ystreamer
+    # An NDI SDK download nobody accepted or declined. An installed NDI
+    # runtime stays: the owner installed it under NDI's licence, and other
+    # software may use it
+    rm -rf /var/lib/ystreamer/ndi
     ;;
 esac
 

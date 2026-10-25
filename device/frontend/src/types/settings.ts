@@ -147,6 +147,27 @@ export interface NdiStatus {
   error: string | null;
 }
 
+/** NDI's runtime, fetched and waiting for the owner to accept NDI's licence */
+export interface NdiRuntimeStaged {
+  version: string;
+  /** The licence text from inside NDI's own package */
+  license: string;
+}
+
+/** A download from NDI underway */
+export interface NdiRuntimeDownload {
+  received: number;
+  /** The download's size, when NDI's server said it */
+  total: number | null;
+  /** Downloaded, and being checked */
+  checking: boolean;
+}
+
+export interface NdiRuntime {
+  staged: NdiRuntimeStaged | null;
+  download: NdiRuntimeDownload | null;
+}
+
 export interface OmtStatus {
   active: boolean;
   port: number | null;

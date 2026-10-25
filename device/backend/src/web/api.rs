@@ -133,6 +133,17 @@ pub fn router<S>(services: Services) -> Router<S> {
         .route("/rtmp", get(streaming::rtmp_status))
         .route("/udp", get(streaming::udp_status))
         .route("/ndi", get(streaming::ndi_status))
+        .route("/ndi/runtime", get(streaming::ndi_runtime))
+        .route(
+            "/ndi/runtime/download",
+            post(streaming::ndi_runtime_download),
+        )
+        // The upload is streamed and its size checked as it's written
+        .route(
+            "/ndi/runtime/package",
+            put(streaming::ndi_runtime_upload).delete(streaming::ndi_runtime_discard),
+        )
+        .route("/ndi/runtime/install", post(streaming::ndi_runtime_install))
         .route("/omt", get(streaming::omt_status))
         .route("/display", get(display::display_status))
         .route("/input", get(streaming::input_status))

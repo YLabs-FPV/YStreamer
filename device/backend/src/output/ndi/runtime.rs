@@ -9,7 +9,7 @@ use std::sync::{Mutex, OnceLock};
 use libloading::Library;
 
 /// The runtime's names, newest first. Both versions take the same calls
-const LIBRARIES: [&str; 2] = ["libndi.so.6", "libndi.so.5"];
+pub(super) const LIBRARIES: [&str; 2] = ["libndi.so.6", "libndi.so.5"];
 /// Where NDI's installers point to the runtime, overriding the usual search
 const DIR_VARIABLES: [&str; 2] = ["NDI_RUNTIME_DIR_V6", "NDI_RUNTIME_DIR_V5"];
 /// The NDI SDK's install script puts the libraries here, which isn't always

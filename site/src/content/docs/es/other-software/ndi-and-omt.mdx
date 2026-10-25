@@ -61,22 +61,42 @@ la tarjeta dice que no está anunciado, eso es lo que hay que revisar.
 ### Instalar el runtime de NDI en el dispositivo
 
 YStreamer no incluye NDI: el runtime es software propio de NDI, con la licencia
-de NDI, así que lo descargas tú desde NDI.
+de NDI. El dispositivo lo descarga desde NDI cuando se lo pides, y solo lo
+instala después de que aceptes la licencia de NDI.
 
-1. Descarga el **NDI SDK for Linux** desde [ndi.video](https://ndi.video/),
-   aceptando la licencia de NDI.
-2. Descomprímelo en un ordenador y busca la biblioteca ARM de 64 bits para la
-   Raspberry Pi: `libndi.so.6` y los archivos a su lado, en una carpeta dentro
-   de `lib/` cuyo nombre empieza por `aarch64`.
-3. Copia esos archivos a `/usr/local/lib/` en el dispositivo (por ejemplo con
+1. En el dispositivo, ve a **Streaming → NDI** y pulsa **Download from NDI**.
+   Tarda uno o dos minutos: la descarga ocupa unos 60 MB.
+
+   Si el dispositivo no tiene internet, descarga el **NDI SDK for Linux** desde
+   [ndi.video](https://ndi.video/) en un ordenador, pulsa **Upload file…** y
+   elígelo. Vale tanto el archivo `.tar.gz` tal cual como el `.sh` que lleva
+   dentro.
+
+2. La tarjeta muestra el progreso de la descarga, y luego la licencia de NDI
+   se abre en una ventana, sacada del paquete que has descargado. Léela.
+   **Decline** borra la descarga y no instala nada. Si cierras la ventana, la
+   descarga espera en la tarjeta, en **Read NDI's licence**.
+3. Pulsa **Accept and install**. El runtime va a `/usr/local/lib/` y la
+   licencia de NDI a `/usr/local/share/doc/ndi/`.
+4. Activa **NDI** y pulsa **Save**. No hace falta reiniciar.
+
+Al desinstalar YStreamer, el runtime se queda: lo instalaste tú con la licencia
+de NDI, y puede que otros programas lo usen. Para quitarlo, ejecuta
+`sudo rm /usr/local/lib/libndi.so.6* && sudo ldconfig`.
+
+#### Instalarlo a mano
+
+También puedes copiar el runtime tú mismo:
+
+1. Descomprime el **NDI SDK for Linux** en un ordenador y busca la biblioteca
+   ARM de 64 bits para la Raspberry Pi: `libndi.so.6` y los archivos a su lado,
+   en una carpeta dentro de `lib/` cuyo nombre empieza por `aarch64`.
+2. Copia esos archivos a `/usr/local/lib/` en el dispositivo (por ejemplo con
    `scp`) y ejecuta:
 
    ```sh
    sudo ldconfig
    ```
-
-4. Abre **Streaming → NDI**. En unos segundos la tarjeta deja de decir que
-   falta el runtime. Activa **NDI** y pulsa **Save**.
 
 YStreamer también busca en la carpeta de `NDI_RUNTIME_DIR_V6`, si está
 definida para el servicio.
@@ -106,10 +126,13 @@ comprime cada imagen.
 
 ## Sobre el runtime de NDI y el nombre
 
-- YStreamer no distribuye el runtime de NDI, no lo enlaza al compilarse ni lo
-  descarga por ti. Solo abre la biblioteca si la encuentra instalada. La
-  licencia de NDI cubre el runtime; léela al descargarlo, sobre todo antes de
-  pasarlo a otros, por ejemplo en una imagen de tarjeta SD que compartas.
+- YStreamer no distribuye el runtime de NDI ni lo enlaza al compilarse. El
+  dispositivo lo descarga desde NDI solo cuando se lo pides, no guarda nada de
+  NDI más allá de eso, y solo lo instala después de que aceptes la licencia de
+  NDI. Solo abre la biblioteca si la encuentra instalada.
+- La licencia de NDI cubre el runtime; léela antes de aceptarla, sobre todo
+  antes de pasarlo a otros, por ejemplo en una imagen de tarjeta SD que
+  compartas.
 - NDI® es una marca registrada de Vizrt NDI AB. YStreamer usa el nombre solo
   para decir qué protocolo habla la salida; no está afiliado a NDI ni
   respaldado por NDI.

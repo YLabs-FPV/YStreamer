@@ -8,6 +8,7 @@ import type {
   RtmpStatus,
   UdpStatus,
   NdiStatus,
+  NdiRuntime,
   OmtStatus,
   DisplayStatus,
 } from "@/types/settings";
@@ -162,6 +163,14 @@ export const api = {
   rtmp: () => request<RtmpStatus>("GET", "/rtmp"),
   udp: () => request<UdpStatus>("GET", "/udp"),
   ndi: () => request<NdiStatus>("GET", "/ndi"),
+  ndiRuntime: () => request<NdiRuntime>("GET", "/ndi/runtime"),
+  downloadNdiRuntime: () =>
+    request<NdiRuntime>("POST", "/ndi/runtime/download"),
+  uploadNdiRuntime: (file: Blob) =>
+    request<NdiRuntime>("PUT", "/ndi/runtime/package", file),
+  discardNdiRuntime: () =>
+    request<NdiRuntime>("DELETE", "/ndi/runtime/package"),
+  installNdiRuntime: () => request<void>("POST", "/ndi/runtime/install"),
   omt: () => request<OmtStatus>("GET", "/omt"),
   display: () => request<DisplayStatus>("GET", "/display"),
   input: () => request<InputStatus>("GET", "/input"),

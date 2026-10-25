@@ -1,3 +1,4 @@
+pub mod install;
 mod runtime;
 
 use std::sync::atomic::{AtomicU64, Ordering};

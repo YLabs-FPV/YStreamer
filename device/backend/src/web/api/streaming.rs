@@ -6,7 +6,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use crate::output::ndi::NdiStatus;
+use crate::output::ndi::{NdiStatus, install};
 use crate::output::omt::OmtStatus;
 use crate::output::rtmp::RtmpStatus;
 use crate::output::srt::SrtStatus;
@@ -90,4 +90,39 @@ pub(super) async fn rtmp_status(State(sv): State<Services>) -> Json<RtmpStatus> 
 
 pub(super) async fn srt_status(State(sv): State<Services>) -> Json<SrtStatus> {
     Json(sv.srt.status())
+}
+
+pub(super) async fn ndi_runtime() -> Json<install::Status> {
+    Json(install::status())
+}
+
+pub(super) async fn ndi_runtime_download() -> Result<Json<install::Status>, ApiError> {
+    install::download()
+        .await
+        .map(Json)
+        .map_err(|e| ApiError(StatusCode::BAD_GATEWAY, e))
+}
+
+/// Streamed to disk: the SDK is over 60 MB
+pub(super) async fn ndi_runtime_upload(
+    body: axum::body::Body,
+) -> Result<Json<install::Status>, ApiError> {
+    install::upload(body.into_data_stream())
+        .await
+        .map(Json)
+        .map_err(bad)
+}
+
+/// The owner declined NDI's licence
+pub(super) async fn ndi_runtime_discard() -> Result<Json<install::Status>, ApiError> {
+    install::discard()
+        .await
+        .map(Json)
+        .map_err(|e| ApiError(StatusCode::CONFLICT, e))
+}
+
+/// The owner accepted NDI's licence
+pub(super) async fn ndi_runtime_install() -> Result<StatusCode, ApiError> {
+    install::install().await.map_err(failed)?;
+    Ok(StatusCode::NO_CONTENT)
 }
