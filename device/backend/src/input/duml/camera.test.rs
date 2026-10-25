@@ -19,6 +19,13 @@ fn ignores_the_short_frame_under_the_battery_command() {
 }
 
 #[test]
+fn ignores_frame_just_under_battery_threshold() {
+    let mut p = [0u8; 47];
+    p[4] = 87;
+    assert!(parse_duml_response(6, 30, &p).is_none());
+}
+
+#[test]
 fn ignores_frames_it_does_not_know() {
     assert!(parse_duml_response(6, 31, &[0; 8]).is_none());
     assert!(parse_duml_response(3, 0x43, &[0; 64]).is_none());
