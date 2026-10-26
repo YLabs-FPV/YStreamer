@@ -52,7 +52,9 @@
         return { text: "Receiving video.", tone: "text-ok" };
       case "waiting":
         return {
-          text: "Goggles found, no video yet. Power the aircraft and wait for the picture in the goggles.",
+          text:
+            legacy.hint ??
+            "Goggles found, no video yet. Power the aircraft and wait for the picture in the goggles.",
           tone: "text-warn",
         };
       case "no_device":
