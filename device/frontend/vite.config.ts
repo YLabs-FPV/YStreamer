@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         "/api": { target, changeOrigin: true, ws: true },
         "/health": { target, changeOrigin: true },
+        "/dav": { target, changeOrigin: true },
       },
     },
   };
