@@ -1,6 +1,6 @@
 ---
 title: Entrada de vídeo
-description: Elige la fuente de vídeo - gafas DJI, las primeras gafas FPV o una cámara USB.
+description: Elige la fuente de vídeo - gafas DJI, las primeras gafas FPV, una cámara USB o un stream RTMP.
 order: 20
 ---
 
@@ -71,3 +71,78 @@ de bits.
   width={1554}
   height={928}
 />
+
+## Stream RTMP
+
+Otro dispositivo envía vídeo a YStreamer por la red: OBS, una app del móvil
+como Larix Broadcaster o la transmisión en directo de DJI Fly. Su vídeo va
+entonces a HDMI, al navegador, a los streams y a las grabaciones, como el de
+las gafas.
+
+La app tiene que estar en la misma red que el dispositivo: la misma Wi-Fi, o
+conectada al punto de acceso de YStreamer.
+
+1. Elige **RTMP stream** en **Input → Video source** y pulsa **Save**. La
+   primera vez se crea una clave de stream aleatoria.
+2. La tarjeta **RTMP stream** muestra la dirección a la que enviar, como
+   `rtmp://192.168.1.50/live/<clave>`. **Copy** la copia con la clave.
+3. Escríbela en la app. Las apps que piden un servidor y una clave por
+   separado llevan `rtmp://192.168.1.50/live` como servidor y la clave aparte.
+
+La tarjeta indica cuándo hay una app conectada y cuándo llega vídeo. La
+pantalla de inicio se muestra hasta el primer fotograma clave.
+
+| Ajuste     | Qué hace                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------- |
+| Stream key | Al menos 10 caracteres. Solo una app que la conozca puede enviar aquí. **New** crea otra; guarda para usarla. |
+| Port       | 1935, lo que esperan las apps cuando la dirección no lleva puerto. O de 1024 a 65535.                         |
+| Only from  | Direcciones IP que pueden enviar, separadas por comas. Vacío deja entrar a quien tenga la clave.              |
+
+Envía una app a la vez; una segunda se rechaza hasta que la primera pare.
+Cambiar la clave o **Only from** corta la app que está enviando.
+
+Una app tiene 10 segundos desde que se conecta para empezar a enviar con la
+clave correcta. Tras 3 claves erróneas desde una dirección, esa dirección se
+rechaza durante un minuto, y el doble tras cada clave errónea más, hasta 15
+minutos. Una dirección IPv6 cuenta junto con el resto de su /64. Pasadas unas
+6 claves erróneas por minuto entre todas las direcciones, cada clave errónea
+se responde solo tras 2 segundos. La clave correcta desde una dirección que no
+esté rechazada siempre entra.
+
+<Admonition type="tip" title="Usa la dirección IP">
+  Muchas apps del móvil no encuentran `ystreamer.local`. Abre la interfaz web
+  con la dirección IP del dispositivo y la tarjeta mostrará la dirección con
+  ella.
+</Admonition>
+
+### OBS
+
+1. **Settings → Stream**: pon **Service** en **Custom**, **Server** en
+   `rtmp://192.168.1.50/live` y **Stream Key** con la clave.
+2. **Settings → Output**, con **Output Mode** en **Advanced**: elige un
+   codificador H.264, pon **Keyframe Interval** en 1 o 2 s y, con x264, **Tune**
+   en `zerolatency`, que no usa fotogramas B.
+3. **Start Streaming**.
+
+### Apps del móvil y DJI Fly
+
+Busca un servidor RTMP personalizado en los ajustes de transmisión de la app y
+escribe la dirección de la tarjeta. En DJI Fly es la opción de transmisión en
+directo con **RTMP**.
+
+### Qué necesita
+
+- **H.264**, hasta 1080p. H.265, AV1 y el resto se rechazan, y la tarjeta dice
+  qué códec envió la app. Pon la app en H.264.
+- **Sin fotogramas B**, para el menor retardo. Se reproducen igual, pero los
+  decodificadores retienen imágenes. La tarjeta avisa cuando el stream los
+  tiene.
+- **Fotogramas clave frecuentes**, cada 1 o 2 s. Los reproductores y la
+  pantalla de inicio esperan uno.
+- El **sonido** de la app se descarta: ninguna salida lo lleva.
+
+<Admonition type="info" title="Puertos">
+  La entrada RTMP escucha en el puerto TCP 1935, solo mientras es la fuente
+  elegida. No choca con el servidor RTSP (554), SRT (9000) ni la _salida_ RTMP,
+  que se conecta a un servidor y no abre ningún puerto.
+</Admonition>

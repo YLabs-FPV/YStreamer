@@ -81,6 +81,7 @@ terminal needed.
 | DJI Goggles 2, Integra, Goggles 3, Goggles N3 | USB-C |  ✅   |       ✅        |       ✅       |
 | DJI FPV Goggles V1 / V2 _(experimental)_      | USB-A |  ✅   |       ❌        |       ❌       |
 | USB cameras, capture sticks, analog receivers | USB-A |  ✅   |        -        |       -        |
+| RTMP stream from OBS, a phone app or DJI Fly  |  LAN  |  ✅   |        -        |       -        |
 
 _Which camera settings can be changed depends on the air unit (O3, O4, O4 Pro)._
 

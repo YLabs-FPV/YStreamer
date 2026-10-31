@@ -1,6 +1,11 @@
 import { recording } from "@/stores/recording.svelte";
 import type { AircraftRecorder, LinkedDevice } from "@/types/duml";
-import type { InputMode, LegacyStatus, UvcStatus } from "@/types/input";
+import type {
+  InputMode,
+  LegacyStatus,
+  RtmpInputStatus,
+  UvcStatus,
+} from "@/types/input";
 import type { OverlayView } from "@/types/settings";
 import { snackbar } from "@/stores/snackbar.svelte";
 
@@ -46,6 +51,7 @@ class ControlStore {
   inputMode = $state<InputMode>("dji_fpv");
   uvc = $state<UvcStatus | null>(null);
   legacy = $state<LegacyStatus | null>(null);
+  rtmp = $state<RtmpInputStatus | null>(null);
   overlay = $state<OverlayView | null>(null);
 
   goggles = $derived(this.devices.find((d) => d.kind === "goggles") ?? null);
@@ -118,6 +124,7 @@ class ControlStore {
           this.inputMode = msg.mode;
           this.uvc = msg.uvc;
           this.legacy = msg.legacy;
+          this.rtmp = msg.rtmp;
         }
       } catch {
         // ignore malformed frames

@@ -11,6 +11,8 @@
   import { btn } from "@/components/ui/buttons";
   import { snackbar } from "@/stores/snackbar.svelte";
   import { developer } from "@/stores/developer.svelte";
+  import { settings } from "@/stores/settings.svelte";
+  import { copyText } from "@/lib/clipboard";
 
   let { input = $bindable() }: { input: Settings["input"] } = $props();
 
@@ -18,6 +20,7 @@
     { label: "DJI goggles", value: "dji_fpv" },
     { label: "FPV Goggles V1/V2", value: "dji_fpv_legacy" },
     { label: "USB camera", value: "uvc" },
+    { label: "RTMP stream", value: "rtmp" },
   ];
 
   const ABOUT: Record<string, string> = {
@@ -25,6 +28,7 @@
     dji_fpv_legacy:
       "The first DJI FPV Goggles, V1 or V2, in one of the USB-A ports. Video only: no camera settings, battery or link quality.",
     uvc: "An analog receiver, HDMI capture stick or webcam in one of the USB-A ports. Its video is encoded to H.264 by the Pi's hardware encoder.",
+    rtmp: "A stream pushed over the network by OBS, a phone app or DJI Fly's live streaming. H.264 up to 1080p; the app's sound is left out.",
   };
 
   const FORMAT: Record<string, string> = {
@@ -106,6 +110,69 @@
   });
   onDestroy(() => {
     if (timer) clearInterval(timer);
+  });
+
+  const RTMP_PORT = 1935;
+  // Letters and digits that can't be mistaken for each other
+  const KEY_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
+
+  function newKey() {
+    const bytes = crypto.getRandomValues(new Uint8Array(10));
+    input.rtmp.key = Array.from(
+      bytes,
+      (b) => KEY_CHARS[b % KEY_CHARS.length],
+    ).join("");
+  }
+
+  // The saved settings: what the device is listening for right now
+  const savedRtmp = $derived(
+    settings.saved?.input.mode === "rtmp" && settings.saved.input.rtmp.key
+      ? settings.saved.input.rtmp
+      : null,
+  );
+  const rtmpServer = $derived(
+    savedRtmp
+      ? `rtmp://${location.hostname}${savedRtmp.port === RTMP_PORT ? "" : `:${savedRtmp.port}`}/live`
+      : "",
+  );
+
+  async function copy(text: string, what: string) {
+    try {
+      await copyText(text);
+      snackbar.show(`${what} copied`);
+    } catch {
+      snackbar.show(
+        `Couldn't copy; select the ${what.toLowerCase()} and copy it by hand`,
+        true,
+      );
+    }
+  }
+
+  const rtmp = $derived(status?.mode === "rtmp" ? status.rtmp : null);
+  const rtmpSummary = $derived.by(() => {
+    switch (rtmp?.state) {
+      case "live":
+        return {
+          text: `Receiving video from ${rtmp.publisher}.`,
+          tone: "text-ok",
+        };
+      case "connected":
+        return {
+          text: `${rtmp.publisher} is connected, no video yet.`,
+          tone: "text-warn",
+        };
+      case "waiting":
+        return {
+          text: rtmp.error
+            ? `Waiting for a stream. ${rtmp.error}.`
+            : "Waiting for a stream.",
+          tone: rtmp.error ? "text-down" : "text-muted",
+        };
+      case "error":
+        return { text: `${rtmp.error}. Retrying…`, tone: "text-down" };
+      default:
+        return null;
+    }
   });
 
   // The configured device, or the first one: what "First found" resolves to
@@ -240,6 +307,84 @@
           {/if}
         </Field>
       {/if}
+    </Card>
+  {/if}
+
+  {#if input.mode === "rtmp"}
+    <Card title="RTMP stream">
+      {#if savedRtmp}
+        <div class="flex flex-col gap-2 px-4 py-3">
+          <div class="flex items-center gap-2">
+            <code
+              class="min-w-0 flex-1 truncate rounded-md bg-surface-2 px-3 py-1.5 font-mono text-[13px] text-fg select-all"
+            >
+              {rtmpServer}/••••
+            </code>
+            <button
+              type="button"
+              class={btn.plain}
+              onclick={() => copy(`${rtmpServer}/${savedRtmp.key}`, "URL")}
+            >
+              Copy
+            </button>
+          </div>
+          <p class="text-[12px] text-muted">
+            Apps that ask for a server and a stream key separately: the server
+            is <span class="font-mono text-fg">{rtmpServer}</span>, the key is
+            the one below.
+          </p>
+          {#if rtmpSummary}
+            <p class="text-[12px] {rtmpSummary.tone}">{rtmpSummary.text}</p>
+          {/if}
+        </div>
+      {:else}
+        <p class="px-4 py-3 text-[12px] text-muted">
+          Save to start listening. The address to stream to shows here.
+        </p>
+      {/if}
+      {#if rtmp?.reorders}
+        <p class="bg-warn/10 px-4 py-3 text-[12px] text-fg">
+          The stream has B-frames, which add delay. Set B-frames to 0 in the app
+          or encoder for the lowest delay.
+        </p>
+      {/if}
+
+      <Field
+        label="Stream key"
+        for="rtmp-in-key"
+        help="At least 10 characters. Only an app that knows it can stream here. Made up when you first save."
+      >
+        <TextField id="rtmp-in-key" secret mono bind:value={input.rtmp.key} />
+        <button type="button" class={btn.plain} onclick={newKey}>New</button>
+      </Field>
+
+      <Field
+        label="Port"
+        for="rtmp-in-port"
+        help="1935 is what apps expect when the URL has none."
+      >
+        <TextField
+          id="rtmp-in-port"
+          type="number"
+          min={1024}
+          max={65535}
+          mono
+          bind:value={input.rtmp.port}
+        />
+      </Field>
+
+      <Field
+        label="Only from"
+        for="rtmp-in-allowed"
+        help="IP addresses allowed to stream, comma separated. Empty: any device that has the key."
+      >
+        <TextField
+          id="rtmp-in-allowed"
+          mono
+          placeholder="Any address"
+          bind:value={input.rtmp.allowed_from}
+        />
+      </Field>
     </Card>
   {/if}
 
