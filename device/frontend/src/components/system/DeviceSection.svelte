@@ -113,6 +113,7 @@
   const SOURCE_NAMES: Record<string, string> = {
     dji_fpv: "DJI goggles",
     dji_fpv_legacy: "DJI FPV Goggles V1/V2",
+    dji_goggles_usb: "DJI Goggles 3 over USB-A",
     uvc: "USB camera",
   };
 
@@ -124,6 +125,8 @@
           .join(" + ");
       case "dji_fpv_legacy":
         return "DJI FPV Goggles V1/V2";
+      case "dji_goggles_usb":
+        return "DJI Goggles 3";
       case "uvc":
         return control.uvc?.device ?? "";
       default:

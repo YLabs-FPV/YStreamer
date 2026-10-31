@@ -53,6 +53,21 @@
     }
   });
 
+  const liveviewStatus = $derived.by(() => {
+    switch (control.liveview?.state) {
+      case "live":
+        return { text: "Goggles 3", dot: "bg-ok" };
+      case "connected":
+        return { text: "Goggles 3, no video", dot: "bg-warn" };
+      case "waiting":
+        return { text: "Liveview sharing off", dot: "bg-warn" };
+      case "error":
+        return { text: "Goggles error", dot: "bg-down" };
+      default:
+        return { text: "No goggles", dot: "bg-faint" };
+    }
+  });
+
   const status = $derived(
     !control.connected
       ? { text: "Offline", dot: "bg-down" }
@@ -60,14 +75,16 @@
         ? uvcStatus
         : control.inputMode === "dji_fpv_legacy"
           ? legacyStatus
-          : control.link === "live"
-            ? {
-                text: control.goggles?.name ?? "Goggles connected",
-                dot: "bg-ok",
-              }
-            : control.link === "connecting"
-              ? { text: "Connecting to goggles", dot: "bg-warn" }
-              : { text: "No goggles", dot: "bg-faint" },
+          : control.inputMode === "dji_goggles_usb"
+            ? liveviewStatus
+            : control.link === "live"
+              ? {
+                  text: control.goggles?.name ?? "Goggles connected",
+                  dot: "bg-ok",
+                }
+              : control.link === "connecting"
+                ? { text: "Connecting to goggles", dot: "bg-warn" }
+                : { text: "No goggles", dot: "bg-faint" },
   );
 
   $effect(() => {

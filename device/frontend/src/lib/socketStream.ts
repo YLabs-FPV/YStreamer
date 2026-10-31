@@ -62,6 +62,7 @@ export class SocketStream {
   #track: VideoTrack | null = null;
   #queue: Uint8Array[] = [];
   #needKeyframe = true;
+  #params: [Uint8Array, Uint8Array] | null = null;
   #closed = false;
 
   #sequence = 1;
@@ -169,6 +170,17 @@ export class SocketStream {
       else if (type !== NAL_AUD) samples.push(nal);
       if (type === NAL_IDR) keyframe = true;
     }
+    // Parameter sets can arrive on their own, ahead of their picture
+    const picture = samples.some((n) => nalType(n) >= 1 && nalType(n) <= 5);
+    if (sps && pps && !picture) {
+      this.#params = [sps, pps];
+      return;
+    }
+    if (!sps && this.#params) [sps, pps] = this.#params;
+    this.#params = null;
+    // Where the Pi starts every output too. Goggles 3 sharing their liveview
+    // send no IDR at all; the Pi marks these with a recovery point instead
+    if (sps && pps) keyframe = true;
 
     if (this.#queue.length > MAX_QUEUED) this.#restartAtKeyframe();
     if (this.#needKeyframe && !keyframe) return;

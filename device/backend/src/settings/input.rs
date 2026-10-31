@@ -10,6 +10,8 @@ pub enum InputMode {
     Uvc,
     /// DJI Goggles V1 and V2: video only
     DjiFpvLegacy,
+    /// Goggles 3 with liveview sharing on, over a USB-A cable: video only
+    DjiGogglesUsb,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]

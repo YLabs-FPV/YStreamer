@@ -17,6 +17,7 @@ pub(super) struct InputStatus {
     mode: crate::settings::InputMode,
     uvc: crate::input::uvc::UvcStatus,
     legacy: crate::input::legacy::LegacyStatus,
+    liveview: crate::input::liveview::LiveviewStatus,
 }
 
 pub(super) async fn input_status(State(sv): State<Services>) -> Json<InputStatus> {
@@ -24,6 +25,7 @@ pub(super) async fn input_status(State(sv): State<Services>) -> Json<InputStatus
         mode: sv.input.mode(),
         uvc: sv.uvc.status(),
         legacy: sv.legacy.status(),
+        liveview: sv.liveview.status(),
     })
 }
 
