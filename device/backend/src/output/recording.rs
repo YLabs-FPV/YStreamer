@@ -428,6 +428,12 @@ impl Recorder {
         PathBuf::from(&self.cfg.lock().unwrap().path)
     }
 
+    /// The folder offered as a network drive, when that's turned on
+    pub fn shared_dir(&self) -> Option<PathBuf> {
+        let cfg = self.cfg.lock().unwrap();
+        cfg.webdav.then(|| PathBuf::from(&cfg.path))
+    }
+
     /// Whether `name` in `dir` is a file of the recording in progress, which
     /// must be neither deleted nor copied yet
     pub fn is_writing(&self, dir: &Path, name: &str) -> bool {

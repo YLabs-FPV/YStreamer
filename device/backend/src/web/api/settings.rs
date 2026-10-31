@@ -172,6 +172,9 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
         if saved.recording.button != prev.recording.button {
             sv.button.configure(&saved.recording.button);
         }
+        if saved.recording.webdav != prev.recording.webdav {
+            crate::web::dav::advertise(saved.recording.webdav);
+        }
     }
 
     if saved.overlay != prev.overlay {

@@ -13,12 +13,19 @@ remove_boot_settings() {
     echo "YStreamer: restored $CONFIG; reboot to get the USB-C port back." >&2
 }
 
+# Written while the network drive is on; avahi stops announcing it once gone
+remove_drive_announcement() {
+    rm -f /etc/avahi/services/ystreamer-webdav.service
+}
+
 case "$1" in
 remove)
     remove_boot_settings
+    remove_drive_announcement
     ;;
 purge)
     remove_boot_settings
+    remove_drive_announcement
     # Settings and the login; recordings in /var/lib/ystreamer stay
     rm -rf /etc/ystreamer
     ;;

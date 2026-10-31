@@ -117,6 +117,99 @@ mueve sus grabaciones a la tarjeta SD.
 - Solo se hace una transferencia a la vez, y no se pueden borrar grabaciones
   hasta que termine. Sigue aunque cierres la página.
 
+## Unidad de red
+
+Las grabaciones también se pueden abrir como una unidad de red, así que el
+Finder, el Explorador de archivos o un gestor de archivos las muestran como
+cualquier otra carpeta. Desde ahí puedes reproducirlas o copiarlas al
+ordenador, sin la interfaz web.
+
+Actívala en **Recording → Settings → Network drive** y conéctate a:
+
+```
+http://ystreamer.local/dav/
+```
+
+Usa el nombre de tu dispositivo si le has cambiado el nombre, o su dirección IP.
+
+- Es de solo lectura: desde ella no se puede cambiar ni borrar nada del
+  dispositivo.
+- Muestra la carpeta de **Save to**, en la tarjeta SD o en la memoria USB.
+- Con una [contraseña de la interfaz web](/docs/network/security), entra con
+  cualquier nombre de usuario y esa contraseña. Sin ella, cualquiera en la red
+  puede abrirla.
+- Los gestores de archivos de Linux la encuentran solos en **Red**, como
+  _ystreamer recordings_. En otros sistemas, escribe la dirección.
+- La grabación en curso también aparece, y crece a medida que se escribe.
+
+### macOS
+
+1. En el Finder, elige **Ir → Conectarse al servidor** (`⌘`+`K`).
+2. Escribe `http://ystreamer.local/dav/` y pulsa **Conectar**.
+3. Con contraseña, elige **Usuario registrado**, escribe cualquier nombre y la
+   contraseña.
+
+La unidad aparece en **Ubicaciones**, en la barra lateral del Finder.
+
+### Windows
+
+1. En el Explorador de archivos, haz clic derecho en **Este equipo** y elige
+   **Conectar a unidad de red…** (o **Agregar una ubicación de red**).
+2. Escribe `http://ystreamer.local/dav/` como carpeta. Si Windows no encuentra
+   el nombre, usa la dirección IP del dispositivo.
+
+Windows tiene dos límites propios para este tipo de unidad:
+
+- **Los archivos de más de 50 MB no se copian.** Sube el límite al máximo que
+  permite Windows, unos 4 GB, en un Símbolo del sistema abierto como
+  administrador:
+
+  ```
+  reg add HKLM\SYSTEM\CurrentControlSet\Services\WebClient\Parameters /v FileSizeLimitInBytes /t REG_DWORD /d 4294967295 /f
+  net stop webclient
+  net start webclient
+  ```
+
+  Las grabaciones de más de 4 GB siguen sin copiarse así: deja **New file** en
+  10 minutos o menos, o descárgalas en el navegador.
+
+- **Con contraseña, Windows no la envía** a una dirección `http://` sin
+  cifrar. Para permitirlo, igual que la interfaz web envía la suya:
+
+  ```
+  reg add HKLM\SYSTEM\CurrentControlSet\Services\WebClient\Parameters /v BasicAuthLevel /t REG_DWORD /d 2 /f
+  net stop webclient
+  net start webclient
+  ```
+
+### Linux
+
+- **GNOME Archivos**: **Otras ubicaciones** muestra _ystreamer recordings_ en
+  **Redes**. O escribe `dav://ystreamer.local/dav/` en **Conectar al
+  servidor**.
+- **Dolphin (KDE)**: abre **Red**, o escribe `webdav://ystreamer.local/dav/`
+  en la barra de direcciones.
+- Desde la línea de comandos, con davfs2:
+
+  ```sh
+  sudo mount -t davfs -o ro http://ystreamer.local/dav/ /mnt/ystreamer
+  ```
+
+### iPhone, iPad y Android
+
+La app Archivos del iPhone y el iPad solo se conecta a servidores SMB, y
+Android no trae unidades de red, así que usa un gestor de archivos que admita
+WebDAV, como Documents de Readdle o FE File Explorer en iOS, o Solid Explorer o
+CX File Explorer en Android. Añade una conexión WebDAV con:
+
+| Campo     | Valor                                                                  |
+| --------- | ---------------------------------------------------------------------- |
+| Dirección | `ystreamer.local`, o la dirección IP del dispositivo                   |
+| Puerto    | `80`                                                                   |
+| Ruta      | `/dav/`                                                                |
+| Seguridad | HTTP sin cifrar, no HTTPS                                              |
+| Acceso    | Cualquier nombre de usuario y la contraseña de la interfaz web, si hay |
+
 ## Dónde están los archivos
 
 Sin la interfaz web, están en `/var/lib/ystreamer/recordings`, o en la
@@ -125,5 +218,6 @@ memoria USB.
 En la imagen lista para usar, los ajustes y las grabaciones están en una
 partición propia, así que un corte de luz mientras se graba no puede dañar el
 sistema. Esa partición está formateada para Linux (ext4): Windows y macOS no
-pueden leerla si pones la tarjeta SD en un ordenador. Usa una memoria USB, o
-descarga las grabaciones, para pasarlas a un ordenador.
+pueden leerla si pones la tarjeta SD en un ordenador. Usa una memoria USB, la
+[unidad de red](#unidad-de-red) o descarga las grabaciones para pasarlas a un
+ordenador.

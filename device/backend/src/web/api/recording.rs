@@ -154,7 +154,7 @@ pub(super) async fn recording_download(
     Ok((status, response_headers, body).into_response())
 }
 
-pub(super) fn parse_range(header: &str, total: u64) -> Option<(u64, u64)> {
+pub(crate) fn parse_range(header: &str, total: u64) -> Option<(u64, u64)> {
     let spec = header.strip_prefix("bytes=")?.trim();
     if spec.contains(',') || total == 0 {
         return None;

@@ -47,6 +47,9 @@ pub struct Auth {
     /// One password check at a time, so wrong-password delays can't be
     /// sidestepped by guessing in parallel
     login: tokio::sync::Mutex<()>,
+    /// The last password a network drive sent that matched, signed together
+    /// with the stored hash so it stops matching once the password changes
+    drive_login: RwLock<Option<Vec<u8>>>,
 }
 
 impl Auth {
@@ -65,6 +68,7 @@ impl Auth {
             path,
             file: RwLock::new(file),
             login: tokio::sync::Mutex::new(()),
+            drive_login: RwLock::new(None),
         })
     }
 
@@ -118,6 +122,27 @@ impl Auth {
             tokio::time::sleep(WRONG_PASSWORD_DELAY).await;
         }
         ok
+    }
+
+    /// HTTP Basic, for network drive clients, which can't log in with the
+    /// cookie. They send the password with every request and checking the
+    /// hash takes a moment, so the last match is remembered
+    pub async fn check_basic(self: &Arc<Self>, headers: &HeaderMap) -> bool {
+        let Some(password) = basic_password(headers) else {
+            return false;
+        };
+        let stored = self.file.read().unwrap().clone();
+        let mac = || drive_mac(&stored, &password);
+        let remembered = self.drive_login.read().unwrap().clone();
+        if remembered.is_some_and(|known| mac().verify_slice(&known).is_ok()) {
+            return true;
+        }
+        if !self.check_password(password.clone()).await {
+            return false;
+        }
+        let mac = mac().finalize().into_bytes().to_vec();
+        *self.drive_login.write().unwrap() = Some(mac);
+        true
     }
 
     pub fn session_cookie(&self) -> String {
@@ -219,6 +244,27 @@ fn cookie(headers: &HeaderMap) -> Option<&str> {
         .filter_map(|v| v.to_str().ok())
         .flat_map(|v| v.split(';'))
         .find_map(|pair| pair.trim().strip_prefix(COOKIE)?.strip_prefix('='))
+}
+
+/// The password of `Authorization: Basic`, whatever the user name
+fn basic_password(headers: &HeaderMap) -> Option<String> {
+    use base64::engine::general_purpose::STANDARD;
+    let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
+    let (scheme, encoded) = value.trim().split_once(' ')?;
+    if !scheme.eq_ignore_ascii_case("basic") {
+        return None;
+    }
+    let decoded = String::from_utf8(STANDARD.decode(encoded.trim()).ok()?).ok()?;
+    let (_user, password) = decoded.split_once(':')?;
+    Some(password.to_string())
+}
+
+fn drive_mac(stored: &AuthFile, password: &str) -> Hmac<Sha256> {
+    let mut mac = Hmac::<Sha256>::new_from_slice(stored.secret.as_bytes()).expect("any key length");
+    mac.update(stored.password.as_bytes());
+    mac.update(b"\0");
+    mac.update(password.as_bytes());
+    mac
 }
 
 fn sign(secret: &str, expires: u64) -> Vec<u8> {
