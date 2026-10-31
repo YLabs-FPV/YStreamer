@@ -2,7 +2,7 @@
 Description=YStreamer
 # ystreamer-data only exists on the image, where it puts the settings and
 # recordings on their own partition first
-After=NetworkManager.service systemd-modules-load.service ystreamer-data.service
+After=NetworkManager.service systemd-modules-load.service ystreamer-data.service sys-kernel-config.mount
 Wants=NetworkManager.service
 StartLimitIntervalSec=0
 

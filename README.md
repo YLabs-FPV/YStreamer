@@ -90,7 +90,9 @@ _Which camera settings can be changed depends on the air unit (O3, O4, O4 Pro)._
 
 ## What you need
 
-- **Raspberry Pi 4 Model B** - the only board YStreamer is tested on.
+- **Raspberry Pi 4 Model B** - the board YStreamer is made for. A **Radxa
+  ROCK 3A** works too, experimentally, installed on Radxa's Debian 12 image:
+  see [the docs](https://ystreamer.yarosfpv.com/docs/getting-started/radxa-rock-3a).
 - **A microSD card**, 16 GB or more.
 - **Power through the GPIO header or a PoE HAT** - the USB-C port is reserved
   for the goggles while YStreamer is installed.

@@ -27,8 +27,29 @@ add_boot_settings() {
     echo "YStreamer: changed $CONFIG; reboot for the goggles link to work." >&2
 }
 
+# Radxa's images can run a USB gadget of their own (radxa-otgutils: ADB and
+# USB networking) on the one controller the goggles need. YStreamer unbinds
+# it at start anyway; stopping the services keeps the two from taking turns,
+# which radxa-adbd-monitor would otherwise do at every reconnection
+radxa_gadget_units() {
+    command -v systemctl >/dev/null 2>&1 || return 0
+    {
+        systemctl list-unit-files --no-legend --plain 'radxa-adbd*' 'radxa-ecm*' 'radxa-ncm*' 'radxa-usbnet*' 2>/dev/null
+        systemctl list-units --all --no-legend --plain 'radxa-adbd*' 'radxa-ecm*' 'radxa-ncm*' 'radxa-usbnet*' 2>/dev/null
+    } | awk '{ print $1 }' | grep -v '@\.service$' | sort -u
+}
+
+disable_radxa_gadget() {
+    units=$(radxa_gadget_units)
+    [ -n "$units" ] || return 0
+    # shellcheck disable=SC2086
+    systemctl disable --now $units >/dev/null 2>&1 || true
+    echo "YStreamer: switched off $(echo "$units" | tr '\n' ' ')(Radxa's USB gadget services); the goggles use that port now." >&2
+}
+
 if [ "$1" = configure ]; then
     add_boot_settings
+    disable_radxa_gadget
 fi
 
 #DEBHELPER#

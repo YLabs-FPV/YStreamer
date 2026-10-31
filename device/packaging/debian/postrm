@@ -13,9 +13,18 @@ remove_boot_settings() {
     echo "YStreamer: restored $CONFIG; reboot to get the USB-C port back." >&2
 }
 
+# Left off: what it was before isn't known
+radxa_gadget_hint() {
+    command -v systemctl >/dev/null 2>&1 || return 0
+    units=$(systemctl list-unit-files --no-legend --plain 'radxa-adbd*' 'radxa-ecm*' 'radxa-ncm*' 'radxa-usbnet*' 2>/dev/null | awk '{ print $1 }' | grep -v '@\.service$')
+    [ -n "$units" ] || return 0
+    echo "YStreamer: Radxa's USB gadget services stay off; to have them back: systemctl enable --now $(echo "$units" | tr '\n' ' ')" >&2
+}
+
 case "$1" in
 remove)
     remove_boot_settings
+    radxa_gadget_hint
     ;;
 purge)
     remove_boot_settings
