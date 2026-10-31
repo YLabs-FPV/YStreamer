@@ -42,6 +42,23 @@
   const legacy = $derived(
     status?.mode === "dji_fpv_legacy" ? status.legacy : null,
   );
+
+  const CONVERTER: Record<string, string> = {
+    hardware: "converted to H.264 in hardware",
+  };
+
+  const djiSummary = $derived.by(() => {
+    const d = status?.mode === "dji_fpv" ? status.dji : null;
+    if (!d?.codec) return null;
+    if (d.error) return { text: `${d.error}. Retrying…`, tone: "text-down" };
+    if (d.codec === "h264") {
+      return { text: "H.264, passed on as it is.", tone: "text-ok" };
+    }
+    return d.converter
+      ? { text: `H.265, ${CONVERTER[d.converter]}.`, tone: "text-ok" }
+      : { text: "H.265, starting the conversion…", tone: "text-warn" };
+  });
+
   const legacySummary = $derived.by(() => {
     switch (legacy?.state) {
       case "live":
@@ -193,6 +210,9 @@
       <p class="text-[12px] text-muted">
         {ABOUT[input.mode]}
       </p>
+      {#if input.mode === "dji_fpv" && djiSummary}
+        <p class="text-[12px] {djiSummary.tone}">{djiSummary.text}</p>
+      {/if}
       {#if input.mode === "dji_fpv"}
         <p
           class="rounded-xl border border-line bg-warn/10 px-4 py-3 text-[12px] text-fg shadow-sm"

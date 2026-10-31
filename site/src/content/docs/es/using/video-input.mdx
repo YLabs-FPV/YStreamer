@@ -19,6 +19,14 @@ batería de las gafas y la calidad del enlace.
 El vídeo es el propio stream H.264 de las gafas. YStreamer lo reenvía tal
 cual, sin volver a codificarlo.
 
+Algunos enlaces envían H.265. YStreamer detecta cuál recibe y convierte el
+H.265 a H.264 una sola vez, con el decodificador y el codificador por hardware
+de la Pi, para que todas las salidas sigan funcionando. **Input → Video
+source** muestra qué códec llega y cómo se convierte. Necesita el
+decodificador H.265 por hardware de la Pi 4: la CPU es demasiado lenta para un
+H.265 en directo. Cuando la Pi no da abasto, salta imágenes en lugar de
+retrasarse.
+
 <Admonition type="tip" title="Sin OSD en el vídeo">
   Para que el OSD no salga en el vídeo, desactiva **Camera View Recording** en
   las gafas, en Settings → Camera → Advanced Camera Settings.
