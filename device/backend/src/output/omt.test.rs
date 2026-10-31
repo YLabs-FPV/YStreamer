@@ -29,7 +29,8 @@ fn wait_for(what: &str, mut done: impl FnMut() -> bool) {
     }
 }
 
-fn subscribe(port: u16) -> TcpStream {
+/// Connects and sends each of `requests`, as libomtnet's receiver does
+fn connect_with(port: u16, requests: &[&str]) -> TcpStream {
     let mut client = TcpStream::connect(("127.0.0.1", port)).unwrap();
     client
         .set_read_timeout(Some(Duration::from_secs(10)))
@@ -37,10 +38,42 @@ fn subscribe(port: u16) -> TcpStream {
     let (hello, xml) = read_frame(&mut client);
     assert_eq!(hello.kind, wire::METADATA);
     assert!(String::from_utf8(xml).unwrap().starts_with("<OMTInfo "));
+    for xml in requests {
+        client.write_all(&wire::metadata(xml)).unwrap();
+    }
     client
-        .write_all(&wire::metadata(r#"<OMTSubscribe Video="true" />"#))
-        .unwrap();
-    client
+}
+
+fn subscribe(port: u16) -> TcpStream {
+    connect_with(port, &[r#"<OMTSubscribe Video="true" />"#])
+}
+
+/// A receiver's second connection
+fn subscribe_audio(port: u16) -> TcpStream {
+    connect_with(port, &[r#"<OMTSubscribe Audio="true" />"#])
+}
+
+/// Both of a receiver's connections, as vMix opens them
+fn mixer(port: u16) -> (TcpStream, TcpStream) {
+    let video = connect_with(
+        port,
+        &[
+            r#"<OMTSubscribe Metadata="true" />"#,
+            r#"<OMTSubscribe Video="true" />"#,
+            r#"<OMTSettings Preview="false" />"#,
+        ],
+    );
+    (video, subscribe_audio(port))
+}
+
+/// Nothing has arrived, and the connection is still open
+fn quiet(stream: &mut TcpStream) {
+    stream.set_nonblocking(true).unwrap();
+    assert_eq!(
+        stream.read(&mut [0u8; 1]).unwrap_err().kind(),
+        ErrorKind::WouldBlock
+    );
+    stream.set_nonblocking(false).unwrap();
 }
 
 #[test]
@@ -78,11 +111,7 @@ fn sends_only_to_receivers_that_asked() {
     assert_eq!(data, frame[wire::HEADER_LEN..]);
 
     // Nothing reached the one that didn't ask
-    idle.set_nonblocking(true).unwrap();
-    assert_eq!(
-        idle.read(&mut [0u8; 1]).unwrap_err().kind(),
-        ErrorKind::WouldBlock
-    );
+    quiet(&mut idle);
 
     drop(watcher);
     // The departure shows once a write fails or the read side sees it
@@ -126,24 +155,104 @@ fn closed(stream: &mut TcpStream) -> Vec<u8> {
 #[test]
 fn turns_away_connections_over_the_cap() {
     let server = Server::start(ports()).unwrap();
-    let mut held: Vec<_> = (0..MAX_RECEIVERS)
+    let mut held: Vec<_> = (0..MAX_RECEIVERS).map(|_| mixer(server.port())).collect();
+    let full = MAX_RECEIVERS + MAX_COMPANIONS;
+    wait_for("the receivers", || {
+        server.watching() == MAX_RECEIVERS as u32 && subscribed(&server) == full
+    });
+
+    // Closed at once, before the sender says hello
+    let mut extra = TcpStream::connect(("127.0.0.1", server.port())).unwrap();
+    assert!(closed(&mut extra).is_empty());
+    assert_eq!(open_connections(&server), full);
+
+    // A place frees up when a receiver leaves
+    drop(held.pop());
+    wait_for("the receiver to leave", || open_connections(&server) < full);
+    let _next = mixer(server.port());
+    wait_for("the next receiver", || {
+        server.watching() == MAX_RECEIVERS as u32
+    });
+}
+
+fn subscribed(server: &Server) -> usize {
+    let mut connections = server.connections.lock().unwrap();
+    sweep(&mut connections);
+    connections.iter().filter(|c| c.subscribed()).count()
+}
+
+#[test]
+fn a_receiver_over_the_cap_is_closed_once_it_asks_for_video() {
+    let server = Server::start(ports()).unwrap();
+    let _held: Vec<_> = (0..MAX_RECEIVERS)
         .map(|_| subscribe(server.port()))
         .collect();
     wait_for("the receivers", || {
         server.watching() == MAX_RECEIVERS as u32
     });
 
-    // Closed at once, before the sender says hello
-    let mut extra = TcpStream::connect(("127.0.0.1", server.port())).unwrap();
-    assert!(closed(&mut extra).is_empty());
-    assert_eq!(open_connections(&server), MAX_RECEIVERS);
+    // Let in, as it might have been for audio
+    let started = Instant::now();
+    let mut extra = subscribe(server.port());
+    closed(&mut extra);
+    assert!(started.elapsed() < SUBSCRIBE_TIMEOUT);
+    assert_eq!(server.watching(), MAX_RECEIVERS as u32);
 
-    // A place frees up when a receiver leaves
-    drop(held.pop());
-    wait_for("the receiver to leave", || {
-        open_connections(&server) < MAX_RECEIVERS
+    // Audio has places of its own
+    let mut audio = subscribe_audio(server.port());
+    wait_for("the audio subscription", || {
+        subscribed(&server) == MAX_RECEIVERS + 1
     });
-    let _next = subscribe(server.port());
+    quiet(&mut audio);
+}
+
+#[test]
+fn an_audio_subscriber_stays_without_getting_video() {
+    let server = Server::start(ports()).unwrap();
+    let mut audio = subscribe_audio(server.port());
+    wait_for("the audio subscription", || subscribed(&server) == 1);
+    // Not a receiver, so nothing gets encoded for it
+    assert_eq!(server.watching(), 0);
+
+    // Past the deadline, still open
+    thread::sleep(SUBSCRIBE_TIMEOUT + Duration::from_secs(1));
+    assert_eq!(open_connections(&server), 1);
+    assert_eq!(server.watching(), 0);
+
+    // A receiver's two connections: only the video one gets pictures
+    let (mut video, mut companion) = mixer(server.port());
+    wait_for("the receiver", || subscribed(&server) == 3);
+    assert_eq!(server.watching(), 1);
+    let frame = wire::video(&[1, 2, 3], 64, 32, (30, 1), 7);
+    server.send(Arc::new(frame.clone()));
+    let (header, data) = read_frame(&mut video);
+    assert_eq!(header.kind, wire::VIDEO);
+    assert_eq!(data, frame[wire::HEADER_LEN..]);
+    quiet(&mut audio);
+    quiet(&mut companion);
+}
+
+#[test]
+fn junk_doesnt_count_as_subscribing() {
+    let server = Server::start(ports()).unwrap();
+    let mut client = connect_with(
+        server.port(),
+        &[
+            r#"<OMTSettings Preview="true" />"#,
+            r#"<OMTSubscribe Video="false" />"#,
+            "<OMTSubscribe Video=\"true\"/>",
+            "not xml",
+        ],
+    );
+    let started = Instant::now();
+    closed(&mut client);
+    let took = started.elapsed();
+    assert!(took >= SUBSCRIBE_TIMEOUT - Duration::from_millis(500));
+    assert!(
+        took < SUBSCRIBE_TIMEOUT + Duration::from_secs(2),
+        "took {took:?}"
+    );
+    wait_for("the connection to go", || open_connections(&server) == 0);
 }
 
 /// Connected and past the sender's hello, without subscribing
@@ -277,7 +386,7 @@ fn h264_in_vmx1_out() {
         }
     }
     let pipeline = gst::parse::launch(
-        "videotestsrc num-buffers=20 ! video/x-raw,width=1920,height=1080,framerate=30/1 ! \
+        "videotestsrc num-buffers=20 ! video/x-raw,format=I420,width=1920,height=1080,framerate=30/1 ! \
          x264enc tune=zerolatency threads=1 key-int-max=10 ! \
          video/x-h264,stream-format=byte-stream,alignment=au ! appsink name=sink sync=false",
     )
@@ -307,9 +416,10 @@ fn h264_in_vmx1_out() {
     };
     let mut client = subscribe(r.server.port());
     wait_for("the subscription", || r.server.watching() == 1);
-    let mut decoder = Decoder::start(r.limit, encoding(&r)).unwrap();
+    let shared = SharedDecoder::new();
+    let _decoder = Decoder::start(&shared, r.limit, encoding(&r)).unwrap();
     for au in &aus {
-        decoder.push(au);
+        shared.push(au);
         thread::sleep(Duration::from_millis(33));
     }
     let (header, data) = read_frame(&mut client);

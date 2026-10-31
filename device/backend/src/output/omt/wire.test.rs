@@ -31,7 +31,10 @@ fn metadata_reads_back() {
             data_len: frame.len() - HEADER_LEN,
         }
     );
-    assert!(wants_video(&frame[HEADER_LEN..]));
+    assert_eq!(
+        subscription(&frame[HEADER_LEN..]),
+        Some(Subscription::Video)
+    );
 }
 
 #[test]
@@ -45,14 +48,36 @@ fn refuses_other_versions_and_negative_lengths() {
 }
 
 #[test]
-fn only_the_video_subscription_counts() {
-    assert!(wants_video(b"<OMTSubscribe Video=\"true\" />\0"));
-    assert!(wants_video(b" <OMTSubscribe Video=\"true\" />\n"));
-    assert!(!wants_video(b"<OMTSubscribe Audio=\"true\" />"));
-    assert!(!wants_video(b"<OMTSettings Preview=\"true\" />"));
-    assert!(!wants_video(
-        b"<OMTTally Preview=\"true\" Program=\"false\" />"
-    ));
+fn reads_each_kind_of_subscription() {
+    assert_eq!(
+        subscription(b"<OMTSubscribe Video=\"true\" />\0"),
+        Some(Subscription::Video)
+    );
+    assert_eq!(
+        subscription(b" <OMTSubscribe Video=\"true\" />\n"),
+        Some(Subscription::Video)
+    );
+    assert_eq!(
+        subscription(b"<OMTSubscribe Audio=\"true\" />"),
+        Some(Subscription::Audio)
+    );
+    assert_eq!(
+        subscription(b"<OMTSubscribe Metadata=\"true\" />"),
+        Some(Subscription::Metadata)
+    );
+}
+
+#[test]
+fn nothing_else_is_a_subscription() {
+    for xml in [
+        &b"<OMTSettings Preview=\"true\" />"[..],
+        b"<OMTTally Preview=\"true\" Program=\"false\" />",
+        b"<OMTSubscribe Video=\"false\" />",
+        b"<OMTSubscribe Video=\"true\" Audio=\"true\" />",
+        b"",
+    ] {
+        assert_eq!(subscription(xml), None, "{}", String::from_utf8_lossy(xml));
+    }
 }
 
 #[test]

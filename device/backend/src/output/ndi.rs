@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
-use super::decoded::{Decoder, Limit, Picture};
+use super::decoded::{Decoder, Limit, Picture, SharedDecoder};
 use crate::settings::NetworkSourceSettings;
 
 const POLL: Duration = Duration::from_secs(1);
@@ -41,14 +41,16 @@ struct Running {
 /// runs while a receiver is connected
 pub struct NdiOutput {
     running: Mutex<Option<Running>>,
+    shared: Arc<SharedDecoder>,
     decoder: Mutex<Option<Decoder>>,
     status: Mutex<NdiStatus>,
 }
 
 impl NdiOutput {
-    pub fn new(cfg: &NetworkSourceSettings) -> Arc<Self> {
+    pub fn new(cfg: &NetworkSourceSettings, shared: Arc<SharedDecoder>) -> Arc<Self> {
         let this = Arc::new(Self {
             running: Mutex::new(None),
+            shared,
             decoder: Mutex::new(None),
             status: Mutex::new(NdiStatus::default()),
         });
@@ -113,18 +115,6 @@ impl NdiOutput {
         }
     }
 
-    pub fn push(&self, chunk: &[u8]) {
-        if let Some(decoder) = self.decoder.lock().unwrap().as_mut() {
-            decoder.push(chunk);
-        }
-    }
-
-    pub fn push_au(&self, au: &[u8]) {
-        if let Some(decoder) = self.decoder.lock().unwrap().as_ref() {
-            decoder.push_au(au);
-        }
-    }
-
     /// Decodes while someone watches, and keeps the status current
     fn supervise(&self) {
         // Dropped last, once the video can get at the decoder slot again
@@ -144,7 +134,7 @@ impl NdiOutput {
         if receivers > 0 {
             r.idle_since = None;
             if decoder.is_none() && error.is_none() {
-                match Decoder::start(r.limit, sending(r)) {
+                match Decoder::start(&self.shared, r.limit, sending(r)) {
                     Ok(d) => {
                         eprintln!("[ndi] {receivers} receiver(s), decoding");
                         *decoder = Some(d);

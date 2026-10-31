@@ -22,12 +22,13 @@ fn nv12_four_cc_reads_as_its_name() {
 
 #[test]
 fn off_by_default() {
-    let ndi = NdiOutput::new(&NetworkSourceSettings::default());
+    let shared = SharedDecoder::new();
+    let ndi = NdiOutput::new(&NetworkSourceSettings::default(), Arc::clone(&shared));
     let status = ndi.status();
     assert!(!status.active);
     assert_eq!(status.error, None);
     // Nothing to decode for
-    ndi.push(&[0, 0, 0, 1, 9, 0xf0]);
+    assert!(shared.pipeline().is_none());
 }
 
 /// Runs against an NDI runtime when one is installed, e.g. on a Pi set up

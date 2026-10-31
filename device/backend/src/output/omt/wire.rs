@@ -10,8 +10,11 @@ pub const METADATA: u8 = 1;
 pub const VIDEO: u8 = 2;
 const VMX1: u32 = u32::from_le_bytes(*b"VMX1");
 const BT709: i32 = 709;
-/// Nothing is sent to a receiver until it asks for video with this
+/// What receivers send to subscribe, compared whole as libomtnet does.
+/// One connection takes video and metadata, a second audio
 const SUBSCRIBE_VIDEO: &str = r#"<OMTSubscribe Video="true" />"#;
+const SUBSCRIBE_AUDIO: &str = r#"<OMTSubscribe Audio="true" />"#;
+const SUBSCRIBE_METADATA: &str = r#"<OMTSubscribe Metadata="true" />"#;
 /// Receivers only send short XML; anything larger means the connection is
 /// out of step, or isn't a receiver
 pub const MAX_INCOMING: usize = 64 * 1024;
@@ -80,10 +83,22 @@ pub fn sender_info(version: &str) -> String {
     format!(r#"<OMTInfo ProductName="YStreamer" Manufacturer="YStreamer" Version="{version}" />"#)
 }
 
-/// Whether a receiver's metadata asks for video
-pub fn wants_video(xml: &[u8]) -> bool {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Subscription {
+    Video,
+    Audio,
+    Metadata,
+}
+
+/// What a receiver's metadata subscribes to, if it's a subscription
+pub fn subscription(xml: &[u8]) -> Option<Subscription> {
     let text = String::from_utf8_lossy(xml);
-    text.trim_matches(|c: char| c == '\0' || c.is_whitespace()) == SUBSCRIBE_VIDEO
+    match text.trim_matches(|c: char| c == '\0' || c.is_whitespace()) {
+        SUBSCRIBE_VIDEO => Some(Subscription::Video),
+        SUBSCRIBE_AUDIO => Some(Subscription::Audio),
+        SUBSCRIBE_METADATA => Some(Subscription::Metadata),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

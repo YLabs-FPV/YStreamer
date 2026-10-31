@@ -47,13 +47,15 @@ fn run() -> anyhow::Result<()> {
 
     // Outputs first, so the web server can reconfigure them from settings
     let overlay = overlay::Overlay::load(store.path().with_file_name("overlay.png"), &cfg.overlay);
-    let player = GstPlayer::new(&cfg.display, Arc::clone(&overlay))?;
+    gstreamer::init()?;
+    let decoder = output::decoded::SharedDecoder::new();
+    let player = GstPlayer::new(&cfg.display, Arc::clone(&overlay), Arc::clone(&decoder))?;
     let rtsp_server = Arc::new(RtspServer::new(&cfg.rtsp)?);
     let srt = SrtOutput::new(&cfg.srt);
     let rtmp = RtmpOutput::new(&cfg.rtmp);
     let udp = UdpOutput::new(&cfg.udp);
-    let ndi = NdiOutput::new(&cfg.ndi);
-    let omt = OmtOutput::new(&cfg.omt);
+    let ndi = NdiOutput::new(&cfg.ndi, Arc::clone(&decoder));
+    let omt = OmtOutput::new(&cfg.omt, Arc::clone(&decoder));
     let recorder = Arc::new(Recorder::new(cfg.recording.clone()));
     // What a transfer onto the card left behind if the power went mid-copy
     output::transfer::clear_unfinished(&recorder.dir());
@@ -100,13 +102,11 @@ fn run() -> anyhow::Result<()> {
     let fanout = Arc::new(Fanout {
         state: Arc::clone(&input),
         splash: Arc::clone(&splash),
-        player: Arc::clone(&player),
+        decoder,
         rtsp: Arc::clone(&rtsp_server),
         srt: Arc::clone(&srt),
         rtmp: Arc::clone(&rtmp),
         udp: Arc::clone(&udp),
-        ndi: Arc::clone(&ndi),
-        omt: Arc::clone(&omt),
         recorder: Arc::clone(&recorder),
         web_tx,
         metrics: Arc::clone(&metrics),
