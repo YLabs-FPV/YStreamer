@@ -107,7 +107,11 @@ jobs:
           WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.ndjson
         run: |
           pnpm wrangler versions upload             --preview-alias "pr-${{ github.event.pull_request.number }}"             --message "PR #${{ github.event.pull_request.number }} @ ${GITHUB_SHA::7}"
-          url=$(jq -r 'select(.type == "version-upload") | .preview_alias_url // .preview_url' "$WRANGLER_OUTPUT_FILE_PATH")
+          url=$(jq -r 'select(.type == "version-upload") | .preview_alias_url // .preview_url // empty' "$WRANGLER_OUTPUT_FILE_PATH")
+          if [ -z "$url" ]; then
+            echo "::error::Cloudflare returned no preview URL; turn on Preview URLs in the Worker's Domains & Routes settings."
+            exit 1
+          fi
           echo "url=$url" >>"$GITHUB_OUTPUT"
 
       - name: Comment the preview URL
