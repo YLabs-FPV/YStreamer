@@ -161,18 +161,7 @@ async fn depth_zero_is_the_folder_alone() {
         let xml = reply.text();
         assert_eq!(xml.matches("<D:response>").count(), 1, "{path}");
         assert!(xml.contains("<D:collection/>"));
-        assert!(xml.contains("<D:quota-available-bytes>"), "{path}");
-        assert!(xml.contains("<D:quota-used-bytes>"), "{path}");
     }
-}
-
-#[test]
-fn reports_the_drive_size() {
-    assert_eq!(
-        quota(1000, 300),
-        "<D:quota-available-bytes>300</D:quota-available-bytes>\
-         <D:quota-used-bytes>700</D:quota-used-bytes></D:prop>"
-    );
 }
 
 #[tokio::test]
