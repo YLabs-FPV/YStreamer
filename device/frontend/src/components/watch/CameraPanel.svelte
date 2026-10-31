@@ -4,6 +4,7 @@
   import Collapsible from "@/components/ui/Collapsible.svelte";
   import Segmented from "@/components/ui/Segmented.svelte";
   import Slider from "@/components/ui/Slider.svelte";
+  import GimbalControls from "@/components/watch/GimbalControls.svelte";
   import Camera from "@lucide/svelte/icons/camera";
   import { snackbar } from "@/stores/snackbar.svelte";
   import {
@@ -341,4 +342,10 @@
       </div>
     {/if}
   </div>
+
+  {#if control.gimbalControl || control.avata360}
+    <div class="border-t border-line">
+      <GimbalControls {locked} stale={off} />
+    </div>
+  {/if}
 </section>

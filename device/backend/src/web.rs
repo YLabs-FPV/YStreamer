@@ -17,6 +17,7 @@ use webrtc::api::API;
 use webrtc::peer_connection::RTCPeerConnection;
 
 use crate::input::duml::camera::{CameraCommands, CameraState};
+use crate::input::duml::gimbal::Gimbal;
 use rtc::AccessUnit;
 
 #[derive(Clone)]
@@ -26,6 +27,7 @@ struct AppState {
     peers: Arc<Mutex<Vec<Arc<RTCPeerConnection>>>>,
     socket_viewers: Arc<AtomicUsize>,
     camera: Arc<CameraCommands>,
+    gimbal: Arc<Gimbal>,
     control_tx: broadcast::Sender<String>,
     services: crate::web::api::Services,
 }
@@ -120,6 +122,7 @@ pub fn start(
                 peers: Arc::new(Mutex::new(Vec::new())),
                 socket_viewers: Arc::new(AtomicUsize::new(0)),
                 camera: Arc::new(CameraCommands::new()),
+                gimbal: Gimbal::start(services.goggles.clone()),
                 control_tx,
                 services: services.clone(),
             };
@@ -247,6 +250,17 @@ async fn overlay_image(
     }
 }
 
+/// Which aircraft controls the Camera panel offers
+pub(crate) fn aircraft_msg(services: &crate::web::api::Services) -> String {
+    let cfg = services.store.get().aircraft;
+    serde_json::json!({
+        "type": "aircraft",
+        "gimbal_control": cfg.gimbal_control,
+        "avata360": cfg.avata360,
+    })
+    .to_string()
+}
+
 pub(crate) fn devices_msg(devices: &[crate::input::duml::devices::Device]) -> String {
     serde_json::json!({ "type": "devices", "devices": devices }).to_string()
 }
@@ -258,6 +272,7 @@ async fn link_watch(services: crate::web::api::Services, control_tx: broadcast::
     let mut last_devices = None;
     let mut last_input = None;
     let mut last_overlay = None;
+    let mut last_aircraft = None;
     loop {
         let state = services.goggles.state();
         if last_state != Some(state) {
@@ -278,6 +293,11 @@ async fn link_watch(services: crate::web::api::Services, control_tx: broadcast::
         if last_overlay.as_ref() != Some(&overlay) {
             let _ = control_tx.send(overlay.clone());
             last_overlay = Some(overlay);
+        }
+        let aircraft = aircraft_msg(&services);
+        if last_aircraft.as_ref() != Some(&aircraft) {
+            let _ = control_tx.send(aircraft.clone());
+            last_aircraft = Some(aircraft);
         }
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
     }
