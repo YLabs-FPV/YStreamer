@@ -15,13 +15,14 @@
   let { input = $bindable() }: { input: Settings["input"] } = $props();
 
   const SOURCES = [
-    { label: "DJI goggles", value: "dji_fpv" },
+    { label: "DJI goggles / RC-N", value: "dji_fpv" },
     { label: "FPV Goggles V1/V2", value: "dji_fpv_legacy" },
     { label: "USB camera", value: "uvc" },
   ];
 
   const ABOUT: Record<string, string> = {
-    dji_fpv: "DJI Goggles 2, Integra, 3 or N3 connected to the USB-C port.",
+    dji_fpv:
+      "DJI Goggles 2, Integra, 3 or N3, or an RC-N2 / RC-N3 remote, connected to the USB-C port.",
     dji_fpv_legacy:
       "The first DJI FPV Goggles, V1 or V2, in one of the USB-A ports. Video only: no camera settings, battery or link quality.",
     uvc: "An analog receiver, HDMI capture stick or webcam in one of the USB-A ports. Its video is encoded to H.264 by the Pi's hardware encoder.",
@@ -42,6 +43,23 @@
   const legacy = $derived(
     status?.mode === "dji_fpv_legacy" ? status.legacy : null,
   );
+
+  const CONVERTER: Record<string, string> = {
+    hardware: "converted to H.264 in hardware",
+  };
+
+  const djiSummary = $derived.by(() => {
+    const d = status?.mode === "dji_fpv" ? status.dji : null;
+    if (!d?.codec) return null;
+    if (d.error) return { text: `${d.error}.`, tone: "text-down" };
+    if (d.codec === "h264") {
+      return { text: "H.264, passed on as it is.", tone: "text-ok" };
+    }
+    return d.converter
+      ? { text: `H.265, ${CONVERTER[d.converter]}.`, tone: "text-ok" }
+      : { text: "H.265, starting the conversion…", tone: "text-warn" };
+  });
+
   const legacySummary = $derived.by(() => {
     switch (legacy?.state) {
       case "live":
@@ -193,6 +211,9 @@
       <p class="text-[12px] text-muted">
         {ABOUT[input.mode]}
       </p>
+      {#if input.mode === "dji_fpv" && djiSummary}
+        <p class="text-[12px] {djiSummary.tone}">{djiSummary.text}</p>
+      {/if}
       {#if input.mode === "dji_fpv"}
         <p
           class="rounded-xl border border-line bg-warn/10 px-4 py-3 text-[12px] text-fg shadow-sm"

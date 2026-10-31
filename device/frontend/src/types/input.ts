@@ -38,8 +38,18 @@ export interface LegacyStatus {
   captured: number | null;
 }
 
+/** The USB-C link: goggles send H.264, an RC-N remote H.265 */
+export interface DjiStatus {
+  /** What the link carries, once worked out */
+  codec: "h264" | "h265" | null;
+  /** How H.265 is turned into H.264, while it is */
+  converter: "hardware" | null;
+  error: string | null;
+}
+
 export interface InputStatus {
   mode: InputMode;
+  dji: DjiStatus;
   uvc: UvcStatus;
   legacy: LegacyStatus;
 }
