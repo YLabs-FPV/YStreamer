@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use super::codec;
 use super::display::{Display, ModeInfo};
 use crate::input::h264::{self, AccessUnitAssembler};
 use crate::output::overlay::{self, Overlay, Rect};
@@ -15,10 +16,12 @@ use crate::settings::{DisplaySettings, Scaling};
 // v4l2convert here turned every frame into 32-bit RGB first, which capped
 // HDMI at ~20 fps once the goggles went to 60 fps. vc4 is an atomic driver
 // whose commit already waits for vblank; without skip-vsync kmssink waited a
-// second time, 30 fps at most
-const PIPELINE: &str = "appsrc name=src is-live=true block=false max-bytes=2000000 format=time ! \
+// second time, 30 fps at most. The buffers are stamped on the way in: the
+// sink doesn't sync, so it costs nothing, and the Rockchip decoder drops
+// every buffer that has no timestamp
+const PIPELINE: &str = "appsrc name=src is-live=true do-timestamp=true block=false max-bytes=2000000 format=time ! \
     h264parse config-interval=-1 ! \
-    v4l2h264dec ! \
+    {decoder} ! \
     queue max-size-buffers=1 leaky=downstream ! \
     {crop}kmssink name=sink sync=false skip-vsync=true";
 
@@ -139,7 +142,7 @@ impl GstPlayer {
             .cloned()
             .ok_or("The screen has no active mode")?;
 
-        let running = build(cfg, &mode, display.fd())?;
+        let running = build(cfg, &mode, display.fd(), display.video_plane())?;
         running
             .pipeline
             .set_state(gst::State::Playing)
@@ -254,7 +257,9 @@ impl GstPlayer {
             return Ok(());
         };
 
-        patch_sps_level(&mut owned);
+        if codec::decoder().needs_level_patch() {
+            patch_sps_level(&mut owned);
+        }
         appsrc
             .push_buffer(gst::Buffer::from_mut_slice(owned))
             .map_err(|e| anyhow::anyhow!("push_buffer failed: {:?}", e))?;
@@ -302,7 +307,12 @@ fn video_area(screen: (u32, u32), video: (u32, u32), scaling: Scaling) -> Rect {
     }
 }
 
-fn build(cfg: &DisplaySettings, mode: &ModeInfo, fd: i32) -> Result<Running, String> {
+fn build(
+    cfg: &DisplaySettings,
+    mode: &ModeInfo,
+    fd: i32,
+    plane: Option<u32>,
+) -> Result<Running, String> {
     // Fill crops in the display hardware: aspectratiocrop only attaches crop
     // metadata, which kmssink turns into the plane's source rectangle
     let crop = match cfg.scaling {
@@ -312,7 +322,11 @@ fn build(cfg: &DisplaySettings, mode: &ModeInfo, fd: i32) -> Result<Running, Str
             mode.width, mode.height
         ),
     };
-    let pipeline = gst::parse::launch(&PIPELINE.replace("{crop}", &crop))
+    let decoder = codec::decoder();
+    let description = PIPELINE
+        .replace("{decoder}", decoder.element())
+        .replace("{crop}", &crop);
+    let pipeline = gst::parse::launch(&description)
         .map_err(|e| format!("HDMI pipeline: {e}"))?
         .dynamic_cast::<gst::Pipeline>()
         .expect("Failed to cast to Pipeline");
@@ -336,6 +350,12 @@ fn build(cfg: &DisplaySettings, mode: &ModeInfo, fd: i32) -> Result<Running, Str
 
     let sink = pipeline.by_name("sink").expect("Failed to find kmssink");
     sink.set_property("fd", fd);
+    // The plane that takes the decoder's output; without this kmssink takes
+    // the first plane it finds, which on the Pi is the same one
+    if let Some(plane) = plane {
+        sink.set_property("plane-id", plane as i32);
+        eprintln!("[hdmi] {} onto plane {plane}", decoder.element());
+    }
     // Always set, or the plane keeps the last pipeline's rotation
     sink.set_property(
         "plane-properties",

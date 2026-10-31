@@ -12,6 +12,7 @@ use serde::Serialize;
 
 use super::{Fanout, InputState};
 use crate::input::h264;
+use crate::output::codec;
 use crate::output::overlay::{self, Overlay, Rect};
 use crate::settings::{InputMode, UvcSettings, parse_uvc_mode};
 
@@ -235,7 +236,7 @@ impl UvcSource {
             ..Default::default()
         });
 
-        let mut attempts = attempts(&device.modes, &cfg.mode);
+        let mut attempts = attempts(&device.modes, &cfg.mode, codec::hw_encoder().is_some());
         let known = self.known_good.lock().unwrap().clone();
         if let Some((known_path, attempt)) = known
             && known_path == device.path
@@ -343,15 +344,18 @@ fn bus_error(pipeline: &gst::Pipeline) -> Option<String> {
 
 /// Everything worth trying, best first: the chosen mode in each format the
 /// device offers it in, then software encoding at the best mode it can keep
-/// up with
-fn attempts(modes: &[UvcMode], wanted: &str) -> Vec<Attempt> {
+/// up with. Without a hardware encoder (`hardware` false) the first round
+/// is the device's own H.264 only
+fn attempts(modes: &[UvcMode], wanted: &str, hardware: bool) -> Vec<Attempt> {
     let mut out = Vec::new();
     let push = |out: &mut Vec<Attempt>, m: &UvcMode, encoder: Encoder| {
         for (format, raw) in &m.formats {
             let encoder = match (format, encoder) {
-                (Format::H264, Encoder::Hardware) => Encoder::Passthrough,
-                // Passthrough was already tried with the hardware round
-                (Format::H264, _) => continue,
+                // Passthrough was already tried with the first round
+                (Format::H264, Encoder::Software) => continue,
+                (Format::H264, _) => Encoder::Passthrough,
+                // Nothing to encode it with this round
+                (_, Encoder::Passthrough) => continue,
                 (_, e) => e,
             };
             let a = Attempt {
@@ -365,8 +369,13 @@ fn attempts(modes: &[UvcMode], wanted: &str) -> Vec<Attempt> {
             }
         }
     };
+    let first_round = if hardware {
+        Encoder::Hardware
+    } else {
+        Encoder::Passthrough
+    };
     if let Some(m) = choose_mode(modes, wanted, HW_PIXEL_RATE) {
-        push(&mut out, &m, Encoder::Hardware);
+        push(&mut out, &m, first_round);
     }
     if let Some(m) = choose_mode(modes, wanted, SW_PIXEL_RATE) {
         push(&mut out, &m, Encoder::Software);
@@ -564,12 +573,10 @@ fn build(
     let keyframe = m.fps * cfg.keyframe_secs;
     let encode = match a.encoder {
         Encoder::Passthrough => String::new(),
-        Encoder::Hardware => format!(
-            "{logo}videoconvert ! video/x-raw,format=I420 ! \
-             v4l2h264enc extra-controls=\"controls,video_bitrate={},h264_i_frame_period={keyframe},repeat_sequence_header=1\" ! \
-             video/x-h264,level=(string)4,profile=(string)high ! ",
-            cfg.bitrate_kbps * 1000,
-        ),
+        Encoder::Hardware => {
+            let encoder = codec::hw_encoder().ok_or("No hardware encoder on this board")?;
+            format!("{logo}{}", encoder.pipeline(cfg.bitrate_kbps, keyframe))
+        }
         Encoder::Software => format!(
             "{logo}videoconvert ! video/x-raw,format=I420 ! \
              x264enc tune=zerolatency speed-preset=ultrafast bitrate={} key-int-max={keyframe} ! \
@@ -642,3 +649,7 @@ fn now_millis() -> u64 {
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
 }
+
+#[cfg(test)]
+#[path = "uvc.test.rs"]
+mod tests;

@@ -1,3 +1,4 @@
+pub mod codec;
 pub mod display;
 pub mod hdmi;
 pub mod overlay;
