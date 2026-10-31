@@ -1,7 +1,7 @@
 {
   "site": {
     "titleSuffix": "Stream and record your DJI FPV goggles on a Raspberry Pi",
-    "description": "Raspberry Pi 4 software that takes the live feed from DJI FPV goggles or a USB camera and sends it to HDMI, any browser, RTSP/SRT/RTMP/UDP streams and recordings.",
+    "description": "Raspberry Pi 4 software that takes the live feed from DJI FPV goggles or a USB camera and sends it to HDMI, any browser, RTSP/SRT/RTMP/UDP streams, NDI and OMT, and recordings.",
     "docsTitleSuffix": "YStreamer docs"
   },
   "nav": {
@@ -69,7 +69,7 @@
       },
       {
         "name": "Streams",
-        "detail": "RTSP, SRT, RTMP and UDP"
+        "detail": "RTSP, SRT, RTMP, UDP, NDI and OMT"
       },
       {
         "name": "Recording",
@@ -88,7 +88,7 @@
       },
       {
         "title": "Stream it out",
-        "text": "An RTSP server, plus SRT, RTMP and UDP for OBS, ground stations and streaming platforms."
+        "text": "An RTSP server, plus SRT, RTMP and UDP for OBS, ground stations and streaming platforms, and NDI and OMT for vMix."
       },
       {
         "title": "Record",
