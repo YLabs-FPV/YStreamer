@@ -1,0 +1,35 @@
+name: Deploy site
+
+# The site links to the latest release's image and install script, so it goes
+# live when a drafted release is published rather than on every push to main
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare
+    runs-on: ubuntu-24.04
+    environment:
+      name: production
+      url: https://ystreamer.yarosfpv.com
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - run: mise run site:install
+      - name: Build
+        run: mise run site:build
+      - name: Deploy
+        working-directory: site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm wrangler deploy --message "${{ github.event.release.tag_name || github.ref_name }} @ ${GITHUB_SHA::7}"
