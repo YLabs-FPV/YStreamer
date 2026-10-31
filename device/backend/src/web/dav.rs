@@ -96,7 +96,7 @@ async fn handle(State(drive): State<Drive>, req: Request) -> Response {
                 .get("depth")
                 .and_then(|v| v.to_str().ok())
                 .is_some_and(|d| d.trim() == "0");
-            multistatus(folder_listing(&dir, !shallow))
+            multistatus(folder_listing(&dir, req.uri().path(), !shallow))
         }
         ("PROPFIND", Target::File(name)) => match entry(&dir, &name) {
             Some(file) => multistatus(listing(&[file], None)),
@@ -159,23 +159,36 @@ fn entries(dir: &Path) -> Vec<Entry> {
         .collect()
 }
 
-fn folder_listing(dir: &Path, with_files: bool) -> String {
+fn folder_listing(dir: &Path, href: &str, with_files: bool) -> String {
     let modified = unix_secs(std::fs::metadata(dir).and_then(|m| m.modified()).ok());
     let files = if with_files { entries(dir) } else { Vec::new() };
-    listing(&files, Some(modified))
+    let mut xml = listing(&files, Some((href, modified)));
+    if let Some((total, free)) = recording::disk_usage(dir) {
+        xml = xml.replacen("</D:prop>", &quota(total, free), 1);
+    }
+    xml
 }
 
-/// A `multistatus` body: the folder first when `folder` carries its time,
-/// then the files. Every property is sent whatever was asked for, which
+pub(crate) fn quota(total: u64, free: u64) -> String {
+    format!(
+        "<D:quota-available-bytes>{free}</D:quota-available-bytes>\
+         <D:quota-used-bytes>{}</D:quota-used-bytes></D:prop>",
+        total.saturating_sub(free)
+    )
+}
+
+/// A `multistatus` body: the folder first when `folder` carries its address
+/// as asked for, which Windows matches the answer by, and its time, then the
+/// files. Every property is sent whatever was asked for, which
 /// all the clients accept
-pub(crate) fn listing(files: &[Entry], folder: Option<u64>) -> String {
+pub(crate) fn listing(files: &[Entry], folder: Option<(&str, u64)>) -> String {
     let mut xml = String::from(
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<D:multistatus xmlns:D=\"DAV:\">\n",
     );
-    if let Some(modified) = folder {
+    if let Some((href, modified)) = folder {
         let _ = writeln!(
             xml,
-            "<D:response><D:href>{PREFIX}/</D:href><D:propstat><D:prop>\
+            "<D:response><D:href>{href}</D:href><D:propstat><D:prop>\
              <D:displayname>Recordings</D:displayname>\
              <D:resourcetype><D:collection/></D:resourcetype>\
              <D:creationdate>{}</D:creationdate>\
