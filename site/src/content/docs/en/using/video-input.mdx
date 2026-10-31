@@ -24,6 +24,39 @@ without encoding it again.
   goggles, under Settings → Camera → Advanced Camera Settings.
 </Admonition>
 
+### Radio region
+
+**Input → Radio region** sets the transmit limits the goggles and the aircraft
+follow, the same region choice DJI's own apps make by country: **FCC** (as in
+the United States), **CE** (as in Europe, the radios' factory setting) or
+**Indonesia**.
+
+<Admonition type="warning" title="Your local radio rules">
+  Transmit-power limits differ by country. You're responsible for following your
+  local radio rules in the region you pick. Turning the setting on asks you to
+  confirm this first.
+</Admonition>
+
+It's off by default, and off leaves the radios as DJI's apps last set them.
+When it's on:
+
+- The region goes to the goggles' and the aircraft's transceivers each time
+  the goggles connect, and again when an aircraft links. It's never sent to the
+  flight controller.
+- A short repeat follows every 2 seconds while the goggles are connected,
+  because the radios drop back to CE without it. CE itself needs no repeat.
+- **Send again** sends the whole set once more, for example after swapping
+  the aircraft.
+
+Turning it off puts CE back, but only if this unit set a region before. A
+region set some other way is left alone. If the aircraft isn't linked at that
+moment, CE goes to it the next time it is.
+
+<Admonition type="info" title="Not flight-tested yet">
+  This way of setting the region hasn't been flight-tested yet. Check the
+  transmission range on the ground before relying on it.
+</Admonition>
+
 ## FPV Goggles V1 / V2
 
 The first DJI FPV Goggles. Connect them to one of the Pi's **USB-A** ports.

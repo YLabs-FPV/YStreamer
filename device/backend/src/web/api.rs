@@ -1,6 +1,7 @@
 mod access;
 mod display;
 mod network;
+mod radio;
 mod recording;
 mod settings;
 mod streaming;
@@ -46,6 +47,7 @@ pub struct Services {
     pub button: Arc<crate::system::button::RecordButton>,
     pub goggles: Goggles,
     pub session: Arc<Session>,
+    pub region: Arc<crate::input::duml::region::Applier>,
     pub monitor: Arc<Monitor>,
     pub splash: Arc<Splash>,
     pub overlay: Arc<crate::output::overlay::Overlay>,
@@ -130,6 +132,8 @@ pub fn router<S>(services: Services) -> Router<S> {
         .route("/udp", get(streaming::udp_status))
         .route("/display", get(display::display_status))
         .route("/input", get(streaming::input_status))
+        .route("/radio-region", get(radio::region_status))
+        .route("/radio-region/apply", post(radio::region_apply))
         .route("/input/devices", get(streaming::input_devices))
         .route(
             "/input/legacy/capture",

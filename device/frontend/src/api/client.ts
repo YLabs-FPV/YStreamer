@@ -22,7 +22,7 @@ import type {
 } from "@/types/system";
 import type { DumlStatus } from "@/types/duml";
 import type { AuthStatus } from "@/types/auth";
-import type { InputStatus, UvcDevice } from "@/types/input";
+import type { InputStatus, RadioRegionStatus, UvcDevice } from "@/types/input";
 import type {
   ButtonStatus,
   RecordingFile,
@@ -165,6 +165,8 @@ export const api = {
   inputDevices: () => request<UvcDevice[]>("GET", "/input/devices"),
   startLegacyCapture: () => request<void>("POST", "/input/legacy/capture"),
   legacyCaptureUrl: "/api/input/legacy/capture",
+  radioRegion: () => request<RadioRegionStatus>("GET", "/radio-region"),
+  applyRadioRegion: () => request<void>("POST", "/radio-region/apply"),
   duml: () => request<DumlStatus>("GET", "/duml"),
   clearDuml: () => request<void>("DELETE", "/duml"),
   sendDuml: (frame: {
