@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: true,
+      // Vite answers OPTIONS itself for CORS, which hides the backend's DAV
+      // header from Finder; the proxy below keeps everything same-origin
+      cors: false,
       // In production the Pi serves the built bundle itself, so these are
       // same-origin; the proxy only bridges the dev server
       proxy: {
