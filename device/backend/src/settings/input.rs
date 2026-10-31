@@ -17,6 +17,9 @@ pub enum InputMode {
 pub struct InputSettings {
     pub mode: InputMode,
     pub uvc: UvcSettings,
+    /// Take off, land and return to home from the Watch page. The pilot
+    /// keeps the remote in hand, so it's off until they turn it on
+    pub rc_actions: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

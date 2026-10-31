@@ -1,4 +1,5 @@
 mod access;
+mod aircraft;
 mod display;
 mod network;
 mod recording;
@@ -47,6 +48,7 @@ pub struct Services {
     pub goggles: Goggles,
     pub session: Arc<Session>,
     pub monitor: Arc<Monitor>,
+    pub flight: Arc<crate::input::duml::flight::Flight>,
     pub splash: Arc<Splash>,
     pub overlay: Arc<crate::output::overlay::Overlay>,
     pub input: Arc<crate::input::InputState>,
@@ -125,6 +127,7 @@ pub fn router<S>(services: Services) -> Router<S> {
         )
         .route("/duml", get(system::duml_status).delete(system::duml_clear))
         .route("/duml/send", post(system::duml_send))
+        .route("/aircraft/{action}", post(aircraft::aircraft_action))
         .route("/srt", get(streaming::srt_status))
         .route("/rtmp", get(streaming::rtmp_status))
         .route("/udp", get(streaming::udp_status))

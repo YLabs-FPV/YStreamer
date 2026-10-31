@@ -1,0 +1,82 @@
+---
+title: Aircraft actions
+description: Take off, land and return to home from the browser, the same buttons DJI Fly offers.
+order: 35
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+With **DJI goggles** as the source, the Watch page can show the buttons DJI
+Fly offers for the aircraft: take off, land, cancel landing, return to home
+(RTH) and cancel RTH. YStreamer sends the same command DJI Fly sends for each
+of them, through the goggles to the aircraft.
+
+It's off until you turn it on, and meant for an aircraft that's flown by
+someone holding its remote.
+
+<Admonition type="warning" title="You stay the pilot">
+  These buttons don't replace the remote. Keep it in hand, switched on and ready
+  to take over: a command from the browser can arrive late, or not at all, and
+  the aircraft does what it's told even when that's a bad idea, such as taking
+  off indoors or landing on water. You're responsible for the flight and for
+  following the rules where you fly.
+</Admonition>
+
+## Turning it on
+
+1. Set a [password](/docs/network/security#web-interface-password) under **System → General →
+   Access**. Without one, everyone who can open the web interface counts as
+   an admin, so the switch stays off.
+2. Under **Input**, with **DJI goggles** as the source, turn on **Aircraft
+   actions** and confirm the warning.
+3. Save.
+
+The **actions** panel then shows on the Watch page, beside the video, for
+admins only. People who are only watching never see it, and the device
+refuses the commands from them.
+
+## Using the buttons
+
+| Button         | What the aircraft does                                  |
+| -------------- | ------------------------------------------------------- |
+| Take off       | Starts the motors and climbs to a hover                 |
+| Land           | Descends and lands where it is                          |
+| Return to home | Flies back to its home point and lands there            |
+| Cancel RTH     | Stops returning home and hovers                         |
+| Cancel landing | Stops an automatic landing, including the end of an RTH |
+
+Each button has to be **held for about a second**: a bar fills up while you
+hold, and letting go early cancels. One hold sends one command. Holding on
+doesn't send it again.
+
+The buttons only work once the goggles link is live and the aircraft is
+linked to it. Until then the panel says what it's waiting for, and the
+device refuses the command.
+
+After each press, the panel says whether the aircraft answered. If it didn't,
+YStreamer sends the same command again, as DJI Fly does, at most four times in
+two seconds, then stops. No answer doesn't mean nothing happened: watch the
+aircraft and be ready on the remote.
+
+<Admonition type="info" title="Return to home needs a home point">
+  The aircraft records its home point once it has a good GPS fix, as it does
+  with the remote alone. Without one it can't return home. YStreamer doesn't
+  check this itself, so look at the goggles before you rely on RTH.
+</Admonition>
+
+## The log
+
+Every press is written to the [logs](/docs/maintenance/diagnostics) with the
+time, the action, and whether the aircraft answered or the device refused it
+and why. The lines start with `[aircraft]`.
+
+## Tested with
+
+Return to home, cancel RTH and cancel landing are byte for byte what DJI Fly
+sent in recordings of it flying our own DJI Neo 2. All five commands are also
+in the public DJI protocol notes of
+[dji-firmware-tools](https://github.com/o-gs/dji-firmware-tools). Take off and
+land have been flown through DJI Goggles 3 with exactly these commands, from
+another device on the same goggles link. From YStreamer itself, and RTH from
+anything but DJI Fly, they're still untested. If you try them,
+[tell us how it went](https://github.com/YLabs-FPV/YStreamer/issues/new?template=hardware_report.yml).
