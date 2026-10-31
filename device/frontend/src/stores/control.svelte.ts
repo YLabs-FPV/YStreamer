@@ -2,6 +2,7 @@ import { recording } from "@/stores/recording.svelte";
 import type { AircraftRecorder, LinkedDevice } from "@/types/duml";
 import type { InputMode, LegacyStatus, UvcStatus } from "@/types/input";
 import type { OverlayView } from "@/types/settings";
+import type { Telemetry } from "@/types/telemetry";
 import { snackbar } from "@/stores/snackbar.svelte";
 
 // The camera takes a moment to apply a change and keeps reporting the old
@@ -68,6 +69,8 @@ class ControlStore {
   gogglesBattery = $state<number | null>(null);
   linkQuality = $state<number | null>(null);
   aircraftRecorder = $state<AircraftRecorder | null>(null);
+  /** Null while no aircraft is reporting */
+  telemetry = $state<Telemetry | null>(null);
 
   /** Values just sent to the camera, and until when to hold on to them */
   #pending = new Map<CameraKey, { value: unknown; until: number }>();
@@ -92,6 +95,7 @@ class ControlStore {
       this.gogglesBattery = null;
       this.aircraftRecorder = null;
       this.linkQuality = null;
+      this.telemetry = null;
       this.#scheduleReconnect();
     };
     ws.onerror = () => ws.close();
@@ -113,6 +117,10 @@ class ControlStore {
             this.aircraftRecorder = null;
             this.linkQuality = null;
           }
+        } else if (msg.type === "telemetry") {
+          // Not cleared with the link or the devices: the device blanks it
+          // once the frames stop, and only sends it again when it changes
+          this.telemetry = msg.telemetry;
         } else if (msg.type === "overlay") this.overlay = msg;
         else if (msg.type === "input") {
           this.inputMode = msg.mode;
