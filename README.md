@@ -79,10 +79,12 @@ terminal needed.
 | Source                                        | Port  | Video | Camera settings | Battery & link |
 | --------------------------------------------- | :---: | :---: | :-------------: | :------------: |
 | DJI Goggles 2, Integra, Goggles 3, Goggles N3 | USB-C |  ✅   |       ✅        |       ✅       |
+| DJI RC-N2 / RC-N3 remote _(experimental)_     | USB-C |  ✅   |       ❔        |       ❔       |
 | DJI FPV Goggles V1 / V2 _(experimental)_      | USB-A |  ✅   |       ❌        |       ❌       |
 | USB cameras, capture sticks, analog receivers | USB-A |  ✅   |        -        |       -        |
 
-_Which camera settings can be changed depends on the air unit (O3, O4, O4 Pro)._
+_Which camera settings can be changed depends on the air unit (O3, O4, O4 Pro).
+Over an RC-N remote, camera settings and battery haven't been tried yet._
 
 > [!NOTE]
 > YStreamer is an independent project. It is not affiliated with, endorsed by

@@ -1,6 +1,7 @@
 export interface Settings {
   input: {
     mode: import("@/types/input").InputMode;
+    camera: import("@/types/input").CameraChoice;
     uvc: {
       /** /dev/v4l/by-id path, empty for the first one found */
       device: string;

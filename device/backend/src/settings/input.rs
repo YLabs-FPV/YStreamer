@@ -12,10 +12,24 @@ pub enum InputMode {
     DjiFpvLegacy,
 }
 
+/// Which camera of a two-camera DJI aircraft, such as the Avata 360, goes
+/// to the outputs
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CameraChoice {
+    /// The one sending the big stream, which is the live view
+    #[default]
+    Auto,
+    /// The link's first video stream
+    Main,
+    Second,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct InputSettings {
     pub mode: InputMode,
+    pub camera: CameraChoice,
     pub uvc: UvcSettings,
 }
 

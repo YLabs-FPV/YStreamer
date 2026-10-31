@@ -109,7 +109,11 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
 
     if next.input != prev.input {
         sv.input.set_mode(next.input.mode);
-        sv.uvc.apply(&next.input.uvc);
+        sv.input.set_camera(next.input.camera);
+        // Restarts the USB camera, so not when only the DJI camera changed
+        if next.input.mode != prev.input.mode || next.input.uvc != prev.input.uvc {
+            sv.uvc.apply(&next.input.uvc);
+        }
     }
 
     // Never refused: an unreachable server is retried in the background
@@ -133,7 +137,10 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
         }
         if next.input != prev.input {
             sv.input.set_mode(prev.input.mode);
-            sv.uvc.apply(&prev.input.uvc);
+            sv.input.set_camera(prev.input.camera);
+            if next.input.mode != prev.input.mode || next.input.uvc != prev.input.uvc {
+                sv.uvc.apply(&prev.input.uvc);
+            }
         }
         if display_changed {
             let _ = sv.player.apply(&prev.display);

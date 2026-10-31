@@ -24,12 +24,12 @@ fn from(src: u8, seq: u16, cmd_set: u8, cmd_id: u8, payload: &[u8]) -> Vec<u8> {
     f
 }
 
-fn feed(buf: &mut DumlReassemblyBuffer, data: &[u8]) -> (Vec<Seen>, Vec<Vec<u8>>) {
+fn feed(buf: &mut DumlReassemblyBuffer, data: &[u8]) -> (Vec<Seen>, Vec<(Lane, Vec<u8>)>) {
     let mut frames = Vec::new();
     let mut video = Vec::new();
     buf.process(
         data,
-        |v| video.push(v.to_vec()),
+        |lane, v| video.push((lane, v.to_vec())),
         |f| {
             frames.push(Seen {
                 src: f.src,
@@ -152,13 +152,17 @@ fn drops_a_frame_whose_lengths_disagree() {
 #[test]
 fn passes_video_through_untouched() {
     let picture = [0x00, 0x00, 0x00, 0x01, 0x67, 0x42];
-    for port in [[0x4A, 0x57], [0x4B, 0x57]] {
+    for (port, lane) in [
+        ([0x4A, 0x57], Lane::Main),
+        ([0x4B, 0x57], Lane::Main),
+        ([0x4D, 0x57], Lane::Second),
+    ] {
         let mut data = vec![0x55, 0xCC, port[0], port[1]];
         data.extend((picture.len() as u32).to_le_bytes());
         data.extend(picture);
         let (frames, video) = feed(&mut DumlReassemblyBuffer::new(), &data);
         assert!(frames.is_empty());
-        assert_eq!(video, [picture.to_vec()]);
+        assert_eq!(video, [(lane, picture.to_vec())]);
     }
 }
 

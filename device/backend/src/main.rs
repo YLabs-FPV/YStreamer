@@ -26,7 +26,6 @@ use output::rtsp::RtspServer;
 use output::splash::Splash;
 use output::srt::SrtOutput;
 use output::udp::UdpOutput;
-use settings::InputMode;
 use system::{button, metrics};
 use web::{api, auth};
 
@@ -63,6 +62,7 @@ fn run() -> anyhow::Result<()> {
     let network = network::Network::new();
 
     let input = InputState::new(cfg.input.mode);
+    input.set_camera(cfg.input.camera);
 
     let listener = web::bind()?;
     let web_port = listener.local_addr()?.port();
@@ -159,14 +159,18 @@ fn run() -> anyhow::Result<()> {
         });
     }
 
+    let mut video = {
+        let goggles = goggles.clone();
+        input::dji::DjiVideo::new(Arc::clone(&fanout), Box::new(move || goggles.reset()))
+    };
     let mut last_mode = None;
     let alive = goggles.clone();
     goggles.run(|data| {
         duml.process(
             data,
-            |chunk| {
+            |lane, chunk| {
                 alive.mark_alive();
-                if fanout.video(InputMode::DjiFpv, chunk) {
+                if video.push(alive.generation(), lane, chunk) {
                     chunk_count.fetch_add(1, Ordering::Relaxed);
                 }
             },
