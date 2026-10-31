@@ -1,0 +1,138 @@
+---
+title: NDI y OMT
+description: Lleva el vídeo a vMix, OBS o TriCaster como una fuente que encuentran en la red.
+order: 25
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+NDI y OMT ponen el dispositivo en la red local como una fuente que los
+mezcladores encuentran por sí solos: no hay dirección que escribir. El
+dispositivo aparece como **HOSTNAME (YStreamer)**, por ejemplo
+`YSTREAMER (YStreamer)`.
+
+|                   | NDI                                            | OMT                          |
+| ----------------- | ---------------------------------------------- | ---------------------------- |
+| Receptores        | vMix, OBS con DistroAV, TriCaster y muchos más | vMix, software basado en OMT |
+| En el dispositivo | El runtime de NDI, que instalas tú             | Nada más                     |
+| Licencia          | La de NDI, para su runtime                     | Abierta (MIT)                |
+
+Las dos necesitan el vídeo descodificado: ninguna acepta el H.264 de las gafas
+tal cual. El dispositivo lo descodifica y vuelve a comprimir cada imagen, por
+software, solo mientras hay un receptor conectado.
+
+<Admonition type="info" title="Ancho de banda">
+  Cada imagen se comprime por separado, así que ocupan mucho más ancho de banda
+  que RTSP o SRT: decenas de megabits por segundo a 720p, más a 1080p. Conecta
+  el dispositivo y el mezclador por Ethernet, en la misma red. Para un mezclador
+  por Wi-Fi o en otro sitio, usa [SRT](/docs/other-software/obs).
+</Admonition>
+
+## Tamaño de imagen y frecuencia
+
+Las dos tarjetas tienen los mismos ajustes:
+
+| Ajuste       | Qué hace                                                                             |
+| ------------ | ------------------------------------------------------------------------------------ |
+| Source name  | El nombre tras el nombre de host. `YStreamer` por defecto.                           |
+| Picture size | El vídeo más grande se reduce a esta altura: 480p, 540p, 720p (por defecto) o 1080p. |
+| Frame rate   | Como máximo 30 (por defecto) o 60 imágenes por segundo.                              |
+
+La Pi comprime con su procesador, junto con todo lo demás, así que empieza con
+720p a 30 imágenes por segundo. Súbelos de uno en uno y vigila
+**Performance**: si el procesador va al máximo, el mezclador recibe menos
+imágenes de las que debería.
+
+## OMT en vMix
+
+OMT (Open Media Transport) es un protocolo abierto de los creadores de vMix.
+
+1. En el dispositivo, ve a **Streaming → OMT**, activa **OMT** y pulsa
+   **Save**.
+2. En vMix, pulsa **Add Input**, elige el tipo de fuente OMT y selecciona
+   **HOSTNAME (YStreamer)** en la lista.
+
+La tarjeta también muestra la dirección, como `omt://ystreamer.local:6400`,
+para el software que la pida. El dispositivo se anuncia con `avahi-daemon`; si
+la tarjeta dice que no está anunciado, eso es lo que hay que revisar.
+
+## NDI
+
+### Instalar el runtime de NDI en el dispositivo
+
+YStreamer no incluye NDI: el runtime es software propio de NDI, con la licencia
+de NDI. El dispositivo lo descarga desde NDI cuando se lo pides, y solo lo
+instala después de que aceptes la licencia de NDI.
+
+1. En el dispositivo, ve a **Streaming → NDI** y pulsa **Download from NDI**.
+   Tarda uno o dos minutos: la descarga ocupa unos 60 MB.
+
+   Si el dispositivo no tiene internet, descarga el **NDI SDK for Linux** desde
+   [ndi.video](https://ndi.video/) en un ordenador, pulsa **Upload file…** y
+   elígelo. Vale tanto el archivo `.tar.gz` tal cual como el `.sh` que lleva
+   dentro.
+
+2. La tarjeta muestra el progreso de la descarga, y luego la licencia de NDI
+   se abre en una ventana, sacada del paquete que has descargado. Léela.
+   **Decline** borra la descarga y no instala nada. Si cierras la ventana, la
+   descarga espera en la tarjeta, en **Read NDI's licence**.
+3. Pulsa **Accept and install**. El runtime va a `/usr/local/lib/` y la
+   licencia de NDI a `/usr/local/share/doc/ndi/`.
+4. Activa **NDI** y pulsa **Save**. No hace falta reiniciar.
+
+Al desinstalar YStreamer, el runtime se queda: lo instalaste tú con la licencia
+de NDI, y puede que otros programas lo usen. Para quitarlo, ejecuta
+`sudo rm /usr/local/lib/libndi.so.6* && sudo ldconfig`.
+
+#### Instalarlo a mano
+
+También puedes copiar el runtime tú mismo:
+
+1. Descomprime el **NDI SDK for Linux** en un ordenador y busca la biblioteca
+   ARM de 64 bits para la Raspberry Pi: `libndi.so.6` y los archivos a su lado,
+   en una carpeta dentro de `lib/` cuyo nombre empieza por `aarch64`.
+2. Copia esos archivos a `/usr/local/lib/` en el dispositivo (por ejemplo con
+   `scp`) y ejecuta:
+
+   ```sh
+   sudo ldconfig
+   ```
+
+YStreamer también busca en la carpeta de `NDI_RUNTIME_DIR_V6`, si está
+definida para el servicio.
+
+### NDI en vMix o TriCaster
+
+Los dos encuentran las fuentes NDI por sí solos. En vMix, pulsa **Add Input**,
+elige **NDI / Desktop Capture** y selecciona **HOSTNAME (YStreamer)**. En un
+TriCaster, elígelo entre las fuentes de red de cualquier entrada.
+
+### NDI en OBS
+
+OBS necesita el plugin **DistroAV** y el runtime de NDI en el ordenador, como
+explica el instalador de DistroAV.
+
+1. En OBS, añade una fuente: **+ → NDI Source**.
+2. En **Source name**, elige **HOSTNAME (YStreamer)**.
+3. Pon **Latency** en **Low** para el menor retardo.
+
+## Por qué NDI y no NDI|HX
+
+NDI|HX enviaría el H.264 de las gafas tal cual, sin descodificar y con mucho
+menos ancho de banda. Enviarlo así requiere el Advanced SDK de NDI, que NDI
+licencia aparte; no forma parte del runtime que cualquiera puede descargar.
+Por eso YStreamer envía NDI completo: descodifica el vídeo y el runtime de NDI
+comprime cada imagen.
+
+## Sobre el runtime de NDI y el nombre
+
+- YStreamer no distribuye el runtime de NDI ni lo enlaza al compilarse. El
+  dispositivo lo descarga desde NDI solo cuando se lo pides, no guarda nada de
+  NDI más allá de eso, y solo lo instala después de que aceptes la licencia de
+  NDI. Solo abre la biblioteca si la encuentra instalada.
+- La licencia de NDI cubre el runtime; léela antes de aceptarla, sobre todo
+  antes de pasarlo a otros, por ejemplo en una imagen de tarjeta SD que
+  compartas.
+- NDI® es una marca registrada de Vizrt NDI AB. YStreamer usa el nombre solo
+  para decir qué protocolo habla la salida; no está afiliado a NDI ni
+  respaldado por NDI.

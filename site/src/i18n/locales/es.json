@@ -1,7 +1,7 @@
 {
   "site": {
     "titleSuffix": "Transmite y graba tus gafas DJI FPV con una Raspberry Pi",
-    "description": "Software para Raspberry Pi 4 que toma el vídeo en directo de unas gafas DJI FPV o de una cámara USB y lo envía a HDMI, a cualquier navegador, a streams RTSP/SRT/RTMP/UDP y a grabaciones.",
+    "description": "Software para Raspberry Pi 4 que toma el vídeo en directo de unas gafas DJI FPV o de una cámara USB y lo envía a HDMI, a cualquier navegador, a streams RTSP/SRT/RTMP/UDP, a NDI y OMT, y a grabaciones.",
     "docsTitleSuffix": "Documentación de YStreamer"
   },
   "nav": {
@@ -69,7 +69,7 @@
       },
       {
         "name": "Streams",
-        "detail": "RTSP, SRT, RTMP y UDP"
+        "detail": "RTSP, SRT, RTMP, UDP, NDI y OMT"
       },
       {
         "name": "Grabación",
@@ -88,7 +88,7 @@
       },
       {
         "title": "Transmítelo",
-        "text": "Un servidor RTSP, además de SRT, RTMP y UDP para OBS, estaciones de tierra y plataformas de streaming."
+        "text": "Un servidor RTSP, además de SRT, RTMP y UDP para OBS, estaciones de tierra y plataformas de streaming, y NDI y OMT para vMix."
       },
       {
         "title": "Graba",

@@ -32,6 +32,8 @@ see. One USB-C cable in, and every output at the same time:
 - **Any browser** - live view on phones and laptops, over WebRTC or WebSocket.
 - **Streams** - an RTSP server, plus SRT, RTMP (YouTube, Twitch, Facebook) and
   UDP for OBS, VLC, QGroundControl and Mission Planner.
+- **Mixers** - NDI and OMT sources that vMix, OBS and TriCaster find on the
+  local network by themselves.
 - **Recording** - MP4 or MPEG-TS to the SD card or a USB drive, started by hand,
   automatically when video arrives, or with a physical button.
 
