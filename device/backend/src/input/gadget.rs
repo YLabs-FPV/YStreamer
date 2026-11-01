@@ -5,6 +5,8 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
+use crate::system::board::Board;
+
 const CONFIGFS: &str = "/sys/kernel/config/usb_gadget";
 const CONTROLLERS: &str = "/sys/class/udc";
 // Not the name older versions use: they'd add their serial function next to
@@ -33,12 +35,13 @@ enum Outcome {
 }
 
 pub fn ensure() {
-    // Brings configfs along. The controller's own driver, dwc2, is built
-    // into the kernel and needs only the overlay in config.txt
-    if !Path::new(CONFIGFS).is_dir() {
-        let _ = Command::new("modprobe").arg("libcomposite").status();
+    // libcomposite brings configfs along, usb_f_fs is the function. Both
+    // are built into the Pi's and the ROCK 3A's kernels, where this is a
+    // no-op; the controller's own driver (dwc2, dwc3) is as well
+    for module in ["libcomposite", "usb_f_fs"] {
+        let _ = Command::new("modprobe").arg(module).status();
     }
-    let started = match setup(Path::new(CONFIGFS), Path::new(CONTROLLERS)) {
+    let started = match setup(Path::new(CONFIGFS), Path::new(CONTROLLERS), Board::detect()) {
         Ok(Outcome::Ready(controller)) => start(&Path::new(CONFIGFS).join(NAME), &controller),
         Ok(Outcome::AlreadyThere(_)) => return,
         Err(e) => Err(e),
@@ -49,7 +52,7 @@ pub fn ensure() {
     }
 }
 
-fn setup(configfs: &Path, controllers: &Path) -> Result<Outcome, String> {
+fn setup(configfs: &Path, controllers: &Path, board: Board) -> Result<Outcome, String> {
     let gadgets = fs::read_dir(configfs)
         .map_err(|_| "USB gadget support isn't loaded (libcomposite)".to_string())?;
     // The controller takes one gadget at a time
@@ -59,12 +62,17 @@ fn setup(configfs: &Path, controllers: &Path) -> Result<Outcome, String> {
         if bound.trim().is_empty() {
             continue;
         }
-        // An older version's stays bound after it exits; this one's unbinds
-        // when its process does, so bound means another one is serving it
-        if gadget.file_name() != OLD_NAME {
-            return Ok(Outcome::AlreadyThere(
-                gadget.file_name().to_string_lossy().into_owned(),
-            ));
+        let name = gadget.file_name().to_string_lossy().into_owned();
+        // This one's unbinds when its process exits, so bound means another
+        // process is serving it
+        if name == NAME {
+            return Ok(Outcome::AlreadyThere(name));
+        }
+        // An older version's stays bound after it exits. Anything else is
+        // another program's: Radxa's images bind one of their own (ADB over
+        // USB) on the only port the goggles can use
+        if name != OLD_NAME {
+            eprintln!("[usb] taking the port over from the {name} gadget");
         }
         fs::write(&udc, "\n").map_err(|e| format!("{}: {e}", udc.display()))?;
     }
@@ -72,10 +80,7 @@ fn setup(configfs: &Path, controllers: &Path) -> Result<Outcome, String> {
         .ok()
         .and_then(|mut dir| dir.next()?.ok())
         .map(|c| c.file_name().to_string_lossy().into_owned())
-        .ok_or(
-            "the USB-C port isn't in device mode; \
-             config.txt needs dtoverlay=dwc2,dr_mode=peripheral",
-        )?;
+        .ok_or_else(|| no_controller(board).to_string())?;
 
     let gadget = configfs.join(NAME);
     let put = |file: &str, value: &str| {
@@ -94,6 +99,13 @@ fn setup(configfs: &Path, controllers: &Path) -> Result<Outcome, String> {
     put("bDeviceClass", "0xFF")?;
     put("bDeviceSubClass", "0xFF")?;
     put("bDeviceProtocol", "0x00")?;
+    // The descriptors below are full and high speed only. The Pi's dwc2 goes
+    // no faster, but the ROCK 3A's dwc3 does, and a super-speed host would
+    // find no configuration at all unless the gadget is capped here. A
+    // kernel too old to have the attribute is a dwc2 one, so it's not fatal
+    if let Err(e) = put("max_speed", "high-speed") {
+        eprintln!("[usb] couldn't cap the gadget at high speed: {e}");
+    }
     put("strings/0x409/serialnumber", "0123456789ABCDEF")?;
     put("strings/0x409/manufacturer", "YStreamer")?;
     put("strings/0x409/product", "YStreamer Goggles Adapter")?;
@@ -108,6 +120,23 @@ fn setup(configfs: &Path, controllers: &Path) -> Result<Outcome, String> {
             .map_err(|e| format!("{}: {e}", link.display()))?;
     }
     Ok(Outcome::Ready(controller))
+}
+
+/// Nothing under /sys/class/udc: the port is a host, and each board has its
+/// own way of making it a device
+fn no_controller(board: Board) -> &'static str {
+    match board {
+        Board::RaspberryPi => {
+            "the USB-C port isn't in device mode; \
+             config.txt needs dtoverlay=dwc2,dr_mode=peripheral"
+        }
+        Board::Rockchip => {
+            "no USB device controller; set the board's OTG switch to DEVICE \
+             (on a ROCK 3A: the switch beside the upper USB 3 port), make sure \
+             rsetup's overlay doesn't force the port to host mode, and reboot"
+        }
+        Board::Other => "no USB device controller: the board's USB port isn't in device mode",
+    }
 }
 
 /// The kernel binds the gadget only once ep0 has the function's descriptors,

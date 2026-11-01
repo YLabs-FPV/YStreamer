@@ -1,5 +1,6 @@
 #!/bin/sh
-# Installs YStreamer on a Raspberry Pi that already runs Raspberry Pi OS:
+# Installs YStreamer on a Raspberry Pi that already runs Raspberry Pi OS, or
+# on a Radxa ROCK 3A running Radxa's Debian 12 image:
 #
 #   curl -fsSL https://ystreamer.yarosfpv.com/install.sh | sudo sh
 #
@@ -13,6 +14,11 @@ MANIFEST_URL=${YSTREAMER_UPDATE_URL:-https://ystreamer.yarosfpv.com/update/manif
 PUBLIC_KEY="PGdZ5XTTQ6j+TeKZfSTFty0xEbNqowNBXr4A9zPQvlo="
 UPDATES=/var/lib/ystreamer/update
 BOOT_CONFIG=/boot/firmware/config.txt
+# The ROCK 3A's video decoder and encoder, from Radxa's repository. The Pi's
+# are in its kernel
+ROCKCHIP_PACKAGES="librockchip-mpp1 gstreamer1.0-rockchip1"
+# pi, rockchip, or empty for anything else; check_device sets it
+BOARD=
 
 CHECK_ONLY=
 ASSUME_YES=
@@ -61,27 +67,46 @@ boots_into_desktop() {
 
 desktop_warning() {
     say "WARNING: this system starts a desktop, which keeps the HDMI output for itself."
-    say "YStreamer won't be able to show video on the screen. Use Raspberry Pi OS Lite,"
-    say "or switch the desktop off with: sudo raspi-config (System Options > Boot)."
+    say "YStreamer won't be able to show video on the screen. Switch the desktop off:"
+    if [ "$BOARD" = pi ]; then
+        say "use Raspberry Pi OS Lite, or sudo raspi-config (System Options > Boot)."
+    else
+        say "sudo systemctl set-default multi-user.target, then reboot."
+    fi
 }
 
 check_device() {
     arch=$(dpkg --print-architecture 2>/dev/null) || die "This isn't a Debian-based system."
     [ "$arch" = arm64 ] ||
-        die "YStreamer needs the 64-bit Raspberry Pi OS; this system is $arch."
+        die "YStreamer needs a 64-bit (arm64) system; this one is $arch."
 
     model=$(tr -d '\0' </proc/device-tree/model 2>/dev/null || true)
     case $model in
-    "Raspberry Pi 4 Model B"*) ;;
-    *) confirm "YStreamer is only tested on the Raspberry Pi 4 Model B; this is ${model:-an unknown device}." ;;
+    "Raspberry Pi 4 Model B"*) BOARD=pi ;;
+    "Raspberry Pi"*)
+        BOARD=pi
+        confirm "YStreamer is only tested on the Raspberry Pi 4 Model B; this is $model."
+        ;;
+    # Spelt both ways, by the 6.1 and the 5.10 kernels
+    "Radxa ROCK 3"* | "Radxa ROCK3"*) BOARD=rockchip ;;
+    *) confirm "YStreamer is only tested on the Raspberry Pi 4 Model B and the Radxa ROCK 3A; this is ${model:-an unknown device}." ;;
     esac
 
     codename=$(. /etc/os-release 2>/dev/null && echo "${VERSION_CODENAME:-}")
-    [ "$codename" = trixie ] ||
-        confirm "YStreamer is only tested on Raspberry Pi OS 13 (trixie); this is ${codename:-an unknown release}."
+    case $BOARD:$codename in
+    pi:trixie | rockchip:bookworm) ;;
+    pi:*) confirm "YStreamer is only tested on Raspberry Pi OS 13 (trixie); this is ${codename:-an unknown release}." ;;
+    rockchip:*) confirm "On the ROCK 3A, YStreamer is only tested on Radxa's Debian 12 (bookworm) image; this is ${codename:-an unknown release}." ;;
+    *) confirm "YStreamer is only tested on Debian 13 (trixie) and 12 (bookworm); this is ${codename:-an unknown release}." ;;
+    esac
 
-    [ -f "$BOOT_CONFIG" ] ||
+    if [ "$BOARD" = rockchip ]; then
+        # Host or device is a switch on the board, not a boot setting
+        [ -n "$(ls -A /sys/class/udc 2>/dev/null)" ] ||
+            warn "No USB device controller: set the board's OTG switch to DEVICE (and don't force host mode with an rsetup overlay), then reboot, or the goggles can't connect."
+    elif [ ! -f "$BOOT_CONFIG" ]; then
         warn "$BOOT_CONFIG is missing, so the USB-C port can't be set up for the goggles."
+    fi
 
     # Applies on the Compute Module 4 only, where it keeps the port a host
     if [ -f "$BOOT_CONFIG" ] && case $model in *"Compute Module 4"*) true ;; *) false ;; esac &&
@@ -96,14 +121,16 @@ check_device() {
     fi
 }
 
-# Prints: version, package URL, signature
+# Prints: version, package URL, signature. A package built for this Debian
+# release (arm64-bookworm, the ROCK 3A's) comes before the plain arm64 one
 read_manifest() {
-    python3 - "$1" "$2" <<'PY'
+    python3 - "$1" "$2" "$3" <<'PY'
 import json, sys
 manifest = json.load(open(sys.argv[1]))
-package = manifest["packages"].get(sys.argv[2])
+arch, codename = sys.argv[2], sys.argv[3]
+package = manifest["packages"].get(f"{arch}-{codename}") or manifest["packages"].get(arch)
 if not package:
-    sys.exit(f"Version {manifest['version']} has no package for {sys.argv[2]} devices")
+    sys.exit(f"Version {manifest['version']} has no package for {arch} devices")
 print(manifest["version"], package["url"], package["signature"])
 PY
 }
@@ -136,6 +163,10 @@ approve() {
     install)
         say "YStreamer $version is ready to install. This will:"
         say "  - install the package and what it needs, such as GStreamer"
+        if [ "$BOARD" = rockchip ]; then
+            say "  - install the Rockchip video packages: $ROCKCHIP_PACKAGES"
+            say "  - switch off Radxa's own USB gadget service (ADB over USB), if it's there"
+        fi
         say "  - start YStreamer now and at every boot, using port 80 and the HDMI output"
         ;;
     reinstall)
@@ -165,7 +196,7 @@ approve() {
         say "WARNING: the USB-C port will be reserved for the goggles until YStreamer is"
         say "uninstalled. It can still power the Pi, but nothing else plugged into it will"
         say "work. This takes effect after a reboot."
-    else
+    elif [ -f "$BOOT_CONFIG" ]; then
         say "  - leave $BOOT_CONFIG as it is: it already has what YStreamer needs"
     fi
     if boots_into_desktop; then
@@ -199,7 +230,7 @@ trap 'rm -rf "$WORK"' EXIT
 say "Looking up the latest version..."
 curl -fsSL "$MANIFEST_URL" -o "$WORK/manifest.json" ||
     die "Couldn't reach the update server at $MANIFEST_URL."
-release=$(read_manifest "$WORK/manifest.json" "$arch") || die "The update server sent something unexpected."
+release=$(read_manifest "$WORK/manifest.json" "$arch" "$codename") || die "The update server sent something unexpected."
 set -- $release
 version=$1
 url=$2
@@ -252,6 +283,11 @@ chmod 755 "$WORK"
 chmod 644 "$DEB"
 say "Installing..."
 apt-get update -q
+if [ "$BOARD" = rockchip ]; then
+    # shellcheck disable=SC2086
+    DEBIAN_FRONTEND=noninteractive apt-get install -y $ROCKCHIP_PACKAGES ||
+        warn "Couldn't install $ROCKCHIP_PACKAGES; without them the video is decoded in software."
+fi
 DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades "$DEB"
 
 # The updater goes back to current.deb if a later version doesn't start, and

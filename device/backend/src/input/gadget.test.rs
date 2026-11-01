@@ -42,7 +42,7 @@ impl Drop for Sysfs {
 fn builds_an_android_accessory_with_an_accessory_function() {
     let sys = Sysfs::new(Some("fe980000.usb"));
     assert_eq!(
-        setup(&sys.configfs, &sys.controllers),
+        setup(&sys.configfs, &sys.controllers, Board::RaspberryPi),
         Ok(Outcome::Ready("fe980000.usb".into()))
     );
 
@@ -51,6 +51,8 @@ fn builds_an_android_accessory_with_an_accessory_function() {
     assert_eq!(sys.read("bDeviceClass"), "0xFF");
     assert_eq!(sys.read("strings/0x409/manufacturer"), "YStreamer");
     assert_eq!(sys.read("configs/c.1/MaxPower"), "250");
+    // Full and high speed descriptors only, so no faster than that
+    assert_eq!(sys.read("max_speed"), "high-speed");
     // Bound only once the function has its descriptors
     assert!(!sys.configfs.join(NAME).join("UDC").exists());
 
@@ -76,7 +78,7 @@ fn takes_over_the_serial_gadget_an_older_version_left_bound() {
     fs::write(old.join("UDC"), "fe980000.usb\n").unwrap();
 
     assert_eq!(
-        setup(&sys.configfs, &sys.controllers),
+        setup(&sys.configfs, &sys.controllers, Board::RaspberryPi),
         Ok(Outcome::Ready("fe980000.usb".into()))
     );
     assert_eq!(fs::read_to_string(old.join("UDC")).unwrap(), "\n");
@@ -91,34 +93,48 @@ fn takes_over_the_serial_gadget_an_older_version_left_bound() {
 #[test]
 fn leaves_its_own_gadget_alone_while_another_process_serves_it() {
     let sys = Sysfs::new(Some("fe980000.usb"));
-    setup(&sys.configfs, &sys.controllers).unwrap();
+    setup(&sys.configfs, &sys.controllers, Board::RaspberryPi).unwrap();
     fs::write(sys.configfs.join(NAME).join("UDC"), "fe980000.usb\n").unwrap();
     assert_eq!(
-        setup(&sys.configfs, &sys.controllers),
+        setup(&sys.configfs, &sys.controllers, Board::RaspberryPi),
         Ok(Outcome::AlreadyThere(NAME.into()))
     );
     assert_eq!(sys.read("UDC"), "fe980000.usb\n");
 }
 
+/// Radxa's images can bind their own gadget (radxa-otgutils: ADB and USB
+/// networking, in a gadget named after the controller) to the one
+/// controller, which the goggles need
 #[test]
-fn leaves_someone_elses_bound_gadget_alone() {
-    let sys = Sysfs::new(Some("fe980000.usb"));
-    fs::create_dir_all(sys.configfs.join("ycast")).unwrap();
-    fs::write(sys.configfs.join("ycast/UDC"), "fe980000.usb\n").unwrap();
+fn takes_the_controller_over_from_another_programs_gadget() {
+    let sys = Sysfs::new(Some("fcc00000.usb"));
+    let theirs = sys.configfs.join("fcc00000.usb");
+    fs::create_dir_all(theirs.join("functions/ffs.adb")).unwrap();
+    fs::create_dir_all(theirs.join("functions/ecm.usb0")).unwrap();
+    fs::write(theirs.join("UDC"), "fcc00000.usb\n").unwrap();
     assert_eq!(
-        setup(&sys.configfs, &sys.controllers),
-        Ok(Outcome::AlreadyThere("ycast".into()))
+        setup(&sys.configfs, &sys.controllers, Board::Rockchip),
+        Ok(Outcome::Ready("fcc00000.usb".into()))
     );
-    assert!(!sys.configfs.join(NAME).exists());
+    // Unbound, not removed: whatever made it can have it back
+    assert_eq!(fs::read_to_string(theirs.join("UDC")).unwrap(), "\n");
+    assert!(theirs.join("functions/ffs.adb").is_dir());
+    assert!(
+        sys.configfs
+            .join(NAME)
+            .join("functions")
+            .join(FUNCTION)
+            .is_dir()
+    );
 }
 
 #[test]
 fn finishes_a_gadget_that_was_left_unbound() {
     let sys = Sysfs::new(Some("fe980000.usb"));
-    setup(&sys.configfs, &sys.controllers).unwrap();
+    setup(&sys.configfs, &sys.controllers, Board::RaspberryPi).unwrap();
     fs::write(sys.configfs.join(NAME).join("UDC"), "\n").unwrap();
     assert_eq!(
-        setup(&sys.configfs, &sys.controllers),
+        setup(&sys.configfs, &sys.controllers, Board::RaspberryPi),
         Ok(Outcome::Ready("fe980000.usb".into()))
     );
 }
@@ -154,10 +170,20 @@ fn describes_a_vendor_interface_with_a_bulk_pair() {
 #[test]
 fn says_why_it_cannot() {
     let no_port = Sysfs::new(None);
-    let e = setup(&no_port.configfs, &no_port.controllers).unwrap_err();
+    let e = setup(&no_port.configfs, &no_port.controllers, Board::RaspberryPi).unwrap_err();
     assert!(e.contains("dr_mode=peripheral"), "{e}");
     assert!(!no_port.configfs.join(NAME).exists());
 
-    let e = setup(Path::new("/nonexistent/usb_gadget"), &no_port.controllers).unwrap_err();
+    // The ROCK 3A has a switch for it, not a boot setting
+    let e = setup(&no_port.configfs, &no_port.controllers, Board::Rockchip).unwrap_err();
+    assert!(e.contains("OTG switch"), "{e}");
+    assert!(!e.contains("config.txt"), "{e}");
+
+    let e = setup(
+        Path::new("/nonexistent/usb_gadget"),
+        &no_port.controllers,
+        Board::RaspberryPi,
+    )
+    .unwrap_err();
     assert!(e.contains("libcomposite"), "{e}");
 }

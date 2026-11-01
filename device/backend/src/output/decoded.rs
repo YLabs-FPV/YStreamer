@@ -9,6 +9,7 @@ use gstreamer_app::{AppSink, AppSrc};
 use gstreamer_video as gst_video;
 use gstreamer_video::prelude::*;
 
+use super::codec::{self, Decoder as Codec};
 use crate::input::h264::AccessUnitAssembler;
 
 /// How long the worker waits for a picture before checking it should stop
@@ -100,8 +101,7 @@ struct Decoding {
 /// subscribes; each subscriber gets every picture, as the decoder's own
 /// buffers, and drops what it can't keep up with
 pub struct SharedDecoder {
-    /// The Pi's decoder only takes up to level 4.2
-    hardware: bool,
+    codec: Codec,
     assembler: Mutex<AccessUnitAssembler>,
     decoding: Mutex<Option<Decoding>>,
     consumers: Arc<Mutex<Vec<(u64, Consumer)>>>,
@@ -111,8 +111,7 @@ pub struct SharedDecoder {
 impl SharedDecoder {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
-            // The Pi's hardware decoder; the software one is for other machines
-            hardware: gst::ElementFactory::find("v4l2h264dec").is_some(),
+            codec: codec::decoder(),
             assembler: Mutex::new(AccessUnitAssembler::new()),
             decoding: Mutex::new(None),
             consumers: Arc::new(Mutex::new(Vec::new())),
@@ -144,10 +143,9 @@ impl SharedDecoder {
     fn start(&self) -> Result<Decoding, String> {
         // Held to NV12: left to choose, the Pi's decoder switched to I420
         // when the video changed size, which its image processor refused
-        let decoder = if self.hardware {
-            "v4l2h264dec ! video/x-raw,format=NV12"
-        } else {
-            "avdec_h264"
+        let decoder = match self.codec {
+            Codec::Software => "avdec_h264".to_string(),
+            hw => format!("{} ! video/x-raw,format=NV12", hw.element()),
         };
         // Parameter sets before every keyframe, so a restarted decoder picks
         // up at the next one. What can't be decoded in time is dropped as
@@ -261,7 +259,7 @@ impl SharedDecoder {
                 }
             }
         }
-        if self.hardware {
+        if self.codec.needs_level_patch() {
             super::hdmi::patch_sps_level(&mut au);
         }
         if let Some(d) = decoding.as_ref() {
@@ -515,7 +513,8 @@ impl Decoder {
         limit: Limit,
         mut on_picture: impl FnMut(&Picture) + Send + 'static,
     ) -> Result<Self, String> {
-        let hardware = shared.hardware;
+        // The Pi's image processor; nothing else here has one that's known
+        let hardware = shared.codec == Codec::V4l2;
         // What arrival times count from
         let started = Instant::now();
         let mut scaler = Scaler::start(hardware, limit)?;

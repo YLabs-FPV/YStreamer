@@ -7,7 +7,9 @@ order: 40
 import Admonition from "../../../../components/docs/Admonition.astro";
 
 If your Pi already runs **Raspberry Pi OS Lite (64-bit, Debian 13 "Trixie")**,
-you can add YStreamer to it with one command.
+you can add YStreamer to it with one command. The same script installs it on a
+[Radxa ROCK 3A](/docs/getting-started/radxa-rock-3a) running Radxa's Debian 12
+image.
 
 <Admonition type="warning" title="Lite only">
   With a desktop that starts at boot, YStreamer can't show video on HDMI. Use
@@ -25,8 +27,9 @@ curl -fsSL https://ystreamer.yarosfpv.com/install.sh | sudo sh
 
 The script:
 
-1. Checks the device: 64-bit system, Raspberry Pi 4, Trixie, nothing else on
-   port 80. On anything untested it asks before going on.
+1. Checks the device: 64-bit system, a Raspberry Pi 4 on Trixie or a ROCK 3A
+   on Bookworm, nothing else on port 80. On anything untested it asks before
+   going on.
 2. Downloads the latest version and verifies its signature.
 3. Lists what it will change and asks before installing.
 4. Installs YStreamer and starts it, then prints the address of the web

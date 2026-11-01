@@ -182,3 +182,25 @@ fn install_script_checks_against_the_same_key() {
     let script = include_str!("../../../packaging/install.sh");
     assert!(script.contains(&format!("PUBLIC_KEY=\"{}\"", PUBLIC_KEY.trim())));
 }
+
+#[test]
+fn a_device_on_another_debian_release_takes_its_own_package() {
+    let manifest: Manifest = serde_json::from_str(
+        r#"{"version": "0.2.0", "packages": {
+            "arm64": {"url": "https://example.com/trixie.deb", "signature": "c2ln"},
+            "arm64-bookworm": {"url": "https://example.com/bookworm.deb", "signature": "c2ln"}}}"#,
+    )
+    .unwrap();
+    let url = |codename: Option<&str>| {
+        pick_package(&manifest.packages, "arm64", codename).map(|p| p.url.as_str())
+    };
+    assert_eq!(url(Some("trixie")), Some("https://example.com/trixie.deb"));
+    assert_eq!(
+        url(Some("bookworm")),
+        Some("https://example.com/bookworm.deb")
+    );
+    // Not knowing the release, or one without a package of its own, means the main one
+    assert_eq!(url(None), Some("https://example.com/trixie.deb"));
+    assert_eq!(url(Some("forky")), Some("https://example.com/trixie.deb"));
+    assert!(pick_package(&manifest.packages, "amd64", Some("bookworm")).is_none());
+}

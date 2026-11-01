@@ -146,7 +146,7 @@ impl GstPlayer {
             .cloned()
             .ok_or("The screen has no active mode")?;
 
-        let (mut running, appsrc) = build(cfg, &mode, display.fd())?;
+        let (mut running, appsrc) = build(cfg, &mode, display.fd(), display.video_plane())?;
         if let Err(e) = running.pipeline.set_state(gst::State::Playing) {
             running.stop();
             return Err(format!("Couldn't start HDMI output: {e}"));
@@ -282,7 +282,12 @@ fn video_area(screen: (u32, u32), video: (u32, u32), scaling: Scaling) -> Rect {
     }
 }
 
-fn build(cfg: &DisplaySettings, mode: &ModeInfo, fd: i32) -> Result<(Running, AppSrc), String> {
+fn build(
+    cfg: &DisplaySettings,
+    mode: &ModeInfo,
+    fd: i32,
+    plane: Option<u32>,
+) -> Result<(Running, AppSrc), String> {
     // Fill crops in the display hardware: aspectratiocrop only attaches crop
     // metadata, which kmssink turns into the plane's source rectangle
     let crop = match cfg.scaling {
@@ -307,6 +312,12 @@ fn build(cfg: &DisplaySettings, mode: &ModeInfo, fd: i32) -> Result<(Running, Ap
 
     let sink = pipeline.by_name("sink").expect("Failed to find kmssink");
     sink.set_property("fd", fd);
+    // The plane that takes the decoder's output; without this kmssink takes
+    // the first plane it finds, which on the Pi is the same one
+    if let Some(plane) = plane {
+        sink.set_property("plane-id", plane as i32);
+        eprintln!("[hdmi] video onto plane {plane}");
+    }
     // Always set, or the plane keeps the last pipeline's rotation
     sink.set_property(
         "plane-properties",

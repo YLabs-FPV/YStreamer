@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use gpiocdev::Request;
 use gpiocdev::line::{Bias, Value};
 
+use super::board::Board;
 use super::button::CHIP;
 
 /// Physical pin 40, the last one on the header, straight across from a
@@ -16,10 +17,13 @@ const HOLD: Duration = Duration::from_secs(5);
 const POLL: Duration = Duration::from_millis(100);
 const SHOWN_FOR: Duration = Duration::from_secs(10 * 60);
 
-/// On the card's boot partition, which any computer can write to
-const FILES: [&str; 2] = [
+/// On a FAT partition of the card that any computer can write to: the Pi's
+/// boot partition, or the `config` one on Radxa's images
+const FILES: [&str; 4] = [
     "/boot/firmware/ystreamer-reset",
     "/boot/firmware/ystreamer-reset.txt",
+    "/config/ystreamer-reset",
+    "/config/ystreamer-reset.txt",
 ];
 
 struct Done {
@@ -32,7 +36,12 @@ static DONE: OnceLock<Done> = OnceLock::new();
 pub fn at_startup(settings: &Path) {
     let requested = request_file(settings);
     let by_file = requested.exists() || FILES.iter().any(|f| Path::new(f).exists());
-    let pin = Pin::open();
+    // The pin is the Pi's; on another board line 21 of the first chip is
+    // whatever the board wired there, and one that reads low would reset
+    // the settings at every start
+    let pin = (Board::detect() == Board::RaspberryPi)
+        .then(Pin::open)
+        .flatten();
     let by_pin = pin
         .as_ref()
         .is_some_and(|pin| held(|| pin.grounded(), HOLD, POLL, thread::sleep));

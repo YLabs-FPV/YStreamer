@@ -134,7 +134,7 @@ pub async fn watch(store: std::sync::Arc<SettingsStore>) {
 pub async fn download() -> Result<(), String> {
     let manifest = manifest().await?;
     let arch = architecture().await?;
-    let package = manifest.packages.get(&arch).ok_or(format!(
+    let package = pick_package(&manifest.packages, &arch, codename().as_deref()).ok_or(format!(
         "Version {} has no package for {arch} devices",
         manifest.version
     ))?;
@@ -205,6 +205,29 @@ async fn architecture() -> Result<String, String> {
         .await
         .map(|arch| arch.trim().to_string())
         .map_err(|e| format!("Couldn't tell what kind of device this is: {e}"))
+}
+
+/// The Debian release, e.g. "trixie" on Raspberry Pi OS 13 and "bookworm"
+/// on the Radxa images
+fn codename() -> Option<String> {
+    let text = fs::read_to_string("/etc/os-release").ok()?;
+    text.lines()
+        .find_map(|l| l.strip_prefix("VERSION_CODENAME="))
+        .map(|v| v.trim().trim_matches('"').to_string())
+        .filter(|v| !v.is_empty())
+}
+
+/// A release can carry a package built for another Debian release, listed
+/// as `<arch>-<codename>` (the ROCK 3A's bookworm one); a device on that
+/// release takes it over the plain `<arch>` package, which wouldn't install
+fn pick_package<'a>(
+    packages: &'a std::collections::HashMap<String, Download>,
+    arch: &str,
+    codename: Option<&str>,
+) -> Option<&'a Download> {
+    codename
+        .and_then(|c| packages.get(&format!("{arch}-{c}")))
+        .or_else(|| packages.get(arch))
 }
 
 pub async fn status() -> Status {

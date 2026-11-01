@@ -3,8 +3,8 @@ use std::os::fd::{AsFd, AsRawFd, BorrowedFd, RawFd};
 
 use drm::buffer::{Buffer, DrmFourcc};
 use drm::control::{
-    Device as ControlDevice, Mode, ModeFlags, ModeTypeFlags, connector, crtc,
-    dumbbuffer::DumbBuffer, framebuffer, plane,
+    Device as ControlDevice, Mode, ModeFlags, ModeTypeFlags, PlaneType, connector, crtc,
+    dumbbuffer::DumbBuffer, framebuffer, plane, property,
 };
 use drm::{ClientCapability, Device as _};
 
@@ -15,11 +15,44 @@ pub const AUTO: &str = "auto";
 const SHAPE_TOLERANCE: f64 = 0.05;
 
 // DRM plane property values
-const PLANE_TYPE_OVERLAY: u64 = 0;
 const BLEND_COVERAGE: u64 = 1;
 const ALPHA_OPAQUE: u64 = 0xffff;
-/// Above the video plane, which sits at the bottom of the overlay range
+/// Above the video plane, which sits at the bottom of the overlay range.
+/// Clamped to what the driver allows, see `clamp_zpos`
 const LOGO_ZPOS: u64 = 10;
+
+/// What matters about a plane when choosing the video's
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct PlaneFacts {
+    pub id: u32,
+    /// Can show on the screen's display controller
+    pub drives_crtc: bool,
+    pub cursor: bool,
+    /// Takes NV12, which the hardware decoders produce
+    pub nv12: bool,
+}
+
+/// kmssink, left to itself, puts the video on the first plane that can
+/// drive the controller. On the Pi that is the primary plane, which takes
+/// NV12 too, so this picks the same one. On the RK3568 the first ones are
+/// RGB-only "Smart" windows and one typed as a cursor, on which kmssink
+/// can't negotiate the decoder's output; the first that takes NV12 is 112
+/// there
+pub(crate) fn choose_video_plane(planes: &[PlaneFacts]) -> Option<u32> {
+    planes
+        .iter()
+        .find(|p| p.drives_crtc && !p.cursor && p.nv12)
+        .map(|p| p.id)
+}
+
+/// Where `wanted` is in the plane's range (the Pi), that; otherwise as high
+/// as the driver goes, which still puts the logo over the video
+pub(crate) fn clamp_zpos(wanted: u64, range: Option<(u64, u64)>) -> u64 {
+    match range {
+        Some((min, max)) if min <= max => wanted.clamp(min, max),
+        _ => wanted,
+    }
+}
 
 /// The logo's own hardware plane, layered over the video for free
 struct LogoPlane {
@@ -42,6 +75,62 @@ impl AsFd for Card {
 impl drm::Device for Card {}
 impl ControlDevice for Card {}
 
+impl Card {
+    fn find_property(
+        &self,
+        plane: plane::Handle,
+        name: &str,
+    ) -> Option<(property::Handle, property::Info, u64)> {
+        let props = self.get_properties(plane).ok()?;
+        props.iter().find_map(|(&handle, &value)| {
+            let info = self.get_property(handle).ok()?;
+            (info.name().to_str().ok()? == name).then_some((handle, info, value))
+        })
+    }
+
+    fn plane_property(&self, plane: plane::Handle, name: &str) -> Option<u64> {
+        self.find_property(plane, name).map(|(_, _, value)| value)
+    }
+
+    fn property_range(&self, plane: plane::Handle, name: &str) -> Option<(u64, u64)> {
+        let (_, info, _) = self.find_property(plane, name)?;
+        match info.value_type() {
+            property::ValueType::UnsignedRange(min, max) => Some((*min, *max)),
+            _ => None,
+        }
+    }
+
+    fn set_plane_property(&self, plane: plane::Handle, name: &str, value: u64) -> Option<()> {
+        let (handle, _, current) = self.find_property(plane, name)?;
+        if current != value {
+            self.set_property(plane, handle, value).ok()?;
+        }
+        Some(())
+    }
+
+    fn plane_facts(
+        &self,
+        res: &drm::control::ResourceHandles,
+        crtc: crtc::Handle,
+    ) -> Vec<PlaneFacts> {
+        let Ok(planes) = self.plane_handles() else {
+            return Vec::new();
+        };
+        planes
+            .iter()
+            .filter_map(|&p| {
+                let info = self.get_plane(p).ok()?;
+                Some(PlaneFacts {
+                    id: u32::from(p),
+                    drives_crtc: res.filter_crtcs(info.possible_crtcs()).contains(&crtc),
+                    cursor: self.plane_property(p, "type") == Some(PlaneType::Cursor as u64),
+                    nv12: info.formats().contains(&(DrmFourcc::Nv12 as u32)),
+                })
+            })
+            .collect()
+    }
+}
+
 #[derive(serde::Serialize, Clone, Debug, PartialEq)]
 pub struct ModeInfo {
     /// `WxH@Hz`, what settings store
@@ -60,6 +149,8 @@ pub struct Display {
     card: Card,
     connector: connector::Handle,
     crtc: crtc::Handle,
+    /// Where kmssink puts the video
+    video_plane: Option<u32>,
     modes: Vec<(ModeInfo, Mode)>,
     current: Option<ModeInfo>,
     background: Option<(framebuffer::Handle, DumbBuffer)>,
@@ -112,6 +203,10 @@ impl Display {
                             .next()
                     })
                     .ok_or("HDMI port has no display controller")?;
+                let video_plane = choose_video_plane(&card.plane_facts(&res, crtc));
+                if video_plane.is_none() {
+                    eprintln!("[hdmi] no display plane takes NV12; the video may not show");
+                }
 
                 let panel = info.size().filter(|&(w, h)| w > 0 && h > 0);
                 let mut modes: Vec<(ModeInfo, Mode)> = Vec::new();
@@ -139,6 +234,7 @@ impl Display {
                     card,
                     connector: handle,
                     crtc,
+                    video_plane,
                     modes,
                     current,
                     background: None,
@@ -179,6 +275,11 @@ impl Display {
     /// dropping the Display
     pub fn fd(&self) -> RawFd {
         self.card.0.as_raw_fd()
+    }
+
+    /// The plane for kmssink, when one had to be chosen over its own pick
+    pub fn video_plane(&self) -> Option<u32> {
+        self.video_plane
     }
 
     /// Switch to `wanted`, or "auto" for the best mode for video. A mode the
@@ -267,14 +368,15 @@ impl Display {
         }
         let l = self.logo.as_ref().expect("set above");
         let alpha = ALPHA_OPAQUE * opacity_percent.min(100) as u64 / 100;
+        let zpos = clamp_zpos(LOGO_ZPOS, self.card.property_range(l.plane, "zpos"));
         for (name, value) in [
-            ("zpos", LOGO_ZPOS),
+            ("zpos", zpos),
             ("pixel blend mode", BLEND_COVERAGE),
             ("alpha", alpha),
             ("rotation", rotation),
         ] {
             // Best effort: a driver without one of these still shows the logo
-            let _ = self.set_plane_property(l.plane, name, value);
+            let _ = self.card.set_plane_property(l.plane, name, value);
         }
         self.card
             .set_plane(
@@ -328,8 +430,9 @@ impl Display {
         }
     }
 
-    /// From the end of the list: kmssink takes the first free one for the
-    /// video, and the two must not land on the same plane
+    /// From the end of the list, and never the video's: kmssink takes the
+    /// first free one when it isn't told, and the two must not land on the
+    /// same plane
     fn free_overlay_plane(&self) -> Result<plane::Handle, String> {
         let res = self.card.resource_handles().map_err(|e| e.to_string())?;
         let planes = self.card.plane_handles().map_err(|e| e.to_string())?;
@@ -340,36 +443,13 @@ impl Display {
                 let Ok(info) = self.card.get_plane(p) else {
                     return false;
                 };
-                info.crtc().is_none()
+                self.video_plane != Some(u32::from(p))
+                    && info.crtc().is_none()
                     && res.filter_crtcs(info.possible_crtcs()).contains(&self.crtc)
                     && info.formats().contains(&(DrmFourcc::Argb8888 as u32))
-                    && self.plane_property(p, "type") == Some(PLANE_TYPE_OVERLAY)
+                    && self.card.plane_property(p, "type") == Some(PlaneType::Overlay as u64)
             })
             .ok_or_else(|| "No free display plane for the logo".to_string())
-    }
-
-    fn find_property(
-        &self,
-        plane: plane::Handle,
-        name: &str,
-    ) -> Option<(drm::control::property::Handle, u64)> {
-        let props = self.card.get_properties(plane).ok()?;
-        props.iter().find_map(|(&handle, &value)| {
-            let info = self.card.get_property(handle).ok()?;
-            (info.name().to_str().ok()? == name).then_some((handle, value))
-        })
-    }
-
-    fn plane_property(&self, plane: plane::Handle, name: &str) -> Option<u64> {
-        self.find_property(plane, name).map(|(_, value)| value)
-    }
-
-    fn set_plane_property(&self, plane: plane::Handle, name: &str, value: u64) -> Option<()> {
-        let (handle, current) = self.find_property(plane, name)?;
-        if current != value {
-            self.card.set_property(plane, handle, value).ok()?;
-        }
-        Some(())
     }
 }
 
@@ -382,6 +462,10 @@ impl Drop for Display {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "display.test.rs"]
+mod tests;
 
 fn describe(m: &Mode) -> ModeInfo {
     let (w, h) = m.size();

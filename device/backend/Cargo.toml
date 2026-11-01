@@ -35,7 +35,9 @@ depends = """$auto,
     network-manager, dnsmasq-base, wpasupplicant, iw, iproute2, avahi-daemon,
     udisks2, kmod, util-linux, passwd, systemd, curl, ca-certificates, tzdata"""
 recommends = "raspi-utils-core, openssh-server"
-suggests = "wireguard-tools, tailscale, usbmuxd"
+# librockchip-mpp1 and gstreamer1.0-rockchip1 are the ROCK 3A's decoder and
+# encoder, from Radxa's repository; install.sh installs them there
+suggests = "wireguard-tools, tailscale, usbmuxd, librockchip-mpp1, gstreamer1.0-rockchip1"
 
 [dependencies]
 # async runtime (used by the web server thread)

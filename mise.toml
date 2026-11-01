@@ -127,6 +127,17 @@ depends = ["device:deb"]
 dir = "device"
 run = "packaging/sign.sh \"$(ls -t backend/target/debian/*.deb | head -1)\""
 
+[tasks."device:deb-bookworm"]
+description = "Build the .deb for Debian 12 (bookworm), which the Radxa ROCK 3A runs, in an arm64 Docker container"
+depends = ["frontend:build"]
+run = "device/packaging/bookworm/build.sh"
+
+[tasks."device:package-bookworm"]
+description = "Build the bookworm .deb and sign it"
+depends = ["device:deb-bookworm"]
+dir = "device"
+run = "packaging/sign.sh \"$(ls -t backend/target/bookworm/debian/*.deb | head -1)\""
+
 [tasks."device:serve-release"]
 description = "Serve the newest signed .deb as a release on http://localhost:8099 for testing updates (run the device with YSTREAMER_UPDATE_URL=http://localhost:8099/manifest.json)"
 dir = "device"
