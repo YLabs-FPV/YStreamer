@@ -67,8 +67,9 @@ pub struct Display {
 }
 
 impl Display {
-    /// The first connected HDMI port on any card that has one
-    pub fn open() -> Result<Self, String> {
+    /// The first connected HDMI port on any card that has one, or None when
+    /// nothing is plugged in
+    pub fn open() -> Result<Option<Self>, String> {
         let mut cards: Vec<_> = fs::read_dir("/dev/dri")
             .map_err(|e| format!("/dev/dri: {e}"))?
             .flatten()
@@ -113,29 +114,14 @@ impl Display {
                     })
                     .ok_or("HDMI port has no display controller")?;
 
-                let panel = info.size().filter(|&(w, h)| w > 0 && h > 0);
-                let mut modes: Vec<(ModeInfo, Mode)> = Vec::new();
-                for &m in info.modes() {
-                    if m.flags().contains(ModeFlags::INTERLACE) {
-                        continue;
-                    }
-                    let mut mi = describe(&m);
-                    if let Some((pw, ph)) = panel {
-                        let shape = mi.width as f64 / mi.height as f64;
-                        let panel = pw as f64 / ph as f64;
-                        mi.fits_screen = (shape / panel - 1.0).abs() < SHAPE_TOLERANCE;
-                    }
-                    if !modes.iter().any(|(o, _)| o.id == mi.id) {
-                        modes.push((mi, m));
-                    }
-                }
+                let modes = list_modes(&info);
                 let current = card
                     .get_crtc(crtc)
                     .ok()
                     .and_then(|c| c.mode())
                     .map(|m| describe(&m));
 
-                return Ok(Self {
+                return Ok(Some(Self {
                     card,
                     connector: handle,
                     crtc,
@@ -143,10 +129,18 @@ impl Display {
                     current,
                     background: None,
                     logo: None,
-                });
+                }));
             }
         }
-        Err("No screen connected to HDMI".into())
+        Ok(None)
+    }
+
+    /// Ask the port again, reading the screen's EDID afresh: its modes, or
+    /// None once it's unplugged. Different modes mean a different screen
+    pub fn probe(&self) -> Option<Vec<ModeInfo>> {
+        let info = self.card.get_connector(self.connector, true).ok()?;
+        (info.state() == connector::State::Connected)
+            .then(|| list_modes(&info).into_iter().map(|(m, _)| m).collect())
     }
 
     /// Up to 1080p, as close to 60 Hz as the screen goes, then the biggest.
@@ -381,6 +375,27 @@ impl Drop for Display {
             let _ = self.card.destroy_dumb_buffer(buf);
         }
     }
+}
+
+/// Progressive modes, each once, marked by whether they match the panel's shape
+fn list_modes(info: &connector::Info) -> Vec<(ModeInfo, Mode)> {
+    let panel = info.size().filter(|&(w, h)| w > 0 && h > 0);
+    let mut modes: Vec<(ModeInfo, Mode)> = Vec::new();
+    for &m in info.modes() {
+        if m.flags().contains(ModeFlags::INTERLACE) {
+            continue;
+        }
+        let mut mi = describe(&m);
+        if let Some((pw, ph)) = panel {
+            let shape = mi.width as f64 / mi.height as f64;
+            let panel = pw as f64 / ph as f64;
+            mi.fits_screen = (shape / panel - 1.0).abs() < SHAPE_TOLERANCE;
+        }
+        if !modes.iter().any(|(o, _)| o.id == mi.id) {
+            modes.push((mi, m));
+        }
+    }
+    modes
 }
 
 fn describe(m: &Mode) -> ModeInfo {

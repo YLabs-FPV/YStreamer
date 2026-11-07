@@ -7,11 +7,13 @@ order: 40
 import Admonition from "../../../../components/docs/Admonition.astro";
 
 Plug a screen into one of the Pi's micro-HDMI ports; YStreamer uses the first
-one with a screen connected. The settings are under **Display → HDMI**.
+one with a screen connected. Screens can be plugged in and unplugged while
+it runs: the picture follows within a second or two. The settings are under
+**Display → HDMI**.
 
 | Setting            | What it does                                                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| Show video on HDMI | Turn it off when nothing's plugged in: it frees the decoder and some CPU for streaming.                                 |
+| Show video on HDMI | While no screen is plugged in, it waits for one and uses no decoder or CPU.                                 |
 | Resolution         | **Automatic** picks the sharpest mode up to 1080p, as close to 60 Hz as the screen goes. Or pick one the screen offers. |
 | Scaling            | **Fit** shows the whole picture, with bars if the shapes differ. **Fill** fills the screen and crops the edges.         |
 | Rotate 180°        | For a screen mounted upside down.                                                                                       |
