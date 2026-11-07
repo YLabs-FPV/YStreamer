@@ -24,6 +24,40 @@ without encoding it again.
   goggles, under Settings → Camera → Advanced Camera Settings.
 </Admonition>
 
+## Goggles 3 over a USB-A cable
+
+For **Goggles 3**, instead of the USB-C port. Turn on **Liveview sharing** in
+the goggles' settings, then connect them to one of the Pi's **USB-A** ports
+with a USB-A to USB-C data cable. Video only: no camera settings, battery or
+link quality. The goggles' OSD is part of the shared picture.
+
+<Admonition type="warning" title="Experimental">
+  Only DJI Goggles 3 are known to share their view this way, and the maintainers
+  haven't tried this source on a YStreamer Pi yet.
+</Admonition>
+
+The card shows what it sees:
+
+- **Receiving video.**
+- **Goggles connected, no video yet**: power the aircraft and wait for the
+  picture in the goggles.
+- **Goggles found, but they don't share their view**: turn on liveview
+  sharing in the goggles. Turning it off and on again needs no restart.
+- **No goggles found**: check the cable and the port, and that liveview
+  sharing is on.
+
+With liveview sharing on, the goggles show up as a USB network adapter.
+YStreamer gives the Pi the address `192.168.60.1` on that link, with a
+NetworkManager profile called `ystreamer-goggles`. It never becomes the route
+to the internet, and the Network page doesn't list it as Ethernet.
+
+The goggles never send a full keyframe: the picture refreshes a strip at a
+time. YStreamer marks where players can start, so OBS, VLC and the browser
+pick the stream up mid-flight. Right after joining, parts of the picture can
+stay grey for a moment, until the refresh has gone over all of it. In the
+browser, use the **WebSocket** viewer (the default): WebRTC players wait for
+a full keyframe and can stay black.
+
 ## FPV Goggles V1 / V2
 
 The first DJI FPV Goggles. Connect them to one of the Pi's **USB-A** ports.

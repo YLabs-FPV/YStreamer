@@ -49,3 +49,25 @@ fn checks_mode_bitrate_and_keyframe_interval() {
     assert!(uvc("", 6000, 0).validate().is_err());
     assert!(uvc("", 6000, 11).validate().is_err());
 }
+
+#[test]
+fn input_modes_keep_their_names() {
+    let names: Vec<_> = [
+        InputMode::DjiFpv,
+        InputMode::Uvc,
+        InputMode::DjiFpvLegacy,
+        InputMode::DjiGogglesUsb,
+    ]
+    .iter()
+    .map(|m| serde_json::to_string(m).unwrap())
+    .collect();
+    assert_eq!(
+        names,
+        [
+            "\"dji_fpv\"",
+            "\"uvc\"",
+            "\"dji_fpv_legacy\"",
+            "\"dji_goggles_usb\""
+        ]
+    );
+}

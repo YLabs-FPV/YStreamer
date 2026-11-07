@@ -1,4 +1,5 @@
-export type InputMode = "dji_fpv" | "uvc" | "dji_fpv_legacy";
+export type InputMode =
+  "dji_fpv" | "uvc" | "dji_fpv_legacy" | "dji_goggles_usb";
 
 export type UvcFormat = "h264" | "mjpeg" | "raw";
 
@@ -38,8 +39,18 @@ export interface LegacyStatus {
   captured: number | null;
 }
 
+/** Goggles 3 sharing their liveview over a USB-A cable */
+export interface LiveviewStatus {
+  /** waiting: plugged in, but liveview sharing is off */
+  state: "idle" | "no_device" | "waiting" | "connected" | "live" | "error";
+  /** The goggles' network interface */
+  interface: string | null;
+  error: string | null;
+}
+
 export interface InputStatus {
   mode: InputMode;
   uvc: UvcStatus;
   legacy: LegacyStatus;
+  liveview: LiveviewStatus;
 }

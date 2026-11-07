@@ -1,4 +1,5 @@
 pub const IDR: u8 = 5;
+pub const SEI: u8 = 6;
 pub const SPS: u8 = 7;
 pub const AUD: u8 = 9;
 
@@ -119,6 +120,54 @@ pub fn strip_leading_aud(au: &[u8]) -> &[u8] {
     }
 }
 
+/// SEI payload type of a recovery point
+const RECOVERY_POINT_TYPE: u8 = 6;
+/// An SEI with one recovery point, payload size 1: recovery_frame_cnt 0 ("1"),
+/// exact_match_flag 0, broken_link_flag 0, changing_slice_group_idc 00 and
+/// the payload's alignment bits "100", then the RBSP stop bit
+const RECOVERY_POINT: &[u8] = &[0, 0, 0, 1, 0x06, RECOVERY_POINT_TYPE, 0x01, 0x84, 0x80];
+
+/// For streams without IDR pictures, which repaint the picture a slice at a
+/// time instead. Most players won't start on one: FFmpeg-based ones (OBS,
+/// VLC) and browsers wait for an IDR forever, unless a recovery point says
+/// decoding can start. This marks one on every picture after an SPS, where
+/// our own outputs already start. h264parse takes them for keyframes too.
+/// The first pictures show grey where the refresh hasn't reached yet
+#[derive(Default)]
+pub struct RecoveryPoints {
+    /// An SPS went by and no picture after it yet
+    pending: bool,
+}
+
+impl RecoveryPoints {
+    pub fn mark(&mut self, chunk: &[u8]) -> Vec<u8> {
+        let mut at = Vec::new();
+        for nal in nals(chunk) {
+            match nal.kind {
+                SPS => self.pending = true,
+                // The stream carries its own
+                SEI if chunk.get(nal.header + 1) == Some(&RECOVERY_POINT_TYPE) => {
+                    self.pending = false
+                }
+                _ if nal.is_vcl() && self.pending => {
+                    at.push(nal.start);
+                    self.pending = false;
+                }
+                _ => {}
+            }
+        }
+        let mut out = Vec::with_capacity(chunk.len() + at.len() * RECOVERY_POINT.len());
+        let mut from = 0;
+        for start in at {
+            out.extend_from_slice(&chunk[from..start]);
+            out.extend_from_slice(RECOVERY_POINT);
+            from = start;
+        }
+        out.extend_from_slice(&chunk[from..]);
+        out
+    }
+}
+
 #[cfg(test)]
 #[path = "h264.test.rs"]
-mod tests;
+pub(crate) mod tests;

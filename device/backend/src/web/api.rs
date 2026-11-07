@@ -57,6 +57,7 @@ pub struct Services {
     pub metrics: Arc<crate::system::metrics::Metrics>,
     pub uvc: Arc<crate::input::uvc::UvcSource>,
     pub legacy: Arc<crate::input::legacy::LegacySource>,
+    pub liveview: Arc<crate::input::liveview::LiveviewSource>,
 }
 
 pub fn router<S>(services: Services) -> Router<S> {

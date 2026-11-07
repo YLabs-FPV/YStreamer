@@ -24,6 +24,42 @@ cual, sin volver a codificarlo.
   las gafas, en Settings → Camera → Advanced Camera Settings.
 </Admonition>
 
+## Goggles 3 con un cable USB-A
+
+Para **Goggles 3**, en lugar del puerto USB-C. Activa **Liveview sharing** en
+los ajustes de las gafas y conéctalas a uno de los puertos **USB-A** de la Pi
+con un cable de datos USB-A a USB-C. Solo vídeo: sin ajustes de cámara,
+batería ni calidad del enlace. El OSD de las gafas forma parte de la imagen
+compartida.
+
+<Admonition type="warning" title="Experimental">
+  Solo se sabe que las DJI Goggles 3 comparten su imagen de esta forma, y los
+  mantenedores aún no han probado esta fuente en una Pi con YStreamer.
+</Admonition>
+
+La tarjeta muestra lo que detecta:
+
+- **Receiving video**: llega vídeo.
+- **Goggles connected, no video yet**: enciende la aeronave y espera a que
+  haya imagen en las gafas.
+- **Goggles found, but they don't share their view**: activa liveview sharing
+  en las gafas. Desactivarlo y volver a activarlo no necesita reiniciar.
+- **No goggles found**: revisa el cable y el puerto, y que liveview sharing
+  esté activado.
+
+Con liveview sharing activado, las gafas aparecen como un adaptador de red
+USB. YStreamer da a la Pi la dirección `192.168.60.1` en ese enlace, con un
+perfil de NetworkManager llamado `ystreamer-goggles`. Nunca se convierte en
+la ruta hacia internet, y la página Network no lo muestra como Ethernet.
+
+Las gafas nunca envían un fotograma clave completo: la imagen se refresca por
+franjas. YStreamer marca dónde pueden empezar los reproductores, así que OBS,
+VLC y el navegador se unen al stream en pleno vuelo. Justo al unirse, partes
+de la imagen pueden quedar grises un momento, hasta que el refresco la haya
+recorrido entera. En el navegador, usa el visor **WebSocket** (el
+predeterminado): los reproductores WebRTC esperan un fotograma clave completo
+y pueden quedarse en negro.
+
 ## FPV Goggles V1 / V2
 
 Las primeras DJI FPV Goggles. Conéctalas a uno de los puertos **USB-A** de la
