@@ -1,7 +1,8 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::fd::AsRawFd;
+use std::os::unix::process::CommandExt;
 use std::process::{Child, ChildStderr, ChildStdout, Command, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -28,11 +29,43 @@ const KEYFRAME_FRAMES: u32 = 30;
 const MAX_FPS: u32 = 30;
 /// After the converter failed to start, before trying again
 const RETRY: Duration = Duration::from_secs(5);
+/// Stopping ffmpeg gently, a step at a time: its input closed (it finishes
+/// and exits), then SIGTERM, then SIGKILL. Killed outright while it was
+/// starting the encoder, it took the Pi's codec driver down with it
+/// (kernel oops in `bcm2835_codec_start_streaming`), until a reboot
+const STOP_AFTER_INPUT: Duration = Duration::from_secs(2);
+const STOP_AFTER_TERM: Duration = Duration::from_secs(1);
+const STOP_AFTER_KILL: Duration = Duration::from_secs(1);
+/// From one ffmpeg gone to the next starting, for the same reason
+const RESTART_PAUSE: Duration = Duration::from_secs(1);
+/// While the last ffmpeg is still going, or just went
+const STARTING: &str = "Starting the H.265 conversion";
+/// What ffmpeg says when the hardware decoder turned the stream down and
+/// it decoded the pictures itself, which can't be picked in the decoder's
+/// memory (see `ffmpeg_args`)
+const HARDWARE_REFUSED: [&str; 3] = [
+    "Impossible to convert between the formats",
+    "Failed setup for format drm_prime",
+    "hwaccel initialisation returned error",
+];
 /// Joined a stream after its keyframe; the drone behind an RC-N remote
 /// sends one when it links to the remote, or when asked
 pub const WAITING_FOR_KEYFRAME: &str = "Waiting for a keyframe from the drone";
 /// Appended to every picture, as the goggles do; see `uvc.rs`
 const AUD: [u8; 6] = [0, 0, 0, 1, 0x09, 0xf0];
+/// The colour description the Pi's encoder leaves out of the stream. Without
+/// it, the Pi's H.264 decoder (for HDMI, NDI and OMT) starting on this
+/// stream picks I420 while GStreamer tells everything after it NV12, and
+/// fails on every picture
+const BT709: &str =
+    "video_full_range_flag=0:colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1";
+/// What ffmpeg does to the H.264 on its way out: the parameter sets with
+/// every keyframe, so outputs can join at any of them; a delimiter starting
+/// every picture; and the colour description (`BT709`)
+pub(crate) fn bitstream_filters() -> String {
+    format!("dump_extra=freq=keyframe,h264_metadata=aud=insert:{BT709}")
+}
+
 /// Where ffmpeg starts each H.264 picture (`h264_metadata=aud=insert`)
 const PICTURE_START: [u8; 5] = [0, 0, 0, 1, 0x09];
 /// Chunks of H.265 waiting for ffmpeg, ~4 KB each: about two seconds,
@@ -118,7 +151,7 @@ fn ffmpeg_args(in_decoder: bool) -> Vec<String> {
         // The parameter sets with every keyframe, so outputs can join at
         // any of them, and a delimiter starting every picture
         "-bsf:v",
-        "dump_extra=freq=keyframe,h264_metadata=aud=insert",
+        &bitstream_filters(),
         "-flush_packets",
         "1",
         "-f",
@@ -136,6 +169,8 @@ fn ffmpeg_args(in_decoder: bool) -> Vec<String> {
 
 struct Running {
     child: Child,
+    /// ffmpeg said the hardware decoder turned the stream down
+    hardware_refused: Arc<AtomicBool>,
     /// To the thread writing into ffmpeg
     input: SyncSender<Vec<u8>>,
     converter: Converter,
@@ -156,8 +191,11 @@ pub struct Transcoder {
     /// Unix millis of the last picture out; shared with the reading thread
     last_out: Arc<AtomicU64>,
     retry_at: Mutex<Option<Instant>>,
-    /// See `ffmpeg_args`; off once that way brought no pictures
+    /// See `ffmpeg_args`; off once ffmpeg said that way can't work
     in_decoder: Mutex<bool>,
+    /// The last ffmpeg on its way out, and when it was gone
+    stopping: Mutex<Option<thread::JoinHandle<()>>>,
+    stopped_at: Arc<Mutex<Option<Instant>>>,
 }
 
 impl Transcoder {
@@ -168,6 +206,8 @@ impl Transcoder {
             last_out: Arc::new(AtomicU64::new(0)),
             retry_at: Mutex::new(None),
             in_decoder: Mutex::new(true),
+            stopping: Mutex::new(None),
+            stopped_at: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -184,17 +224,19 @@ impl Transcoder {
         if let Some(r) = running.as_mut()
             && let Some(reason) = self.failed(r)
         {
-            stop(running.take());
             eprintln!("[hevc] conversion stopped working ({reason}), starting it again");
             let mut in_decoder = self.in_decoder.lock().unwrap();
-            if *in_decoder && self.last_out.load(Ordering::Relaxed) == 0 {
-                // Never a picture: the hardware may have turned the stream
-                // down, and ffmpeg's own pictures can't be picked that way
+            if *in_decoder && r.hardware_refused.load(Ordering::Relaxed) {
                 eprintln!("[hevc] copying every picture out of the decoder from now on");
                 *in_decoder = false;
             }
+            drop(in_decoder);
+            self.retire(running.take());
         }
         if running.is_none() {
+            if !self.ready_to_start() {
+                return Err(STARTING.into());
+            }
             let mut retry_at = self.retry_at.lock().unwrap();
             if retry_at.is_some_and(|at| Instant::now() < at) {
                 return Err("Couldn't convert the H.265 video".into());
@@ -245,9 +287,43 @@ impl Transcoder {
 
     /// Stops the converter, e.g. for a new link
     pub fn stop(&self) {
-        stop(self.running.lock().unwrap().take());
+        self.retire(self.running.lock().unwrap().take());
         *self.retry_at.lock().unwrap() = None;
         *self.in_decoder.lock().unwrap() = true;
+    }
+
+    /// Lets a converter go, gently, on a thread of its own: the link's
+    /// thread, which calls this, doesn't wait for it
+    fn retire(&self, running: Option<Running>) {
+        let Some(r) = running else {
+            return;
+        };
+        let stopped_at = Arc::clone(&self.stopped_at);
+        let handle = thread::Builder::new()
+            .name("hevc-stop".into())
+            .spawn(move || {
+                stop_gently(r);
+                *stopped_at.lock().unwrap() = Some(Instant::now());
+            });
+        match handle {
+            Ok(h) => *self.stopping.lock().unwrap() = Some(h),
+            Err(e) => eprintln!("[hevc] can't stop ffmpeg: {e}"),
+        }
+    }
+
+    /// Whether a new ffmpeg may start: the last one is gone, a moment ago
+    fn ready_to_start(&self) -> bool {
+        let mut stopping = self.stopping.lock().unwrap();
+        if let Some(h) = stopping.as_ref() {
+            if !h.is_finished() {
+                return false;
+            }
+            let _ = stopping.take().map(|h| h.join());
+        }
+        self.stopped_at
+            .lock()
+            .unwrap()
+            .is_none_or(|at| at.elapsed() >= RESTART_PAUSE)
     }
 
     fn failed(&self, r: &mut Running) -> Option<String> {
@@ -265,16 +341,28 @@ impl Transcoder {
 
     fn start(&self, params: &ParamSets) -> Result<Running, String> {
         self.last_out.store(0, Ordering::Relaxed);
-        let mut child = Command::new("ffmpeg")
+        let mut command = Command::new("ffmpeg");
+        command
             .args(ffmpeg_args(*self.in_decoder.lock().unwrap()))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| match e.kind() {
-                std::io::ErrorKind::NotFound => "ffmpeg isn't installed".to_string(),
-                _ => format!("ffmpeg: {e}"),
-            })?;
+            .stderr(Stdio::piped());
+        // Ends with YStreamer, however that goes (Ctrl+C, a crash): one left
+        // running holds the codec, and the next one beside it is the kind
+        // of start the codec driver didn't survive. It's the thread that
+        // starts ffmpeg whose end counts: the link's, which lasts
+        unsafe {
+            command.pre_exec(|| {
+                if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM) != 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+        let mut child = command.spawn().map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => "ffmpeg isn't installed".to_string(),
+            _ => format!("ffmpeg: {e}"),
+        })?;
         let (Some(mut stdin), Some(stdout), Some(stderr)) =
             (child.stdin.take(), child.stdout.take(), child.stderr.take())
         else {
@@ -282,6 +370,7 @@ impl Transcoder {
             return Err("ffmpeg's pipes".into());
         };
         let (input, chunks) = mpsc::sync_channel::<Vec<u8>>(INPUT_QUEUE);
+        let hardware_refused = Arc::new(AtomicBool::new(false));
         let spawned = thread::Builder::new()
             .name("hevc-in".into())
             .spawn(move || {
@@ -299,9 +388,10 @@ impl Transcoder {
                     .spawn(move || read_pictures(stdout, &on_picture, &last_out))
             })
             .and_then(|_| {
+                let refused = Arc::clone(&hardware_refused);
                 thread::Builder::new()
                     .name("hevc-log".into())
-                    .spawn(move || log_errors(stderr))
+                    .spawn(move || log_errors(stderr, &refused))
             });
         if let Err(e) = spawned {
             let _ = child.kill();
@@ -317,6 +407,7 @@ impl Transcoder {
         }
         Ok(Running {
             child,
+            hardware_refused,
             input,
             converter: Converter::Hardware,
             irap_at: None,
@@ -328,15 +419,52 @@ impl Transcoder {
 
 impl Drop for Transcoder {
     fn drop(&mut self) {
-        stop(self.running.lock().unwrap().take());
+        if let Some(r) = self.running.lock().unwrap().take() {
+            stop_gently(r);
+        }
+        if let Some(h) = self.stopping.lock().unwrap().take() {
+            let _ = h.join();
+        }
     }
 }
 
-/// Ends ffmpeg; its threads end with its pipes
-fn stop(running: Option<Running>) {
-    if let Some(mut r) = running {
-        let _ = r.child.kill();
-        let _ = r.child.wait();
+/// Ends ffmpeg the way least likely to upset the codec: out of input it
+/// finishes and exits; only if it doesn't is it told to, then made to.
+/// Its threads end with its pipes
+fn stop_gently(r: Running) {
+    let Running {
+        mut child, input, ..
+    } = r;
+    // Ends the thread writing into ffmpeg, which closes its input
+    drop(input);
+    if exited_within(&mut child, STOP_AFTER_INPUT) {
+        return;
+    }
+    unsafe { libc::kill(child.id() as libc::pid_t, libc::SIGTERM) };
+    if exited_within(&mut child, STOP_AFTER_TERM) {
+        return;
+    }
+    let _ = child.kill();
+    if !exited_within(&mut child, STOP_AFTER_KILL) {
+        // Stuck in the kernel: the codec driver has broken
+        eprintln!(
+            "[hevc] ffmpeg (pid {}) won't exit; the Pi may need restarting for its video codec to work again",
+            child.id()
+        );
+    }
+}
+
+/// Whether the process has exited, waiting up to `limit` for it
+fn exited_within(child: &mut Child, limit: Duration) -> bool {
+    let until = Instant::now() + limit;
+    loop {
+        if matches!(child.try_wait(), Ok(Some(_))) {
+            return true;
+        }
+        if Instant::now() >= until {
+            return false;
+        }
+        thread::sleep(Duration::from_millis(20));
     }
 }
 
@@ -395,11 +523,15 @@ fn pictures(buf: &[u8]) -> Vec<&[u8]> {
 }
 
 /// ffmpeg's messages, e.g. a picture whose reference never came. A damaged
-/// stream can bring many a second; only a few go to the log
-fn log_errors(stderr: ChildStderr) {
+/// stream can bring many a second; only a few go to the log. Notes when
+/// one says the hardware decoder turned the stream down
+fn log_errors(stderr: ChildStderr, hardware_refused: &AtomicBool) {
     let mut window = Instant::now();
     let (mut logged, mut skipped) = (0u32, 0u32);
     for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+        if HARDWARE_REFUSED.iter().any(|m| line.contains(m)) {
+            hardware_refused.store(true, Ordering::Relaxed);
+        }
         if window.elapsed() > LOG_WINDOW {
             if skipped > 0 {
                 eprintln!("[ffmpeg] ({skipped} more)");
