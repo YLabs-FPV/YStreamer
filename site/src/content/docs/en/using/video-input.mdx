@@ -19,9 +19,60 @@ quality.
 The video is the goggles' own H.264 stream. YStreamer passes it on as it is,
 without encoding it again.
 
+Some links carry H.265 instead. YStreamer works out which one it gets, and
+converts H.265 to H.264 once, on the Pi's hardware decoder and encoder, so
+every output keeps working. **Input → Video source** shows which codec
+arrived and how it's converted. It needs the Pi 4's hardware H.265 decoder;
+the CPU is too slow for a live H.265 stream. When the Pi can't keep up it
+skips pictures rather than fall behind.
+
 <Admonition type="tip" title="No OSD in the feed">
   To keep the OSD out of the video, turn off **Camera View Recording** in the
   goggles, under Settings → Camera → Advanced Camera Settings.
+</Admonition>
+
+## DJI RC-N2 / RC-N3 remote
+
+For aircraft flown with DJI Fly and an **RC-N2 or RC-N3** remote, such as the
+Neo 2 or the Mini series. Connect the remote's USB-C port (the one a phone
+uses) to the Pi's **USB-C** port, and keep the **DJI goggles / RC-N** source.
+YStreamer stands in for the phone and shows the live view. The remote sends
+H.265, which is converted to H.264 as described above.
+
+<Admonition type="tip" title="Plug the remote in last">
+  The remote sends the settings its video needs only once, when the cable goes
+  in. If YStreamer restarted with the remote already plugged in, it reconnects
+  the USB link once by itself; if the picture still doesn't come, the Input page
+  asks you to unplug the remote's cable and plug it back in.
+</Admonition>
+
+### Two-camera aircraft
+
+An aircraft with two cameras, such as the **Avata 360**, sends both over the
+remote's link. One goes to the outputs: HDMI, the browser, the streams and the
+recordings. Once YStreamer sees the second camera, the Input page shows a
+**Cameras** card with what each one is sending, and lets you choose the
+**Camera on the outputs**:
+
+| Choice | What goes out                                                                                        |
+| ------ | ---------------------------------------------------------------------------------------------------- |
+| Auto   | The bigger stream, which is the live view. It follows it when DJI Fly's picture-in-picture moves it. |
+| Main   | Always the link's first camera stream.                                                               |
+| Second | Always the other one.                                                                                |
+
+Saving the choice switches the camera at once, without restarting anything. The
+switch waits for the other camera's next keyframe, so the picture never mixes
+the two.
+
+<Admonition type="info" title="Only once armed">
+  The aircraft sends its second camera only once it's armed. On the bench the
+  card doesn't appear yet.
+</Admonition>
+
+<Admonition type="warning" title="The picture size can change">
+  The two cameras have different sizes, for example 1920 × 1080 and 640 × 360. A
+  switch during a recording or a stream changes the picture size mid-way, which
+  some players and streaming sites don't handle.
 </Admonition>
 
 ## FPV Goggles V1 / V2

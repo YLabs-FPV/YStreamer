@@ -7,8 +7,12 @@ pub mod session;
 
 use std::sync::atomic::{AtomicU16, Ordering};
 
+use super::lanes::Lane;
+
 const VIDEO_PORT: usize = 0x574A;
 const VIDEO_PORT_B: usize = 0x574B;
+/// A second camera's stream, e.g. on an Avata 360 over an RC-N3
+const VIDEO_PORT_SECOND: usize = 0x574D;
 
 const MAX_BUF: usize = 4 * 1024 * 1024;
 
@@ -119,7 +123,7 @@ impl DumlReassemblyBuffer {
     pub fn process(
         &mut self,
         data: &[u8],
-        mut on_video: impl FnMut(&[u8]),
+        mut on_video: impl FnMut(Lane, &[u8]),
         mut on_duml: impl FnMut(&Frame),
     ) {
         self.buf.extend_from_slice(data);
@@ -148,20 +152,24 @@ impl DumlReassemblyBuffer {
             let inner_start = i + 8;
             let inner = &self.buf[inner_start..inner_start + inner_len];
 
-            if port == VIDEO_PORT || port == VIDEO_PORT_B {
-                // Video
+            let lane = match port {
+                VIDEO_PORT | VIDEO_PORT_B => Some(Lane::Main),
+                VIDEO_PORT_SECOND => Some(Lane::Second),
+                _ => None,
+            };
+            if let Some(lane) = lane {
                 if inner_len >= 13 && inner[0] == 0x55 {
                     let duml_len = (inner[1] as usize) | (((inner[2] as usize) & 0x03) << 8);
                     if duml_len == inner_len {
                         let payload_len = inner_len - 13;
                         if payload_len > 0 {
-                            on_video(&inner[11..11 + payload_len]);
+                            on_video(lane, &inner[11..11 + payload_len]);
                         }
                     } else {
-                        on_video(inner);
+                        on_video(lane, inner);
                     }
                 } else {
-                    on_video(inner);
+                    on_video(lane, inner);
                 }
             } else {
                 // DUML command response

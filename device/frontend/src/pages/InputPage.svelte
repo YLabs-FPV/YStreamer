@@ -2,7 +2,12 @@
   import { onMount, onDestroy } from "svelte";
   import { api, message } from "@/api/client";
   import type { Settings } from "@/types/settings";
-  import type { InputStatus, UvcDevice, UvcMode } from "@/types/input";
+  import type {
+    InputStatus,
+    LaneStatus,
+    UvcDevice,
+    UvcMode,
+  } from "@/types/input";
   import Card from "@/components/ui/Card.svelte";
   import Field from "@/components/ui/Field.svelte";
   import TextField from "@/components/ui/TextField.svelte";
@@ -15,13 +20,14 @@
   let { input = $bindable() }: { input: Settings["input"] } = $props();
 
   const SOURCES = [
-    { label: "DJI goggles", value: "dji_fpv" },
+    { label: "DJI goggles / RC-N", value: "dji_fpv" },
     { label: "FPV Goggles V1/V2", value: "dji_fpv_legacy" },
     { label: "USB camera", value: "uvc" },
   ];
 
   const ABOUT: Record<string, string> = {
-    dji_fpv: "DJI Goggles 2, Integra, 3 or N3 connected to the USB-C port.",
+    dji_fpv:
+      "DJI Goggles 2, Integra, 3 or N3, or an RC-N2 / RC-N3 remote, connected to the USB-C port.",
     dji_fpv_legacy:
       "The first DJI FPV Goggles, V1 or V2, in one of the USB-A ports. Video only: no camera settings, battery or link quality.",
     uvc: "An analog receiver, HDMI capture stick or webcam in one of the USB-A ports. Its video is encoded to H.264 by the Pi's hardware encoder.",
@@ -42,6 +48,41 @@
   const legacy = $derived(
     status?.mode === "dji_fpv_legacy" ? status.legacy : null,
   );
+
+  const CONVERTER: Record<string, string> = {
+    hardware: "converted to H.264 in hardware",
+  };
+
+  const djiSummary = $derived.by(() => {
+    const d = status?.mode === "dji_fpv" ? status.dji : null;
+    if (!d?.codec) return null;
+    if (d.error) return { text: `${d.error}.`, tone: "text-down" };
+    if (d.codec === "h264") {
+      return { text: "H.264, passed on as it is.", tone: "text-ok" };
+    }
+    return d.converter
+      ? { text: `H.265, ${CONVERTER[d.converter]}.`, tone: "text-ok" }
+      : { text: "H.265, starting the conversion…", tone: "text-warn" };
+  });
+
+  const CAMERAS = [
+    { label: "Auto", value: "auto" },
+    { label: "Main", value: "main" },
+    { label: "Second", value: "second" },
+  ];
+
+  // Only offered once a second camera is on the link
+  const cameras = $derived(
+    status?.mode === "dji_fpv" ? status.dji.cameras : null,
+  );
+
+  function laneLabel(lane: LaneStatus) {
+    if (!lane.live) return "not sending";
+    const size =
+      lane.width && lane.height ? `${lane.width} × ${lane.height} · ` : "";
+    return `${size}${(lane.kbps / 1000).toFixed(1)} Mbit/s`;
+  }
+
   const legacySummary = $derived.by(() => {
     switch (legacy?.state) {
       case "live":
@@ -193,6 +234,9 @@
       <p class="text-[12px] text-muted">
         {ABOUT[input.mode]}
       </p>
+      {#if input.mode === "dji_fpv" && djiSummary}
+        <p class="text-[12px] {djiSummary.tone}">{djiSummary.text}</p>
+      {/if}
       {#if input.mode === "dji_fpv"}
         <p
           class="rounded-xl border border-line bg-warn/10 px-4 py-3 text-[12px] text-fg shadow-sm"
@@ -203,6 +247,40 @@
       {/if}
     </div>
   </Card>
+
+  {#if input.mode === "dji_fpv" && cameras}
+    <Card
+      title="Cameras"
+      description="This aircraft sends two cameras. One goes to HDMI, the browser, the streams and recordings."
+    >
+      <Field
+        label="Camera on the outputs"
+        help="Auto follows the bigger stream, which is the live view, also when DJI Fly's picture-in-picture moves it."
+        stacked
+      >
+        <div class="w-full">
+          <Segmented
+            options={CAMERAS}
+            value={input.camera}
+            onchange={(v) => (input.camera = v)}
+          />
+        </div>
+      </Field>
+      {#each [["main", "Main"], ["second", "Second"]] as const as [lane, label]}
+        <div class="flex items-center justify-between gap-4 px-4 py-3">
+          <span class="text-[13px] text-fg">
+            {label}
+            {#if cameras.program === lane}
+              <span class="ml-2 text-[12px] text-ok">on the outputs</span>
+            {/if}
+          </span>
+          <span class="font-mono text-[12px] text-muted tabular-nums">
+            {laneLabel(cameras[lane])}
+          </span>
+        </div>
+      {/each}
+    </Card>
+  {/if}
 
   {#if input.mode === "dji_fpv_legacy"}
     <Card title="FPV Goggles V1/V2">

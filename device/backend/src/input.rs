@@ -1,7 +1,12 @@
+pub mod codec;
+pub mod dji;
 pub mod duml;
 pub mod gadget;
 pub mod goggles;
 pub mod h264;
+pub mod h265;
+pub mod hevc;
+pub mod lanes;
 pub mod legacy;
 pub mod uvc;
 
@@ -17,12 +22,14 @@ use crate::output::rtsp::RtspServer;
 use crate::output::splash::Splash;
 use crate::output::srt::SrtOutput;
 use crate::output::udp::UdpOutput;
-use crate::settings::InputMode;
+use crate::settings::{CameraChoice, InputMode};
 
 /// Shared between the sources, the fan-out and the splash screen
 #[derive(Default)]
 pub struct InputState {
     mode: AtomicU8,
+    camera: AtomicU8,
+    pub dji: Mutex<dji::DjiStatus>,
     pub uvc: Mutex<uvc::UvcStatus>,
     pub legacy: Mutex<legacy::LegacyStatus>,
 }
@@ -49,6 +56,23 @@ impl InputState {
             InputMode::DjiFpvLegacy => 2,
         };
         self.mode.store(v, Ordering::Relaxed);
+    }
+
+    pub fn camera(&self) -> CameraChoice {
+        match self.camera.load(Ordering::Relaxed) {
+            1 => CameraChoice::Main,
+            2 => CameraChoice::Second,
+            _ => CameraChoice::Auto,
+        }
+    }
+
+    pub fn set_camera(&self, camera: CameraChoice) {
+        let v = match camera {
+            CameraChoice::Auto => 0,
+            CameraChoice::Main => 1,
+            CameraChoice::Second => 2,
+        };
+        self.camera.store(v, Ordering::Relaxed);
     }
 }
 
