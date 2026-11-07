@@ -1,6 +1,7 @@
 pub mod aircraft_recorder;
 pub mod camera;
 pub mod devices;
+pub mod flight;
 pub mod link;
 pub mod monitor;
 pub mod session;

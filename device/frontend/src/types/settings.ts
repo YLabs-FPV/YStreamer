@@ -9,6 +9,8 @@ export interface Settings {
       bitrate_kbps: number;
       keyframe_secs: number;
     };
+    /** Take off, land and return to home from the Watch page */
+    rc_actions: boolean;
   };
   device: { hostname: string; timezone: string };
   wifi: {

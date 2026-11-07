@@ -1,0 +1,84 @@
+---
+title: Acciones de la aeronave
+description: Despegar, aterrizar y volver a casa desde el navegador, los mismos botones que ofrece DJI Fly.
+order: 35
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+Con las **gafas DJI** como fuente, la página Watch puede mostrar los botones
+que DJI Fly ofrece para la aeronave: despegar, aterrizar, cancelar el
+aterrizaje, volver a casa (RTH) y cancelar el RTH. Para cada uno, YStreamer
+envía el mismo comando que envía DJI Fly, a través de las gafas hasta la
+aeronave.
+
+Está desactivado hasta que lo activas, y pensado para una aeronave que vuela
+alguien con su control remoto en la mano.
+
+<Admonition type="warning" title="El piloto sigues siendo tú">
+  Estos botones no sustituyen al control remoto. Tenlo en la mano, encendido y
+  listo para tomar el control: un comando desde el navegador puede llegar tarde
+  o no llegar, y la aeronave hace lo que se le pide aunque sea mala idea, como
+  despegar en interiores o aterrizar sobre el agua. Eres responsable del vuelo y
+  de cumplir las normas del lugar donde vuelas.
+</Admonition>
+
+## Activarlo
+
+1. Pon una [contraseña](/docs/network/security#web-interface-password) en
+   **System → General → Access**. Sin ella, cualquiera que abra la interfaz
+   web cuenta como administrador, así que el interruptor no se puede activar.
+2. En **Input**, con **DJI goggles** como fuente, activa **Aircraft actions**
+   y confirma el aviso.
+3. Guarda.
+
+El panel **actions** aparece entonces en la página Watch, junto al vídeo,
+solo para administradores. Quien solo está mirando no lo ve, y el dispositivo
+rechaza sus comandos.
+
+## Usar los botones
+
+| Botón          | Lo que hace la aeronave                                          |
+| -------------- | ---------------------------------------------------------------- |
+| Take off       | Arranca los motores y sube hasta quedarse en estacionario        |
+| Land           | Desciende y aterriza donde está                                  |
+| Return to home | Vuelve a su punto de origen y aterriza allí                      |
+| Cancel RTH     | Deja de volver a casa y se queda en estacionario                 |
+| Cancel landing | Detiene un aterrizaje automático, también el del final de un RTH |
+
+Cada botón hay que **mantenerlo pulsado alrededor de un segundo**: una barra se
+llena mientras lo pulsas, y soltarlo antes lo cancela. Una pulsación envía un
+comando. Seguir pulsando no lo vuelve a enviar.
+
+Los botones solo funcionan cuando el enlace con las gafas está activo y la
+aeronave está enlazada con ellas. Hasta entonces, el panel indica qué está
+esperando y el dispositivo rechaza el comando.
+
+Tras cada pulsación, el panel indica si la aeronave ha respondido. Si no,
+YStreamer vuelve a enviar el mismo comando, como hace DJI Fly, cuatro veces
+como mucho en dos segundos, y luego para. Que no responda no significa que no
+haya pasado nada: vigila la aeronave y ten listo el control remoto.
+
+<Admonition type="info" title="Volver a casa necesita un punto de origen">
+  La aeronave guarda su punto de origen cuando tiene una buena señal GPS, igual
+  que con el control remoto solo. Sin él no puede volver a casa. YStreamer no lo
+  comprueba por sí mismo, así que mira las gafas antes de confiar en el RTH.
+</Admonition>
+
+## El registro
+
+Cada pulsación queda en los [registros](/docs/maintenance/diagnostics) con la
+hora, la acción, y si la aeronave respondió o el dispositivo la rechazó y por
+qué. Las líneas empiezan por `[aircraft]`.
+
+## Probado con
+
+Volver a casa, cancelar el RTH y cancelar el aterrizaje son, byte a byte, lo
+que DJI Fly envió en grabaciones suyas volando nuestro propio DJI Neo 2. Los
+cinco comandos están también en las notas públicas del protocolo de DJI de
+[dji-firmware-tools](https://github.com/o-gs/dji-firmware-tools). Despegar y
+aterrizar se han volado a través de unas DJI Goggles 3 con exactamente estos
+comandos, desde otro dispositivo en el mismo enlace con las gafas. Desde el
+propio YStreamer, y el RTH desde algo que no sea DJI Fly, siguen sin probarse.
+Si los pruebas,
+[cuéntanos qué tal](https://github.com/YLabs-FPV/YStreamer/issues/new?template=hardware_report.yml).

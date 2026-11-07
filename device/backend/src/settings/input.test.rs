@@ -49,3 +49,11 @@ fn checks_mode_bitrate_and_keyframe_interval() {
     assert!(uvc("", 6000, 0).validate().is_err());
     assert!(uvc("", 6000, 11).validate().is_err());
 }
+
+#[test]
+fn aircraft_actions_stay_off_unless_turned_on() {
+    assert!(!InputSettings::default().rc_actions);
+    // Settings saved before the switch existed
+    let old: InputSettings = serde_json::from_str(r#"{"mode":"dji_fpv"}"#).unwrap();
+    assert!(!old.rc_actions);
+}

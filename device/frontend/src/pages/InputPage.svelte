@@ -8,9 +8,12 @@
   import TextField from "@/components/ui/TextField.svelte";
   import Select from "@/components/ui/Select.svelte";
   import Segmented from "@/components/ui/Segmented.svelte";
+  import Switch from "@/components/ui/Switch.svelte";
+  import ConfirmDialog from "@/components/ui/ConfirmDialog.svelte";
   import { btn } from "@/components/ui/buttons";
   import { snackbar } from "@/stores/snackbar.svelte";
   import { developer } from "@/stores/developer.svelte";
+  import { auth } from "@/stores/auth.svelte";
 
   let { input = $bindable() }: { input: Settings["input"] } = $props();
 
@@ -34,6 +37,9 @@
   };
 
   let status = $state<InputStatus | null>(null);
+  let confirmActions = $state(false);
+  // Off can always be chosen. On needs a password: without one, everyone is admin
+  const actionsLocked = $derived(!auth.enabled && !input.rc_actions);
   let devices = $state<UvcDevice[] | null>(null);
   let devicesError = $state<string | null>(null);
   let scanning = $state(false);
@@ -204,6 +210,38 @@
     </div>
   </Card>
 
+  {#if input.mode === "dji_fpv"}
+    <Card title="Aircraft actions">
+      <Field
+        label="Aircraft actions"
+        for="rc-actions"
+        help={auth.enabled
+          ? "Take off, land, return to home and their cancels from the Watch page, as DJI Fly offers them. Each button is held for a second."
+          : "Take off, land and return to home from the Watch page. Set a password under System → General first."}
+        disabled={actionsLocked}
+      >
+        <Switch
+          id="rc-actions"
+          bind:checked={
+            () => input.rc_actions,
+            (on) => {
+              if (on) confirmActions = true;
+              else input.rc_actions = false;
+            }
+          }
+          disabled={actionsLocked}
+        />
+      </Field>
+      {#if input.rc_actions}
+        <p class="bg-warn/10 px-4 py-3 text-[12px] text-fg">
+          You stay responsible for the flight. Keep the remote in hand and ready
+          to take over: a command from the browser can arrive late, or not at
+          all.
+        </p>
+      {/if}
+    </Card>
+  {/if}
+
   {#if input.mode === "dji_fpv_legacy"}
     <Card title="FPV Goggles V1/V2">
       <p class="bg-warn/10 px-4 py-3 text-[12px] text-fg">
@@ -326,3 +364,12 @@
     </Card>
   {/if}
 </div>
+
+<ConfirmDialog
+  bind:open={confirmActions}
+  title="Turn on aircraft actions?"
+  message="Anyone logged in as admin can then make the aircraft take off, land or return to home from the browser. You stay the pilot and responsible for the flight: keep the remote in hand, ready to take over."
+  confirmLabel="Turn on"
+  danger
+  onconfirm={() => (input.rc_actions = true)}
+/>

@@ -3,11 +3,13 @@
   import { auth } from "@/stores/auth.svelte";
   import { control } from "@/stores/control.svelte";
   import { recording } from "@/stores/recording.svelte";
+  import { settings } from "@/stores/settings.svelte";
   import type { PlayerHistory, PlayerStat, Status } from "@/types/stream";
   import Player from "@/components/watch/Player.svelte";
   import CameraPanel from "@/components/watch/CameraPanel.svelte";
   import RecorderWidget from "@/components/watch/RecorderWidget.svelte";
   import AircraftRecorderWidget from "@/components/watch/AircraftRecorderWidget.svelte";
+  import AircraftActionsWidget from "@/components/watch/AircraftActionsWidget.svelte";
   import StatsWidget from "@/components/watch/StatsWidget.svelte";
   import PageHeader from "@/components/layout/PageHeader.svelte";
   import { statusDot, statusLabel } from "@/lib/status";
@@ -31,6 +33,9 @@
   const camera = $derived(auth.admin && control.inputMode === "dji_fpv");
   const aircraftRecorder = $derived(
     camera && control.aircraftRecorder !== null,
+  );
+  const aircraftActions = $derived(
+    camera && !!settings.saved?.input.rc_actions,
   );
   const side = $derived(auth.admin || showStats);
 
@@ -121,6 +126,9 @@
     >
       {#if auth.admin}
         <RecorderWidget />
+      {/if}
+      {#if aircraftActions}
+        <AircraftActionsWidget />
       {/if}
       {#if aircraftRecorder}
         <AircraftRecorderWidget />
