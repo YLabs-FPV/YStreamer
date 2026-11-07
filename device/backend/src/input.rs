@@ -1,3 +1,4 @@
+pub mod aio;
 pub mod duml;
 pub mod gadget;
 pub mod goggles;

@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use super::aio::QueuedReader;
 use super::gadget::{EP_IN, EP_OUT};
 
 const UDC_DIR: &str = "/sys/class/udc";
@@ -253,18 +254,27 @@ impl Goggles {
     }
 }
 
+/// Reads queued at once in the kernel, and the most each takes: the remote
+/// sends 4 KB at a time, 2-3 MB a second
+const READS_QUEUED: usize = 16;
+const READ_SIZE: usize = 64 * 1024;
+
 /// Reads the link for as long as the process runs. A read blocks until the
 /// other end sends something (the endpoint can't be polled), so reading is
-/// done here, which leaves the session free to notice silence and resets
+/// done here, which leaves the session free to notice silence and resets.
+/// Reads are kept queued in the kernel (`aio`): the RC-N remote streams
+/// without waiting, and drops what it can't send while nothing reads
 fn read_loop(inbox: Sender<Rx>) {
-    let mut buf = vec![0u8; 128 * 1024];
+    raise_priority();
+    let mut buf = vec![0u8; READ_SIZE];
     let mut logged = false;
+    let mut queue_reads = true;
     loop {
         if !link_up() {
             thread::sleep(POLL_SLICE);
             continue;
         }
-        let mut ep = match File::open(EP_OUT) {
+        let ep = match File::open(EP_OUT) {
             Ok(ep) => ep,
             Err(e) => {
                 if !logged {
@@ -276,24 +286,70 @@ fn read_loop(inbox: Sender<Rx>) {
             }
         };
         logged = false;
-        let closed = loop {
-            match ep.read(&mut buf) {
-                // A zero-length packet, which the remote sends; a link that
-                // goes down fails the read instead
-                Ok(0) => {}
-                Ok(n) => {
-                    if inbox.send(Rx::Data(buf[..n].to_vec())).is_err() {
-                        return;
-                    }
+        let closed = if queue_reads {
+            let mut reader = match QueuedReader::new(ep, READS_QUEUED, READ_SIZE) {
+                Ok(reader) => reader,
+                Err(e) => {
+                    eprintln!("[usb] Can't keep reads queued ({e}), reading one at a time");
+                    queue_reads = false;
+                    continue;
                 }
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-                Err(e) => break e,
+            };
+            loop {
+                match reader.next() {
+                    // A zero-length packet, which the remote sends; a link
+                    // that goes down fails the read instead
+                    Ok(data) if data.is_empty() => {}
+                    Ok(data) => {
+                        if inbox.send(Rx::Data(data)).is_err() {
+                            return;
+                        }
+                    }
+                    Err(e) => break e,
+                }
             }
+        } else {
+            read_one_at_a_time(ep, &mut buf, &inbox)
         };
         if inbox.send(Rx::Closed(closed)).is_err() {
             return;
         }
         thread::sleep(POLL_SLICE);
+    }
+}
+
+/// Without `aio`: one read at a time, until the link closes
+fn read_one_at_a_time(mut ep: File, buf: &mut [u8], inbox: &Sender<Rx>) -> io::Error {
+    loop {
+        match ep.read(buf) {
+            Ok(0) => {}
+            Ok(n) => {
+                if inbox.send(Rx::Data(buf[..n].to_vec())).is_err() {
+                    return io::Error::new(io::ErrorKind::BrokenPipe, "nobody reads the link");
+                }
+            }
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    io::ErrorKind::Interrupted | io::ErrorKind::WouldBlock
+                ) =>
+            {
+                thread::sleep(Duration::from_millis(1));
+            }
+            Err(e) => return e,
+        }
+    }
+}
+
+/// The link's reader goes before the video work that keeps the cores busy:
+/// late to queue reads again, it loses what the remote sends meanwhile
+fn raise_priority() {
+    let tid = unsafe { libc::syscall(libc::SYS_gettid) } as libc::id_t;
+    if unsafe { libc::setpriority(libc::PRIO_PROCESS, tid, -10) } != 0 {
+        eprintln!(
+            "[usb] Can't raise the link reader's priority: {}",
+            io::Error::last_os_error()
+        );
     }
 }
 
