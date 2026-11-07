@@ -155,11 +155,26 @@ fn nothing_to_go_back_to_is_reported() {
 
 #[test]
 fn failed_install_changes_nothing() {
-    let dir = run_script("failed", &[100], "", RUNNING);
+    let dir = run_script("failed", &[100, 0, 100], "", RUNNING);
     assert_eq!(read(&dir, RESULT), "100");
     assert_eq!(read(&dir, CURRENT), "old");
     assert_eq!(read(&dir, STAGED), "new");
-    assert_eq!(read(&dir, "apt-calls").lines().count(), 1);
+    assert_eq!(read(&dir, "apt-calls").lines().count(), 3);
+}
+
+#[test]
+fn missing_package_lists_are_fetched_and_the_install_retried() {
+    let dir = run_script(
+        "lists",
+        &[100, 0, 0],
+        r#"{"status":"ok","version":"0.2.0"}"#,
+        RUNNING,
+    );
+    assert_eq!(read(&dir, RESULT), "0");
+    assert_eq!(read(&dir, CURRENT), "new");
+    let calls = read(&dir, "apt-calls");
+    assert_eq!(calls.lines().nth(1), Some("update"), "{calls}");
+    assert_eq!(calls.lines().count(), 3);
 }
 
 #[test]

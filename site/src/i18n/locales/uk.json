@@ -1,7 +1,7 @@
 {
   "site": {
     "titleSuffix": "Трансляція та запис з окулярів DJI FPV на Raspberry Pi",
-    "description": "Програма для Raspberry Pi 4, яка бере живе відео з окулярів DJI FPV або USB-камери й передає його на HDMI, у будь-який браузер, у потоки RTSP/SRT/RTMP/UDP та в записи.",
+    "description": "Програма для Raspberry Pi 4, яка бере живе відео з окулярів DJI FPV або USB-камери й передає його на HDMI, у будь-який браузер, у потоки RTSP/SRT/RTMP/UDP, NDI та OMT і в записи.",
     "docsTitleSuffix": "Документація YStreamer"
   },
   "nav": {
@@ -69,7 +69,7 @@
       },
       {
         "name": "Потоки",
-        "detail": "RTSP, SRT, RTMP і UDP"
+        "detail": "RTSP, SRT, RTMP, UDP, NDI і OMT"
       },
       {
         "name": "Запис",
@@ -88,7 +88,7 @@
       },
       {
         "title": "Трансляція",
-        "text": "RTSP-сервер, а також SRT, RTMP і UDP для OBS, наземних станцій і стрімінгових платформ."
+        "text": "RTSP-сервер, а також SRT, RTMP і UDP для OBS, наземних станцій і стрімінгових платформ, і NDI та OMT для vMix."
       },
       {
         "title": "Запис",

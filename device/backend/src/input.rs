@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::sync::mpsc;
 
-use crate::output::hdmi::GstPlayer;
+use crate::output::decoded::SharedDecoder;
 use crate::output::recording::Recorder;
 use crate::output::rtmp::RtmpOutput;
 use crate::output::rtsp::RtspServer;
@@ -62,7 +62,8 @@ impl InputState {
 pub struct Fanout {
     pub state: Arc<InputState>,
     pub splash: Arc<Splash>,
-    pub player: Arc<GstPlayer>,
+    /// Pictures for HDMI, NDI and OMT
+    pub decoder: Arc<SharedDecoder>,
     pub rtsp: Arc<RtspServer>,
     pub srt: Arc<SrtOutput>,
     pub rtmp: Arc<RtmpOutput>,
@@ -80,7 +81,7 @@ impl Fanout {
         }
         self.splash.video(chunk, || {
             self.metrics.video(chunk);
-            let _ = self.player.push(chunk);
+            self.decoder.push(chunk);
             self.rtsp.push(chunk);
             self.srt.push(chunk);
             self.rtmp.push(chunk);
@@ -95,7 +96,7 @@ impl Fanout {
     pub fn start_splash(self: &Arc<Self>) {
         let this = Arc::clone(self);
         self.splash.start(move |au| {
-            let _ = this.player.push_au(au.to_vec());
+            this.decoder.push_au(au);
             this.rtsp.push(au);
             this.srt.push(au);
             this.rtmp.push(au);
