@@ -272,3 +272,76 @@ fn asks_ffmpeg_for_what_the_outputs_need() {
     assert!(args.contains("dump_extra=freq=keyframe"));
     assert!(args.contains("aud=insert"));
 }
+
+/// A converter for the stopping tests: `program` stands in for ffmpeg, fed
+/// by a thread as ffmpeg is, so closing `input` closes its stdin
+fn running(program: &str, args: &[&str]) -> Running {
+    let mut child = Command::new(program)
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    let (input, chunks) = mpsc::sync_channel::<Vec<u8>>(1);
+    thread::spawn(move || {
+        for chunk in chunks {
+            if stdin.write_all(&chunk).is_err() {
+                break;
+            }
+        }
+    });
+    Running {
+        child,
+        hardware_refused: Arc::new(AtomicBool::new(false)),
+        input,
+        converter: Converter::Hardware,
+        irap_at: None,
+        dropped: 0,
+        dropped_logged: None,
+    }
+}
+
+#[test]
+fn stops_ffmpeg_by_closing_its_input() {
+    // `cat` ends at the end of its input, as ffmpeg does
+    let at = Instant::now();
+    stop_gently(running("cat", &[]));
+    assert!(at.elapsed() < STOP_AFTER_INPUT, "{:?}", at.elapsed());
+}
+
+#[test]
+fn tells_ffmpeg_to_stop_when_closing_its_input_isnt_enough() {
+    // `sleep` doesn't read its input: SIGTERM ends it
+    let at = Instant::now();
+    stop_gently(running("sleep", &["30"]));
+    let took = at.elapsed();
+    assert!(
+        took >= STOP_AFTER_INPUT && took < STOP_AFTER_INPUT + STOP_AFTER_TERM,
+        "{took:?}"
+    );
+}
+
+#[test]
+fn waits_a_moment_between_one_ffmpeg_and_the_next() {
+    let t = Transcoder::new(Arc::new(|_: &[u8]| {}));
+    assert!(t.ready_to_start());
+    t.retire(Some(running("cat", &[])));
+    assert!(!t.ready_to_start());
+    std::thread::sleep(RESTART_PAUSE + Duration::from_millis(300));
+    assert!(t.ready_to_start());
+}
+
+#[test]
+fn says_when_the_hardware_turned_the_stream_down() {
+    let line = "Impossible to convert between the formats supported by the filter 'Parsed_fps_0' and the filter 'auto_scale_0'";
+    assert!(HARDWARE_REFUSED.iter().any(|m| line.contains(m)));
+    let damaged = "[hevc @ 0x55] Could not find ref with POC 917";
+    assert!(!HARDWARE_REFUSED.iter().any(|m| damaged.contains(m)));
+}
+
+#[test]
+fn describes_the_colours_for_the_decoders_after_it() {
+    assert!(bitstream_filters().contains("colour_primaries=1"));
+    assert!(ffmpeg_args(true).join(" ").contains(&bitstream_filters()));
+}

@@ -406,3 +406,87 @@ fn pacing_follows_a_change_of_rate() {
     let (a, r) = released[599];
     assert!((r - a - PLAYOUT_DELAY).abs() < 0.03, "{}", r - a);
 }
+
+/// The H.265 converter's H.264 (ffmpeg on the Pi's encoder), with a decoder
+/// started on it from scratch, as after any restart while a remote streams.
+/// Without its colour description the Pi's decoder picked I420 under caps
+/// saying NV12, and failed on every picture
+#[test]
+fn decodes_the_h265_converters_video() {
+    let pi_encoder = std::fs::read_dir("/sys/class/video4linux")
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|dev| {
+            std::fs::read_to_string(dev.path().join("name"))
+                .is_ok_and(|name| name.trim() == "bcm2835-codec-encode")
+        });
+    if !pi_encoder || gst::init().is_err() || gst::ElementFactory::find("v4l2h264dec").is_none() {
+        eprintln!("skipping: needs the Pi's H.264 encoder and decoder");
+        return;
+    }
+    let Ok(out) = std::process::Command::new("ffmpeg")
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "smptebars=size=1920x1080:rate=30",
+            "-t",
+            "2",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:v",
+            "h264_v4l2m2m",
+            "-b:v",
+            "8000k",
+            "-g",
+            "30",
+            "-bf",
+            "0",
+            "-bsf:v",
+            &crate::input::hevc::bitstream_filters(),
+            "-f",
+            "h264",
+            "pipe:1",
+        ])
+        .output()
+    else {
+        eprintln!("skipping: no ffmpeg");
+        return;
+    };
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let h264 = out.stdout;
+    let mut starts: Vec<usize> = h264
+        .windows(5)
+        .enumerate()
+        .filter(|(_, w)| *w == [0, 0, 0, 1, 9])
+        .map(|(i, _)| i)
+        .collect();
+    starts.push(h264.len());
+    let aus: Vec<Vec<u8>> = starts
+        .windows(2)
+        .map(|w| h264[w[0]..w[1]].to_vec())
+        .collect();
+    // `decode` fails the test on any decoder error
+    let seen = decode(
+        &aus,
+        Limit {
+            max_height: 1080,
+            max_fps: 30,
+        },
+    );
+    assert!(
+        seen.len() > aus.len() / 2,
+        "{} of {} pictures",
+        seen.len(),
+        aus.len()
+    );
+    assert!(seen.iter().all(|&(w, h, _)| (w, h) == (1920, 1080)));
+}
