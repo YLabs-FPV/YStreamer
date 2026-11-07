@@ -66,6 +66,8 @@ pub(super) fn validate(s: &Settings) -> Result<(), String> {
     s.srt.validate()?;
     s.rtmp.validate()?;
     s.udp.validate()?;
+    s.ndi.validate("NDI")?;
+    s.omt.validate("OMT")?;
     s.recording.validate()?;
     Ok(())
 }
@@ -107,6 +109,37 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
         return Err(failed(format!("UDP: {e}")));
     }
 
+    // Both refuse to start without what they need on the device: the NDI
+    // runtime, or a free port for OMT
+    let undo_streams = |sv: &Services| {
+        if next.rtsp != prev.rtsp {
+            let _ = sv.rtsp.apply(&prev.rtsp);
+        }
+        if next.srt != prev.srt {
+            let _ = sv.srt.apply(&prev.srt);
+        }
+        if next.udp != prev.udp {
+            let _ = sv.udp.apply(&prev.udp);
+        }
+    };
+    if next.ndi != prev.ndi
+        && let Err(e) = sv.ndi.apply(&next.ndi)
+    {
+        undo_streams(sv);
+        let _ = sv.ndi.apply(&prev.ndi);
+        return Err(failed(format!("NDI: {e}")));
+    }
+    if next.omt != prev.omt
+        && let Err(e) = sv.omt.apply(&next.omt)
+    {
+        undo_streams(sv);
+        if next.ndi != prev.ndi {
+            let _ = sv.ndi.apply(&prev.ndi);
+        }
+        let _ = sv.omt.apply(&prev.omt);
+        return Err(failed(format!("OMT: {e}")));
+    }
+
     if next.input != prev.input {
         sv.input.set_mode(next.input.mode);
         sv.uvc.apply(&next.input.uvc);
@@ -130,6 +163,12 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
         }
         if next.udp != prev.udp {
             let _ = sv.udp.apply(&prev.udp);
+        }
+        if next.ndi != prev.ndi {
+            let _ = sv.ndi.apply(&prev.ndi);
+        }
+        if next.omt != prev.omt {
+            let _ = sv.omt.apply(&prev.omt);
         }
         if next.input != prev.input {
             sv.input.set_mode(prev.input.mode);

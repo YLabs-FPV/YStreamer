@@ -116,6 +116,12 @@ impl DumlReassemblyBuffer {
         }
     }
 
+    /// For a new connection: half a frame from the last one would swallow
+    /// the start of the next, where a remote sends its only parameter sets
+    pub fn clear(&mut self) {
+        self.buf.clear();
+    }
+
     pub fn process(
         &mut self,
         data: &[u8],

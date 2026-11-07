@@ -197,3 +197,49 @@ mod rtsp {
         assert!(auth("ad:min", "secret").is_err());
     }
 }
+
+mod network_source {
+    use super::*;
+
+    fn source(change: impl FnOnce(&mut NetworkSourceSettings)) -> Result<(), String> {
+        let mut s = NetworkSourceSettings::default();
+        change(&mut s);
+        s.validate("NDI")
+    }
+
+    #[test]
+    fn the_defaults_are_valid_and_off() {
+        let s = NetworkSourceSettings::default();
+        assert!(!s.enabled);
+        assert!(s.validate("NDI").is_ok());
+    }
+
+    #[test]
+    fn checks_the_name() {
+        assert!(source(|s| s.name = "Pilot 1".into()).is_ok());
+        assert!(source(|s| s.name = "goggles_2.b-c".into()).is_ok());
+        assert!(source(|s| s.name = "Пілот".into()).is_ok());
+        assert!(source(|s| s.name = "  ".into()).is_err());
+        assert!(source(|s| s.name = "cam (left)".into()).is_err());
+        assert!(source(|s| s.name = "a<b".into()).is_err());
+        assert!(source(|s| s.name = "a".repeat(32)).is_ok());
+        assert!(source(|s| s.name = "a".repeat(33)).is_err());
+    }
+
+    #[test]
+    fn caps_come_from_the_lists() {
+        assert!(source(|s| s.max_height = 1080).is_ok());
+        assert!(source(|s| s.max_height = 1000).is_err());
+        assert!(source(|s| s.max_fps = 60).is_ok());
+        assert!(source(|s| s.max_fps = 25).is_err());
+    }
+
+    #[test]
+    fn errors_name_the_output() {
+        let s = NetworkSourceSettings {
+            name: String::new(),
+            ..Default::default()
+        };
+        assert!(s.validate("OMT").unwrap_err().starts_with("OMT"));
+    }
+}

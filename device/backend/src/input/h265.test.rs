@@ -18,8 +18,28 @@ fn reads_the_nal_type() {
 
 #[test]
 fn finds_a_picture_to_start_from() {
-    assert!(has_irap(&[P_NAL, IDR_NAL].concat()));
-    assert!(!has_irap(&[P_NAL, P_NAL].concat()));
+    assert!(irap_start(&[P_NAL, IDR_NAL].concat()).is_some());
+    assert!(irap_start(&[P_NAL, P_NAL].concat()).is_none());
+}
+
+#[test]
+fn a_decoder_starts_at_the_keyframe_and_its_parameter_sets() {
+    // Joined mid-stream: the pictures before the keyframe are skipped
+    assert_eq!(
+        irap_start(&[P_NAL, P_NAL, IDR_NAL].concat()),
+        Some(2 * P_NAL.len())
+    );
+    // The parameter sets right in front of it go in with it
+    assert_eq!(
+        irap_start(&[P_NAL, VPS_NAL, SPS_NAL, PPS_NAL, IDR_NAL].concat()),
+        Some(P_NAL.len())
+    );
+    // Parameter sets with a picture after them aren't the keyframe's
+    assert_eq!(
+        irap_start(&[VPS_NAL, P_NAL, IDR_NAL].concat()),
+        Some(VPS_NAL.len() + P_NAL.len())
+    );
+    assert_eq!(irap_start(&[P_NAL, P_NAL].concat()), None);
 }
 
 #[test]

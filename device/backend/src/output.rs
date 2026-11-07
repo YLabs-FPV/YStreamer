@@ -1,5 +1,9 @@
+pub mod decoded;
 pub mod display;
 pub mod hdmi;
+pub mod hotplug;
+pub mod ndi;
+pub mod omt;
 pub mod overlay;
 pub mod recording;
 pub mod rtmp;

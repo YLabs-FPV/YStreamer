@@ -18,22 +18,30 @@ pub fn is_irap(kind: u8) -> bool {
     (16..=23).contains(&kind)
 }
 
-/// Whether `data` holds the start of a picture a decoder can start from
-pub fn has_irap(data: &[u8]) -> bool {
+/// Where the first picture a decoder can start from begins, at its start
+/// code, along with any parameter sets right in front of it
+pub fn irap_start(data: &[u8]) -> Option<usize> {
     let mut from = 0;
+    // The start of a run of parameter sets that may lead up to the picture
+    let mut params_from = None;
     while let Some((start, len)) = find_start_code(data, from) {
         let header = start + len;
-        match data.get(header) {
-            Some(&b) if is_irap(kind(b)) => return true,
-            Some(_) => from = header,
-            None => return false,
+        let k = kind(*data.get(header)?);
+        if is_irap(k) {
+            return Some(params_from.unwrap_or(start));
         }
+        params_from = match k {
+            VPS | SPS | PPS => params_from.or(Some(start)),
+            _ => None,
+        };
+        from = header;
     }
-    false
+    None
 }
 
-/// The stream's latest VPS, SPS and PPS. An RC-N remote sends them once,
-/// when the cable goes in, so they're kept for every decoder started later
+/// The stream's latest VPS, SPS and PPS. The drone behind an RC-N remote
+/// sends them only with a keyframe: when it links to the remote, or when
+/// asked. So they're kept for every decoder started later
 #[derive(Default)]
 pub struct ParamSets {
     vps: Option<Vec<u8>>,

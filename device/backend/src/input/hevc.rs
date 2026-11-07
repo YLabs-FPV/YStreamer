@@ -1,71 +1,149 @@
+use std::io::{BufRead, BufReader, Read, Write};
+use std::os::fd::AsRawFd;
+use std::process::{Child, ChildStderr, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::{self, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use gstreamer as gst;
-use gstreamer::prelude::*;
-use gstreamer_app::{AppSink, AppSrc};
 use serde::Serialize;
 
 use super::h264;
 use super::h265::{self, ParamSets};
 
 /// After a picture a decoder can start from went in, this long without a
-/// picture out means this way of converting doesn't work here
+/// picture out means the converter doesn't work here
 const FIRST_PICTURE: Duration = Duration::from_secs(4);
+/// Pictures stopped coming out this long after they had been: hung
+const STALLED: Duration = Duration::from_secs(3);
 /// What comes out goes to every output, the browser included, so it's
 /// sized like a typical goggles stream
 const BITRATE_KBPS: u32 = 8000;
 const KEYFRAME_FRAMES: u32 = 30;
-/// After every converter failed, before trying again
+/// The Pi 4's H.264 encoder can't keep up with 1080p60 (it tops out near
+/// 50 with GStreamer, and won't start at 60 in ffmpeg), so a 60 stream
+/// comes out at 30: steady, rather than dropping whichever pictures it's
+/// late for
+const MAX_FPS: u32 = 30;
+/// After the converter failed to start, before trying again
 const RETRY: Duration = Duration::from_secs(5);
+/// Joined a stream after its keyframe; the drone behind an RC-N remote
+/// sends one when it links to the remote, or when asked
+pub const WAITING_FOR_KEYFRAME: &str = "Waiting for a keyframe from the drone";
 /// Appended to every picture, as the goggles do; see `uvc.rs`
 const AUD: [u8; 6] = [0, 0, 0, 1, 0x09, 0xf0];
+/// Where ffmpeg starts each H.264 picture (`h264_metadata=aud=insert`)
+const PICTURE_START: [u8; 5] = [0, 0, 0, 1, 0x09];
+/// Chunks of H.265 waiting for ffmpeg, ~4 KB each: about two seconds,
+/// enough for it to start up. More than that and ffmpeg has stopped taking
+/// them; they're dropped rather than hold up the link, and a gap in the
+/// stream is a damaged picture until it heals, so it's logged
+const INPUT_QUEUE: usize = 1024;
+const DROPS_LOGGED_EVERY: Duration = Duration::from_secs(5);
+/// ffmpeg writes each picture whole, at once: this long after a read with
+/// nothing more to read, what's there is complete. Waiting for the next
+/// picture's start instead would add a picture's time to the delay
+const PICTURE_SETTLED_MS: i32 = 3;
+/// ffmpeg's complaints about a damaged stream, at most this many a window
+const LOG_LINES: u32 = 5;
+const LOG_WINDOW: Duration = Duration::from_secs(10);
 
 /// How H.265 becomes the H.264 every output takes. The Pi 4 decodes
 /// H.265 in hardware but only encodes H.264, so this is the one
-/// conversion the device makes; outputs stay as they are. Only the
-/// hardware codecs: on the CPU an RC-N3 + Neo 2 stream decoded at 27
-/// pictures a second and the delay grew by the second
+/// conversion the device makes; outputs stay as they are
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Converter {
-    /// The H.265 decoder's pictures come out tiled, which neither the
-    /// encoder nor the converter take from GStreamer, so they're untiled
-    /// on the CPU first
+    /// Raspberry Pi's ffmpeg, in a process of its own, with the hardware
+    /// H.265 decoder and H.264 encoder. Not GStreamer's `v4l2slh265dec`:
+    /// in 1.26 it crashes the process (SIGSEGV in `output_picture`) on any
+    /// picture whose reference it never got, which a live link brings now
+    /// and then; ffmpeg shows a damaged picture for a moment and goes on.
+    /// Its own process keeps anything else that goes wrong away from
+    /// YStreamer: it's started again, and the drone asked for a keyframe
     Hardware,
 }
 
-const CONVERTERS: [Converter; 1] = [Converter::Hardware];
-
-/// The newest picture only. The decoder keeps up with anything a remote
-/// sends (150 pictures a second at 1080p), so nothing queues in front of
-/// it; when untiling or the encoder fall behind they skip pictures rather
-/// than queue them, which would grow the delay without end
-const LATEST: &str = "queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 leaky=downstream";
-
-impl Converter {
-    fn elements(self) -> String {
-        let hw_encode = format!(
-            "v4l2h264enc extra-controls=\"controls,video_bitrate={},h264_i_frame_period={KEYFRAME_FRAMES},repeat_sequence_header=1\" ! \
-             video/x-h264,level=(string)4.2,profile=(string)high",
-            BITRATE_KBPS * 1000
-        );
-        match self {
-            Self::Hardware => format!(
-                "v4l2slh265dec ! video/x-raw,format=NV12_128C8 ! {LATEST} ! \
-                 videoconvert n-threads=4 ! video/x-raw,format=NV12 ! {hw_encode}"
-            ),
-        }
-    }
+/// ffmpeg's arguments: H.265 in on stdin, H.264 out on stdout.
+/// `in_decoder`: pictures stay in the hardware decoder's memory until
+/// they're picked; without it, every one is copied out first, which a
+/// stream the hardware turns down (decoded by ffmpeg itself) needs
+fn ffmpeg_args(in_decoder: bool) -> Vec<String> {
+    let (output_format, filters) = if in_decoder {
+        (
+            &["-hwaccel_output_format", "drm_prime"][..],
+            format!("fps={MAX_FPS},hwdownload,format=yuv420p"),
+        )
+    } else {
+        (&[][..], format!("fps={MAX_FPS},format=yuv420p"))
+    };
+    let before_input = [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-nostats",
+        // Pictures go through as they come, not after a look ahead. Not
+        // `-fflags nobuffer`: it throws away what was read while probing,
+        // which is the keyframe everything after it refers to
+        "-flags",
+        "low_delay",
+        "-probesize",
+        "32",
+        "-analyzeduration",
+        "0",
+        // Frame threads would hold pictures back to decode them in parallel
+        "-threads",
+        "1",
+        "-hwaccel",
+        "drm",
+    ];
+    // Picked while still in the decoder's memory, so only the pictures
+    // kept are copied out of it: the copying is what costs (it competes
+    // with HDMI for memory), and half the pictures are dropped. Copying
+    // all of them, a busy Pi fell behind
+    let after_input = [
+        "-vf",
+        &filters,
+        "-fpsmax",
+        &MAX_FPS.to_string(),
+        "-c:v",
+        "h264_v4l2m2m",
+        "-b:v",
+        &format!("{}k", BITRATE_KBPS),
+        "-g",
+        &KEYFRAME_FRAMES.to_string(),
+        "-bf",
+        "0",
+        // The parameter sets with every keyframe, so outputs can join at
+        // any of them, and a delimiter starting every picture
+        "-bsf:v",
+        "dump_extra=freq=keyframe,h264_metadata=aud=insert",
+        "-flush_packets",
+        "1",
+        "-f",
+        "h264",
+        "pipe:1",
+    ];
+    before_input
+        .iter()
+        .chain(output_format)
+        .chain(&["-f", "hevc", "-i", "pipe:0"])
+        .chain(&after_input)
+        .map(|a| a.to_string())
+        .collect()
 }
 
 struct Running {
-    pipeline: gst::Pipeline,
-    src: AppSrc,
+    child: Child,
+    /// To the thread writing into ffmpeg
+    input: SyncSender<Vec<u8>>,
     converter: Converter,
     /// When a picture a decoder can start from went in
     irap_at: Option<Instant>,
+    /// Chunks dropped because ffmpeg wasn't taking them, since last logged
+    dropped: u64,
+    dropped_logged: Option<Instant>,
 }
 
 /// Gets every converted picture, an H.264 access unit
@@ -75,11 +153,11 @@ pub type OnPicture = Arc<dyn Fn(&[u8]) + Send + Sync>;
 pub struct Transcoder {
     on_picture: OnPicture,
     running: Mutex<Option<Running>>,
-    /// Index into `CONVERTERS` of the next one to try
-    next: Mutex<usize>,
-    /// Unix millis of the last picture out; shared with the appsink callback
+    /// Unix millis of the last picture out; shared with the reading thread
     last_out: Arc<AtomicU64>,
     retry_at: Mutex<Option<Instant>>,
+    /// See `ffmpeg_args`; off once that way brought no pictures
+    in_decoder: Mutex<bool>,
 }
 
 impl Transcoder {
@@ -87,9 +165,9 @@ impl Transcoder {
         Self {
             on_picture,
             running: Mutex::new(None),
-            next: Mutex::new(0),
             last_out: Arc::new(AtomicU64::new(0)),
             retry_at: Mutex::new(None),
+            in_decoder: Mutex::new(true),
         }
     }
 
@@ -98,17 +176,23 @@ impl Transcoder {
         self.running.lock().unwrap().as_ref().map(|r| r.converter)
     }
 
-    /// Feed the link's bytes; starts a pipeline when there's none, and moves
-    /// on to the next converter when one turns out not to work.
+    /// Feed the link's bytes; starts the converter when there's none, and
+    /// starts it again when it stops working.
     /// Errors are for the status, not fatal
     pub fn push(&self, data: &[u8], params: &ParamSets) -> Result<(), String> {
         let mut running = self.running.lock().unwrap();
-        if let Some(r) = running.as_ref()
+        if let Some(r) = running.as_mut()
             && let Some(reason) = self.failed(r)
         {
-            let converter = r.converter;
             stop(running.take());
-            eprintln!("[hevc] {converter:?} conversion didn't work: {reason}");
+            eprintln!("[hevc] conversion stopped working ({reason}), starting it again");
+            let mut in_decoder = self.in_decoder.lock().unwrap();
+            if *in_decoder && self.last_out.load(Ordering::Relaxed) == 0 {
+                // Never a picture: the hardware may have turned the stream
+                // down, and ffmpeg's own pictures can't be picked that way
+                eprintln!("[hevc] copying every picture out of the decoder from now on");
+                *in_decoder = false;
+            }
         }
         if running.is_none() {
             let mut retry_at = self.retry_at.lock().unwrap();
@@ -121,69 +205,124 @@ impl Transcoder {
                     *running = Some(r);
                 }
                 Err(e) => {
+                    eprintln!("[hevc] can't convert: {e}");
                     *retry_at = Some(Instant::now() + RETRY);
                     return Err(e);
                 }
             }
         }
         let r = running.as_mut().expect("started above");
-        if r.irap_at.is_none() && h265::has_irap(data) {
-            r.irap_at = Some(Instant::now());
+        // Nothing goes in before a picture the decoder can start from: the
+        // ones before it refer to pictures it never had
+        let data = match r.irap_at {
+            Some(_) => data,
+            None => match h265::irap_start(data) {
+                Some(start) => {
+                    r.irap_at = Some(Instant::now());
+                    &data[start..]
+                }
+                None => return Err(WAITING_FOR_KEYFRAME.into()),
+            },
+        };
+        match r.input.try_send(data.to_vec()) {
+            Ok(()) | Err(TrySendError::Disconnected(_)) => {}
+            // ffmpeg isn't taking any; `failed` sees to it if it lasts
+            Err(TrySendError::Full(_)) => r.dropped += 1,
         }
-        let _ = r.src.push_buffer(gst::Buffer::from_slice(data.to_vec()));
+        if r.dropped > 0
+            && r.dropped_logged
+                .is_none_or(|at| at.elapsed() > DROPS_LOGGED_EVERY)
+        {
+            eprintln!(
+                "[hevc] ffmpeg fell behind: dropped {} chunks of video",
+                r.dropped
+            );
+            r.dropped = 0;
+            r.dropped_logged = Some(Instant::now());
+        }
         Ok(())
     }
 
-    /// Back to trying the hardware first, e.g. for a new link
+    /// Stops the converter, e.g. for a new link
     pub fn stop(&self) {
         stop(self.running.lock().unwrap().take());
-        *self.next.lock().unwrap() = 0;
         *self.retry_at.lock().unwrap() = None;
+        *self.in_decoder.lock().unwrap() = true;
     }
 
-    fn failed(&self, r: &Running) -> Option<String> {
-        if let Some(e) = bus_error(&r.pipeline) {
-            return Some(e);
+    fn failed(&self, r: &mut Running) -> Option<String> {
+        if let Ok(Some(status)) = r.child.try_wait() {
+            return Some(format!("ffmpeg exited, {status}"));
         }
-        let waited = r.irap_at.is_some_and(|at| at.elapsed() > FIRST_PICTURE);
-        if waited && self.last_out.load(Ordering::Relaxed) == 0 {
-            return Some("no pictures came out".into());
+        let last_out = self.last_out.load(Ordering::Relaxed);
+        if last_out == 0 {
+            let waited = r.irap_at.is_some_and(|at| at.elapsed() > FIRST_PICTURE);
+            return waited.then(|| "no pictures came out".into());
         }
-        None
+        let since = now_millis().saturating_sub(last_out);
+        (since > STALLED.as_millis() as u64).then(|| "pictures stopped coming out".into())
     }
 
     fn start(&self, params: &ParamSets) -> Result<Running, String> {
-        let mut next = self.next.lock().unwrap();
-        loop {
-            let Some(&converter) = CONVERTERS.get(*next) else {
-                // Every one failed: start over, the link may have been odd
-                *next = 0;
-                return Err("Couldn't convert the H.265 video".into());
-            };
-            *next += 1;
-            self.last_out.store(0, Ordering::Relaxed);
-            match build(
-                converter,
-                Arc::clone(&self.on_picture),
-                Arc::clone(&self.last_out),
-            ) {
-                Ok((pipeline, src)) => {
-                    println!("[hevc] converting H.265 to H.264 ({converter:?})");
-                    // A remote sends its parameter sets only once; a decoder
-                    // started after that needs them handed over first
-                    if let Some(params) = params.annex_b() {
-                        let _ = src.push_buffer(gst::Buffer::from_slice(params));
+        self.last_out.store(0, Ordering::Relaxed);
+        let mut child = Command::new("ffmpeg")
+            .args(ffmpeg_args(*self.in_decoder.lock().unwrap()))
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| match e.kind() {
+                std::io::ErrorKind::NotFound => "ffmpeg isn't installed".to_string(),
+                _ => format!("ffmpeg: {e}"),
+            })?;
+        let (Some(mut stdin), Some(stdout), Some(stderr)) =
+            (child.stdin.take(), child.stdout.take(), child.stderr.take())
+        else {
+            let _ = child.kill();
+            return Err("ffmpeg's pipes".into());
+        };
+        let (input, chunks) = mpsc::sync_channel::<Vec<u8>>(INPUT_QUEUE);
+        let spawned = thread::Builder::new()
+            .name("hevc-in".into())
+            .spawn(move || {
+                for chunk in chunks {
+                    if stdin.write_all(&chunk).is_err() {
+                        break;
                     }
-                    return Ok(Running {
-                        pipeline,
-                        src,
-                        converter,
-                        irap_at: None,
-                    });
                 }
-                Err(e) => eprintln!("[hevc] {converter:?} conversion unavailable: {e}"),
-            }
+            })
+            .and_then(|_| {
+                let on_picture = Arc::clone(&self.on_picture);
+                let last_out = Arc::clone(&self.last_out);
+                thread::Builder::new()
+                    .name("hevc-out".into())
+                    .spawn(move || read_pictures(stdout, &on_picture, &last_out))
+            })
+            .and_then(|_| {
+                thread::Builder::new()
+                    .name("hevc-log".into())
+                    .spawn(move || log_errors(stderr))
+            });
+        if let Err(e) = spawned {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(e.to_string());
         }
+        println!("[hevc] converting H.265 to H.264 (ffmpeg)");
+        // A remote sends its parameter sets only with a keyframe; a decoder
+        // started after that needs them handed over first. It then waits
+        // for the next keyframe
+        if let Some(params) = params.annex_b() {
+            let _ = input.try_send(params);
+        }
+        Ok(Running {
+            child,
+            input,
+            converter: Converter::Hardware,
+            irap_at: None,
+            dropped: 0,
+            dropped_logged: None,
+        })
     }
 }
 
@@ -193,69 +332,88 @@ impl Drop for Transcoder {
     }
 }
 
+/// Ends ffmpeg; its threads end with its pipes
 fn stop(running: Option<Running>) {
-    if let Some(r) = running {
-        let _ = r.pipeline.set_state(gst::State::Null);
+    if let Some(mut r) = running {
+        let _ = r.child.kill();
+        let _ = r.child.wait();
     }
 }
 
-fn bus_error(pipeline: &gst::Pipeline) -> Option<String> {
-    let msg = pipeline.bus()?.pop_filtered(&[gst::MessageType::Error])?;
-    match msg.view() {
-        gst::MessageView::Error(e) => Some(e.error().to_string()),
-        _ => None,
+/// The pictures ffmpeg writes, each handed over with the goggles' framing
+fn read_pictures(mut stdout: ChildStdout, on_picture: &OnPicture, last_out: &AtomicU64) {
+    let mut buf = Vec::new();
+    let mut chunk = vec![0u8; 256 * 1024];
+    loop {
+        match stdout.read(&mut chunk) {
+            Ok(0) | Err(_) => return,
+            Ok(n) => buf.extend_from_slice(&chunk[..n]),
+        }
+        if more_coming(&stdout) {
+            continue;
+        }
+        for picture in pictures(&buf) {
+            let picture = h264::strip_leading_aud(picture);
+            let mut au = Vec::with_capacity(picture.len() + AUD.len());
+            au.extend_from_slice(picture);
+            au.extend_from_slice(&AUD);
+            last_out.store(now_millis(), Ordering::Relaxed);
+            on_picture(&au);
+        }
+        buf.clear();
     }
 }
 
-fn build(
-    converter: Converter,
-    on_picture: OnPicture,
-    last_out: Arc<AtomicU64>,
-) -> Result<(gst::Pipeline, AppSrc), String> {
-    gst::init().map_err(|e| e.to_string())?;
-    let description = format!(
-        "appsrc name=src is-live=true do-timestamp=true format=time \
-         caps=video/x-h265,stream-format=byte-stream ! h265parse ! {} ! \
-         h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream,alignment=au ! \
-         appsink name=sink sync=false max-buffers=4 drop=true",
-        converter.elements()
-    );
-    let pipeline = gst::parse::launch(&description)
-        .map_err(|e| e.to_string())?
-        .dynamic_cast::<gst::Pipeline>()
-        .map_err(|_| "not a pipeline".to_string())?;
-    let src = pipeline
-        .by_name("src")
-        .and_then(|e| e.dynamic_cast::<AppSrc>().ok())
-        .ok_or("no appsrc")?;
-    let sink = pipeline
-        .by_name("sink")
-        .and_then(|e| e.dynamic_cast::<AppSink>().ok())
-        .ok_or("no appsink")?;
-    sink.set_callbacks(
-        gstreamer_app::AppSinkCallbacks::builder()
-            .new_sample(move |sink| {
-                let sample = sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
-                if let Some(buffer) = sample.buffer()
-                    && let Ok(map) = buffer.map_readable()
-                {
-                    let picture = h264::strip_leading_aud(&map);
-                    let mut au = Vec::with_capacity(picture.len() + AUD.len());
-                    au.extend_from_slice(picture);
-                    au.extend_from_slice(&AUD);
-                    last_out.store(now_millis(), Ordering::Relaxed);
-                    on_picture(&au);
-                }
-                Ok(gst::FlowSuccess::Ok)
-            })
-            .build(),
-    );
-    if let Err(e) = pipeline.set_state(gst::State::Playing) {
-        let reason = bus_error(&pipeline).unwrap_or_else(|| e.to_string());
-        let _ = pipeline.set_state(gst::State::Null);
-        return Err(reason);
+/// Whether more of what's been read is about to arrive
+fn more_coming(stdout: &ChildStdout) -> bool {
+    let mut fd = libc::pollfd {
+        fd: stdout.as_raw_fd(),
+        events: libc::POLLIN,
+        revents: 0,
+    };
+    unsafe { libc::poll(&mut fd, 1, PICTURE_SETTLED_MS) > 0 }
+}
+
+/// Whole pictures, each from its delimiter to the next one's
+fn pictures(buf: &[u8]) -> Vec<&[u8]> {
+    let mut starts: Vec<usize> = buf
+        .windows(PICTURE_START.len())
+        .enumerate()
+        .filter(|(_, w)| *w == PICTURE_START)
+        .map(|(i, _)| i)
+        .collect();
+    // Anything before the first delimiter belongs with the first picture
+    if starts.first() != Some(&0) {
+        starts.insert(0, 0);
     }
-    Ok((pipeline, src))
+    starts.push(buf.len());
+    starts
+        .windows(2)
+        .map(|w| &buf[w[0]..w[1]])
+        .filter(|p| !p.is_empty())
+        .collect()
+}
+
+/// ffmpeg's messages, e.g. a picture whose reference never came. A damaged
+/// stream can bring many a second; only a few go to the log
+fn log_errors(stderr: ChildStderr) {
+    let mut window = Instant::now();
+    let (mut logged, mut skipped) = (0u32, 0u32);
+    for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+        if window.elapsed() > LOG_WINDOW {
+            if skipped > 0 {
+                eprintln!("[ffmpeg] ({skipped} more)");
+            }
+            window = Instant::now();
+            (logged, skipped) = (0, 0);
+        }
+        if logged < LOG_LINES {
+            eprintln!("[ffmpeg] {line}");
+            logged += 1;
+        } else {
+            skipped += 1;
+        }
+    }
 }
 
 fn now_millis() -> u64 {

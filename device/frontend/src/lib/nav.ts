@@ -59,7 +59,7 @@ export const SETTINGS_PAGES: NavPage[] = [
   {
     id: "streaming",
     label: "Streaming",
-    sections: ["rtsp", "srt", "rtmp", "udp", "viewer"],
+    sections: ["rtsp", "srt", "rtmp", "udp", "ndi", "omt", "viewer"],
     icon: Radio,
     tabs: [
       {
@@ -76,6 +76,8 @@ export const SETTINGS_PAGES: NavPage[] = [
         on: (s) => s.rtmp.enabled,
       },
       { id: "udp", label: "UDP", sections: ["udp"], on: (s) => s.udp.enabled },
+      { id: "ndi", label: "NDI", sections: ["ndi"], on: (s) => s.ndi.enabled },
+      { id: "omt", label: "OMT", sections: ["omt"], on: (s) => s.omt.enabled },
       { id: "browser", label: "Browser", sections: ["viewer"] },
     ],
   },
