@@ -1,3 +1,4 @@
+pub mod aio;
 pub mod codec;
 pub mod dji;
 pub mod duml;
