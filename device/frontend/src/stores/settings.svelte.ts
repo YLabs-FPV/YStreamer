@@ -2,6 +2,7 @@ import { api, message } from "@/api/client";
 import type { Saved, Section, Settings } from "@/types/settings";
 const SECTIONS: Section[] = [
   "input",
+  "radio_region",
   "device",
   "wifi",
   "ethernet",

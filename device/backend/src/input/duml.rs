@@ -3,6 +3,7 @@ pub mod camera;
 pub mod devices;
 pub mod link;
 pub mod monitor;
+pub mod region;
 pub mod session;
 
 use std::sync::atomic::{AtomicU16, Ordering};

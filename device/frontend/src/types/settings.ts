@@ -10,6 +10,11 @@ export interface Settings {
       keyframe_secs: number;
     };
   };
+  /** Off leaves the radios as DJI's apps last set them */
+  radio_region: {
+    enabled: boolean;
+    region: import("@/types/input").RadioRegion;
+  };
   device: { hostname: string; timezone: string };
   wifi: {
     mode: WifiMode;

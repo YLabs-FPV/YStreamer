@@ -11,8 +11,13 @@
   import { btn } from "@/components/ui/buttons";
   import { snackbar } from "@/stores/snackbar.svelte";
   import { developer } from "@/stores/developer.svelte";
+  import RadioRegionCard from "@/components/input/RadioRegionCard.svelte";
 
-  let { input = $bindable() }: { input: Settings["input"] } = $props();
+  let {
+    input = $bindable(),
+    radioRegion = $bindable(),
+  }: { input: Settings["input"]; radioRegion: Settings["radio_region"] } =
+    $props();
 
   const SOURCES = [
     { label: "DJI goggles", value: "dji_fpv" },
@@ -203,6 +208,10 @@
       {/if}
     </div>
   </Card>
+
+  {#if input.mode === "dji_fpv"}
+    <RadioRegionCard bind:region={radioRegion} />
+  {/if}
 
   {#if input.mode === "dji_fpv_legacy"}
     <Card title="FPV Goggles V1/V2">
