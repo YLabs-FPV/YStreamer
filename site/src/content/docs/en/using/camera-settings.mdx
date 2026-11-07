@@ -51,3 +51,49 @@ refuses what it can't do.
   On manual exposure, the shutter speed can't be slower than the frame rate
   allows; the panel shows the slowest one.
 </Admonition>
+
+## Gimbal
+
+Turn on **Gimbal control** under **Input → Aircraft controls** and the Camera
+panel gets a **Gimbal** section. It's off until you turn it on, because while
+the browser holds the gimbal, the remote can't move it.
+
+- **Avata 2**: press **Take control**, then set the tilt. **Hand back** gives
+  the gimbal back to the remote. So do hiding or closing the page and losing
+  the link, and the device hands it back by itself a second and a half after
+  the browser stops sending.
+- **Avata 360**: **View heading** turns the view around the sphere, like
+  dragging the view in DJI Fly. The remote keeps its own tilt control.
+
+The aircraft doesn't report the gimbal's angle back, so the panel shows the
+angle you asked for.
+
+### With a gamepad
+
+Any gamepad the browser lists in the standard layout works. Press a button on
+it once so the browser connects it, then:
+
+| Control     | Avata 2                       | Avata 360                  |
+| ----------- | ----------------------------- | -------------------------- |
+| Right stick | Tilt, up and down             | Turn the view left / right |
+| Y / △       | Take control, or hand it back | -                          |
+| A / ✕       | Level the camera              | Face forward               |
+| B / ○       | Hand back                     | -                          |
+
+<Admonition type="warning" title="Experimental">
+  Gimbal control and the Avata 360 controls haven't been tried on a YStreamer Pi
+  by the maintainers yet.
+</Admonition>
+
+## Avata 360
+
+The goggles don't tell YStreamer when the aircraft is an Avata 360, so turn on
+**Avata 360** under **Input → Aircraft controls**. The Camera panel then gets
+an **Avata 360 lens** section:
+
+- **Field of view**: from 104°, the flattest view, to 272°, the whole sphere.
+  The same control as DJI Fly's zoom.
+- **Vision Assist**: the aircraft's second camera, on or off, as in DJI Fly.
+  YStreamer doesn't show that camera's picture.
+
+Neither is reported back by the aircraft, so both show "—" until you set them.

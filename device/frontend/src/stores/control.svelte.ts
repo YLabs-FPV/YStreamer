@@ -47,6 +47,9 @@ class ControlStore {
   uvc = $state<UvcStatus | null>(null);
   legacy = $state<LegacyStatus | null>(null);
   overlay = $state<OverlayView | null>(null);
+  /** The aircraft controls turned on in the Input settings */
+  gimbalControl = $state(false);
+  avata360 = $state(false);
 
   goggles = $derived(this.devices.find((d) => d.kind === "goggles") ?? null);
   aircraft = $derived(this.devices.find((d) => d.kind === "aircraft") ?? null);
@@ -114,7 +117,10 @@ class ControlStore {
             this.linkQuality = null;
           }
         } else if (msg.type === "overlay") this.overlay = msg;
-        else if (msg.type === "input") {
+        else if (msg.type === "aircraft") {
+          this.gimbalControl = msg.gimbal_control;
+          this.avata360 = msg.avata360;
+        } else if (msg.type === "input") {
           this.inputMode = msg.mode;
           this.uvc = msg.uvc;
           this.legacy = msg.legacy;
@@ -237,6 +243,23 @@ class ControlStore {
     this.antiFlicker = value;
     this.#expect({ anti_flicker: value });
     this.#send({ cmd: "set_anti_flicker", value });
+  }
+  /** Sent again and again while held; the device hands the gimbal back to
+   * the remote once these stop */
+  gimbalTilt(deg: number) {
+    this.#send({ cmd: "gimbal_tilt", deg });
+  }
+  gimbalRelease() {
+    this.#send({ cmd: "gimbal_release" });
+  }
+  setViewHeading(deg: number) {
+    this.#send({ cmd: "set_view_heading", deg });
+  }
+  setLensFov(value: number) {
+    this.#send({ cmd: "set_lens_fov", value });
+  }
+  setVisionAssist(on: boolean) {
+    this.#send({ cmd: "set_vision_assist", on });
   }
 }
 

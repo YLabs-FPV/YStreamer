@@ -51,3 +51,50 @@ rechaza lo que no puede hacer.
   Con la exposición manual, la velocidad de obturación no puede ser más lenta de
   lo que permite la tasa de fotogramas; el panel muestra la más lenta.
 </Admonition>
+
+## Gimbal
+
+Activa **Gimbal control** en **Input → Aircraft controls** y el panel Camera
+gana una sección **Gimbal**. Está desactivado hasta que lo actives, porque
+mientras el navegador tiene el gimbal, el mando no puede moverlo.
+
+- **Avata 2**: pulsa **Take control** y ajusta la inclinación. **Hand back**
+  devuelve el gimbal al mando. También lo devuelven ocultar o cerrar la página
+  y perder el enlace, y el dispositivo lo devuelve solo un segundo y medio
+  después de que el navegador deje de enviar.
+- **Avata 360**: **View heading** gira la vista por la esfera, como arrastrar
+  la vista en DJI Fly. El mando conserva su propio control de inclinación.
+
+La aeronave no informa del ángulo del gimbal, así que el panel muestra el
+ángulo que pediste.
+
+### Con un mando de juegos
+
+Funciona cualquier mando que el navegador reconozca con la disposición
+estándar. Pulsa un botón una vez para que el navegador lo conecte, y luego:
+
+| Control       | Avata 2                        | Avata 360                       |
+| ------------- | ------------------------------ | ------------------------------- |
+| Stick derecho | Inclinación, arriba y abajo    | Girar la vista a izq. / derecha |
+| Y / △         | Tomar el control, o devolverlo | -                               |
+| A / ✕         | Nivelar la cámara              | Mirar al frente                 |
+| B / ○         | Devolver                       | -                               |
+
+<Admonition type="warning" title="Experimental">
+  Los mantenedores aún no han probado el control del gimbal ni los controles del
+  Avata 360 en una Pi con YStreamer.
+</Admonition>
+
+## Avata 360
+
+Las gafas no le dicen a YStreamer cuándo la aeronave es un Avata 360, así que
+activa **Avata 360** en **Input → Aircraft controls**. El panel Camera gana
+entonces una sección **Avata 360 lens**:
+
+- **Field of view**: desde 104°, la vista más plana, hasta 272°, la esfera
+  completa. El mismo control que el zoom de DJI Fly.
+- **Vision Assist**: la segunda cámara de la aeronave, encendida o apagada,
+  como en DJI Fly. YStreamer no muestra la imagen de esa cámara.
+
+La aeronave no informa de ninguno de los dos, así que ambos muestran "—"
+hasta que los ajustes.

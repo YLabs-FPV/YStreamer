@@ -60,7 +60,10 @@
   {:else if !settings.draft || !settings.saved}
     <p class="py-6 text-[13px] text-muted">Loading settings…</p>
   {:else if page.id === "input"}
-    <InputPage bind:input={settings.draft.input} />
+    <InputPage
+      bind:input={settings.draft.input}
+      bind:aircraft={settings.draft.aircraft}
+    />
   {:else if page.id === "network"}
     <NetworkPage
       bind:wifi={settings.draft.wifi}
