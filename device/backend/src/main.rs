@@ -168,7 +168,17 @@ fn run() -> anyhow::Result<()> {
         });
     }
 
-    let mut video = input::dji::DjiVideo::new(Arc::clone(&fanout));
+    let mut video = {
+        let goggles = goggles.clone();
+        input::dji::DjiVideo::new(
+            Arc::clone(&fanout),
+            Box::new(move |frame: &[u8]| {
+                if let Err(e) = goggles.send(frame) {
+                    eprintln!("[video] couldn't reach the remote: {e}");
+                }
+            }),
+        )
+    };
     let mut last_mode = None;
     let alive = goggles.clone();
     let mut duml_generation = alive.generation();

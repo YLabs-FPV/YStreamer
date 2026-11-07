@@ -34,6 +34,20 @@ alguna de vez en cuando) se ve un momento y se corrige sola.
   las gafas, en Settings → Camera → Advanced Camera Settings.
 </Admonition>
 
+## Mando DJI RC-N2 / RC-N3
+
+Para aeronaves que se vuelan con DJI Fly y un mando **RC-N2 o RC-N3**, como
+la Neo 2 o la serie Mini. Conecta el puerto USB-C del mando (el que usaría el
+móvil) al puerto **USB-C** de la Pi, y deja la fuente **DJI goggles / RC-N**.
+YStreamer ocupa el lugar del móvil y muestra la vista en directo. El mando
+envía H.265, que se convierte a H.264 como se explica arriba.
+
+<Admonition type="tip" title="En cualquier orden">
+  YStreamer pide a la aeronave una imagen nueva desde la que empezar, como hace
+  DJI Fly, así que el mando puede conectarse antes o después de enlazar con la
+  aeronave, y desconectarse y volver a conectarse.
+</Admonition>
+
 ## FPV Goggles V1 / V2
 
 Las primeras DJI FPV Goggles. Conéctalas a uno de los puertos **USB-A** de la

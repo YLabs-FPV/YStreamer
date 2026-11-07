@@ -33,6 +33,20 @@ link drops one now and then) shows for a moment and clears up on its own.
   goggles, under Settings → Camera → Advanced Camera Settings.
 </Admonition>
 
+## DJI RC-N2 / RC-N3 remote
+
+For aircraft flown with DJI Fly and an **RC-N2 or RC-N3** remote, such as the
+Neo 2 or the Mini series. Connect the remote's USB-C port (the one a phone
+uses) to the Pi's **USB-C** port, and keep the **DJI goggles / RC-N** source.
+YStreamer stands in for the phone and shows the live view. The remote sends
+H.265, which is converted to H.264 as described above.
+
+<Admonition type="tip" title="Plug in in any order">
+  YStreamer asks the aircraft for a fresh picture to start from, as DJI Fly
+  does, so the remote can go in before or after it links to the aircraft, and
+  can be unplugged and plugged back in.
+</Admonition>
+
 ## FPV Goggles V1 / V2
 
 The first DJI FPV Goggles. Connect them to one of the Pi's **USB-A** ports.
