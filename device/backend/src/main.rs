@@ -28,7 +28,6 @@ use output::rtsp::RtspServer;
 use output::splash::Splash;
 use output::srt::SrtOutput;
 use output::udp::UdpOutput;
-use settings::InputMode;
 use system::{button, metrics};
 use web::{api, auth};
 
@@ -169,6 +168,7 @@ fn run() -> anyhow::Result<()> {
         });
     }
 
+    let mut video = input::dji::DjiVideo::new(Arc::clone(&fanout));
     let mut last_mode = None;
     let alive = goggles.clone();
     let mut duml_generation = alive.generation();
@@ -184,7 +184,7 @@ fn run() -> anyhow::Result<()> {
             data,
             |chunk| {
                 alive.mark_alive();
-                if fanout.video(InputMode::DjiFpv, chunk) {
+                if video.push(alive.generation(), chunk) {
                     chunk_count.fetch_add(1, Ordering::Relaxed);
                 }
             },

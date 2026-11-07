@@ -144,7 +144,7 @@ mise run image:full         # .deb plus the SD card image (needs Docker)
 ```
 
 On Debian or Raspberry Pi OS, `mise run backend:deps` installs the GStreamer
-headers the backend builds against and the plugins it runs with. `mise tasks` lists everything else.
+headers the backend builds against, and the plugins and FFmpeg it runs with. `mise tasks` lists everything else.
 
 Planning to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md) for the dev setup
 and how to submit changes.
@@ -173,7 +173,8 @@ and how to submit changes.
 
 **Built with**
 
-- [**GStreamer**](https://gstreamer.freedesktop.org) and its [Rust bindings](https://gitlab.freedesktop.org/gstreamer/gstreamer-rs): all of the video handling.
+- [**GStreamer**](https://gstreamer.freedesktop.org) and its [Rust bindings](https://gitlab.freedesktop.org/gstreamer/gstreamer-rs): the video handling.
+- [**FFmpeg**](https://ffmpeg.org), Raspberry Pi's build: converting H.265 to H.264 in hardware.
 - [**webrtc-rs**](https://github.com/webrtc-rs/webrtc): the low-latency browser view.
 - [**Tokio**](https://tokio.rs) and [**Axum**](https://github.com/tokio-rs/axum): the web server.
 - [**Svelte**](https://svelte.dev), [**Tailwind CSS**](https://tailwindcss.com) and [**Lucide**](https://lucide.dev): the web interface.

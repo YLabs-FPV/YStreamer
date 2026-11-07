@@ -17,6 +17,7 @@ use super::{ApiError, Services, bad, failed};
 #[derive(Serialize)]
 pub(super) struct InputStatus {
     mode: crate::settings::InputMode,
+    dji: crate::input::dji::DjiStatus,
     uvc: crate::input::uvc::UvcStatus,
     legacy: crate::input::legacy::LegacyStatus,
 }
@@ -24,6 +25,7 @@ pub(super) struct InputStatus {
 pub(super) async fn input_status(State(sv): State<Services>) -> Json<InputStatus> {
     Json(InputStatus {
         mode: sv.input.mode(),
+        dji: sv.input.dji.lock().unwrap().clone(),
         uvc: sv.uvc.status(),
         legacy: sv.legacy.status(),
     })

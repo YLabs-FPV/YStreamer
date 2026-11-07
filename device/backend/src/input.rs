@@ -1,8 +1,12 @@
 pub mod aio;
+pub mod codec;
+pub mod dji;
 pub mod duml;
 pub mod gadget;
 pub mod goggles;
 pub mod h264;
+pub mod h265;
+pub mod hevc;
 pub mod legacy;
 pub mod uvc;
 
@@ -24,6 +28,7 @@ use crate::settings::InputMode;
 #[derive(Default)]
 pub struct InputState {
     mode: AtomicU8,
+    pub dji: Mutex<dji::DjiStatus>,
     pub uvc: Mutex<uvc::UvcStatus>,
     pub legacy: Mutex<legacy::LegacyStatus>,
 }
