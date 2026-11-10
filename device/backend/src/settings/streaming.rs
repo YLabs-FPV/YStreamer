@@ -246,6 +246,66 @@ impl UdpSettings {
     }
 }
 
+/// Picture heights a network source can be capped to
+pub const SOURCE_HEIGHTS: [u32; 4] = [480, 540, 720, 1080];
+/// Frame rates a network source can be capped to
+pub const SOURCE_FRAME_RATES: [u32; 2] = [30, 60];
+
+/// A source that video software finds on the local network by itself, NDI
+/// or OMT. Both carry decoded pictures, so the size and rate are capped to
+/// what the Pi can compress in software
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct NetworkSourceSettings {
+    pub enabled: bool,
+    /// Shown in vMix or OBS as "HOSTNAME (name)"
+    pub name: String,
+    /// Larger pictures are scaled down to this height; smaller ones are left
+    pub max_height: u32,
+    pub max_fps: u32,
+}
+
+impl Default for NetworkSourceSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            name: "YStreamer".into(),
+            max_height: 720,
+            max_fps: 30,
+        }
+    }
+}
+
+impl NetworkSourceSettings {
+    pub fn validate(&self, what: &str) -> Result<(), String> {
+        let name = self.name.trim();
+        if name.is_empty() {
+            return Err(format!("{what} needs a source name"));
+        }
+        if name.chars().count() > 32 {
+            return Err(format!("{what} source name can be at most 32 characters"));
+        }
+        // Receivers read the parentheses back as "machine (source)"
+        if !name
+            .chars()
+            .all(|c| c.is_alphanumeric() || " -_.".contains(c))
+        {
+            return Err(format!(
+                "{what} source name can use letters, digits, spaces, '-', '_' and '.'"
+            ));
+        }
+        if !SOURCE_HEIGHTS.contains(&self.max_height) {
+            return Err(format!(
+                "{what} picture height must be one of {SOURCE_HEIGHTS:?}"
+            ));
+        }
+        if !SOURCE_FRAME_RATES.contains(&self.max_fps) {
+            return Err(format!("{what} frame rate must be 30 or 60"));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ViewerTransport {

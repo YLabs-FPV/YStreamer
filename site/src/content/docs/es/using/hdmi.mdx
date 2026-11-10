@@ -7,12 +7,14 @@ order: 40
 import Admonition from "../../../../components/docs/Admonition.astro";
 
 Conecta una pantalla a uno de los puertos micro-HDMI de la Pi; YStreamer usa
-el primero que tenga una pantalla conectada. Los ajustes están en
+el primero que tenga una pantalla conectada. Puedes conectar y desconectar
+pantallas mientras funciona: la imagen aparece en uno o dos segundos. Los
+ajustes están en
 **Display → HDMI**.
 
 | Ajuste             | Qué hace                                                                                                                                |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Show video on HDMI | Desactívalo cuando no haya nada conectado: libera el decodificador y algo de CPU para el streaming.                                     |
+| Show video on HDMI | Mientras no haya ninguna pantalla conectada, espera a que la haya y no usa el decodificador ni la CPU.                                     |
 | Resolution         | **Automatic** elige el modo más nítido hasta 1080p, lo más cerca de 60 Hz que permita la pantalla. O elige uno que ofrezca la pantalla. |
 | Scaling            | **Fit** muestra la imagen entera, con bandas si las proporciones no coinciden. **Fill** llena la pantalla y recorta los bordes.         |
 | Rotate 180°        | Para una pantalla montada del revés.                                                                                                    |

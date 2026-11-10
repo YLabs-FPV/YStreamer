@@ -19,6 +19,16 @@ batería de las gafas y la calidad del enlace.
 El vídeo es el propio stream H.264 de las gafas. YStreamer lo reenvía tal
 cual, sin volver a codificarlo.
 
+Algunos enlaces envían H.265. YStreamer detecta cuál recibe y convierte el
+H.265 a H.264 una sola vez, con el decodificador y el codificador por hardware
+de la Pi, para que todas las salidas sigan funcionando. **Input → Video
+source** muestra qué códec llega y cómo se convierte. Necesita el
+decodificador H.265 por hardware de la Pi 4: la CPU es demasiado lenta para un
+H.265 en directo. El vídeo convertido va a 30 imágenes por segundo como
+máximo: un stream de 60 sale a 30, porque el codificador H.264 de la Pi no da
+abasto con 1080p60. Una imagen dañada por el camino (el enlace de radio pierde
+alguna de vez en cuando) se ve un momento y se corrige sola.
+
 <Admonition type="tip" title="Sin OSD en el vídeo">
   Para que el OSD no salga en el vídeo, desactiva **Camera View Recording** en
   las gafas, en Settings → Camera → Advanced Camera Settings.
@@ -59,6 +69,20 @@ no se toca.
 <Admonition type="info" title="Solo Android">
   El iPhone no está soportado: sus accesorios necesitan el programa MFi con
   licencia de Apple.
+</Admonition>
+
+## Mando DJI RC-N2 / RC-N3
+
+Para aeronaves que se vuelan con DJI Fly y un mando **RC-N2 o RC-N3**, como
+la Neo 2 o la serie Mini. Conecta el puerto USB-C del mando (el que usaría el
+móvil) al puerto **USB-C** de la Pi, y deja la fuente **DJI goggles / RC-N**.
+YStreamer ocupa el lugar del móvil y muestra la vista en directo. El mando
+envía H.265, que se convierte a H.264 como se explica arriba.
+
+<Admonition type="tip" title="En cualquier orden">
+  YStreamer pide a la aeronave una imagen nueva desde la que empezar, como hace
+  DJI Fly, así que el mando puede conectarse antes o después de enlazar con la
+  aeronave, y desconectarse y volver a conectarse.
 </Admonition>
 
 ## FPV Goggles V1 / V2

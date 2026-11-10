@@ -32,6 +32,8 @@ export interface UvcStatus {
 export interface LegacyStatus {
   state: "idle" | "no_device" | "waiting" | "live" | "error";
   error: string | null;
+  /** What to check when the goggles were found but send no video */
+  hint: string | null;
   /** Bytes of the raw stream saved so far, while or after capturing */
   captured: number | null;
 }
@@ -46,8 +48,18 @@ export interface PassthroughStatus {
   dropped: number;
 }
 
+/** The USB-C link: goggles send H.264, an RC-N remote H.265 */
+export interface DjiStatus {
+  /** What the link carries, once worked out */
+  codec: "h264" | "h265" | null;
+  /** How H.265 is turned into H.264, while it is */
+  converter: "hardware" | null;
+  error: string | null;
+}
+
 export interface InputStatus {
   mode: InputMode;
+  dji: DjiStatus;
   uvc: UvcStatus;
   legacy: LegacyStatus;
   passthrough: PassthroughStatus;

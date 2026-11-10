@@ -32,6 +32,8 @@ see. One USB-C cable in, and every output at the same time:
 - **Any browser** - live view on phones and laptops, over WebRTC or WebSocket.
 - **Streams** - an RTSP server, plus SRT, RTMP (YouTube, Twitch, Facebook) and
   UDP for OBS, VLC, QGroundControl and Mission Planner.
+- **Mixers** - NDI and OMT sources that vMix, OBS and TriCaster find on the
+  local network by themselves.
 - **Recording** - MP4 or MPEG-TS to the SD card or a USB drive, started by hand,
   automatically when video arrives, or with a physical button.
 
@@ -80,10 +82,12 @@ terminal needed.
 | Source                                        | Port  | Video | Camera settings | Battery & link |
 | --------------------------------------------- | :---: | :---: | :-------------: | :------------: |
 | DJI Goggles 2, Integra, Goggles 3, Goggles N3 | USB-C |  ✅   |       ✅        |       ✅       |
+| DJI RC-N2 / RC-N3 remote _(experimental)_     | USB-C |  ✅   |       ❔        |       ❔       |
 | DJI FPV Goggles V1 / V2 _(experimental)_      | USB-A |  ✅   |       ❌        |       ❌       |
 | USB cameras, capture sticks, analog receivers | USB-A |  ✅   |        -        |       -        |
 
-_Which camera settings can be changed depends on the air unit (O3, O4, O4 Pro)._
+_Which camera settings can be changed depends on the air unit (O3, O4, O4 Pro).
+Over an RC-N remote, camera settings and battery haven't been tried yet._
 
 > [!NOTE]
 > YStreamer is an independent project. It is not affiliated with, endorsed by
@@ -143,7 +147,7 @@ mise run image:full         # .deb plus the SD card image (needs Docker)
 ```
 
 On Debian or Raspberry Pi OS, `mise run backend:deps` installs the GStreamer
-headers the backend builds against and the plugins it runs with. `mise tasks` lists everything else.
+headers the backend builds against, and the plugins and FFmpeg it runs with. `mise tasks` lists everything else.
 
 Planning to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md) for the dev setup
 and how to submit changes.
@@ -172,7 +176,8 @@ and how to submit changes.
 
 **Built with**
 
-- [**GStreamer**](https://gstreamer.freedesktop.org) and its [Rust bindings](https://gitlab.freedesktop.org/gstreamer/gstreamer-rs): all of the video handling.
+- [**GStreamer**](https://gstreamer.freedesktop.org) and its [Rust bindings](https://gitlab.freedesktop.org/gstreamer/gstreamer-rs): the video handling.
+- [**FFmpeg**](https://ffmpeg.org), Raspberry Pi's build: converting H.265 to H.264 in hardware.
 - [**webrtc-rs**](https://github.com/webrtc-rs/webrtc): the low-latency browser view.
 - [**Tokio**](https://tokio.rs) and [**Axum**](https://github.com/tokio-rs/axum): the web server.
 - [**Svelte**](https://svelte.dev), [**Tailwind CSS**](https://tailwindcss.com) and [**Lucide**](https://lucide.dev): the web interface.

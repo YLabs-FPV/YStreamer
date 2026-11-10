@@ -9,6 +9,8 @@ const SECTIONS: Section[] = [
   "srt",
   "rtmp",
   "udp",
+  "ndi",
+  "omt",
   "recording",
   "viewer",
   "display",
