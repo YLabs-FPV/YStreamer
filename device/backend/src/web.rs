@@ -17,6 +17,7 @@ use webrtc::api::API;
 use webrtc::peer_connection::RTCPeerConnection;
 
 use crate::input::duml::camera::{CameraCommands, CameraState};
+use crate::input::duml::telemetry::Telemetry;
 use rtc::AccessUnit;
 
 #[derive(Clone)]
@@ -105,6 +106,10 @@ pub fn start(
             crate::system::ensure_hostname(&services.store.get().device.hostname).await;
             crate::system::adopt_timezone(&services.store);
             tokio::spawn(link_watch(services.clone(), control_tx.clone()));
+            tokio::spawn(telemetry_watch(
+                Arc::clone(&services.telemetry),
+                control_tx.clone(),
+            ));
             tokio::spawn(crate::system::drives::watch());
             tokio::spawn(crate::system::update::watch(Arc::clone(&services.store)));
             tokio::spawn(finish_recording_on_exit(Arc::clone(&services.recorder)));
@@ -280,6 +285,31 @@ async fn link_watch(services: crate::web::api::Services, control_tx: broadcast::
             last_overlay = Some(overlay);
         }
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+}
+
+/// Viewers can open the Watch page too, so browsers don't hear where the
+/// aircraft is; `/api/telemetry` has that
+pub(crate) fn telemetry_msg(telemetry: Telemetry) -> String {
+    let telemetry = (!telemetry.is_empty()).then(|| telemetry.without_position());
+    serde_json::json!({ "type": "telemetry", "telemetry": telemetry }).to_string()
+}
+
+/// Pass the aircraft's telemetry on at up to 5 Hz, when it changes. Checking
+/// on a timer rather than per frame is also what blanks it once the frames
+/// stop
+async fn telemetry_watch(
+    telemetry: Arc<crate::input::duml::telemetry::Tracker>,
+    control_tx: broadcast::Sender<String>,
+) {
+    let mut last = None;
+    loop {
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        let msg = telemetry_msg(telemetry.snapshot());
+        if last.as_ref() != Some(&msg) {
+            let _ = control_tx.send(msg.clone());
+            last = Some(msg);
+        }
     }
 }
 

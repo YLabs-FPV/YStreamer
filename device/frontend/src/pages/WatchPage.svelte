@@ -8,6 +8,7 @@
   import CameraPanel from "@/components/watch/CameraPanel.svelte";
   import RecorderWidget from "@/components/watch/RecorderWidget.svelte";
   import AircraftRecorderWidget from "@/components/watch/AircraftRecorderWidget.svelte";
+  import TelemetryWidget from "@/components/watch/TelemetryWidget.svelte";
   import StatsWidget from "@/components/watch/StatsWidget.svelte";
   import PageHeader from "@/components/layout/PageHeader.svelte";
   import { statusDot, statusLabel } from "@/lib/status";
@@ -32,7 +33,11 @@
   const aircraftRecorder = $derived(
     camera && control.aircraftRecorder !== null,
   );
-  const side = $derived(auth.admin || showStats);
+  // Not only for the admin: it's what the goggles show the pilot anyway
+  const telemetry = $derived(
+    control.inputMode === "dji_fpv" && control.telemetry !== null,
+  );
+  const side = $derived(auth.admin || showStats || telemetry);
 
   function onkeydown(e: KeyboardEvent) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
@@ -124,6 +129,9 @@
       {/if}
       {#if aircraftRecorder}
         <AircraftRecorderWidget />
+      {/if}
+      {#if telemetry}
+        <TelemetryWidget />
       {/if}
       {#if showStats}
         <StatsWidget {stats} {history} onclose={() => player?.toggleStats()} />

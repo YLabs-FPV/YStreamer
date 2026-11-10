@@ -46,6 +46,73 @@ The live view, with:
 - **Camera**: the air unit's camera settings, with DJI goggles. See
   [camera settings](/docs/using/camera-settings).
 - The air unit's own recording: whether it's recording, and to which card.
+- **Telemetry**: the aircraft's battery, GPS, altitude, speed and the way
+  home, with DJI goggles. See [telemetry](#telemetry).
+
+### Telemetry
+
+With DJI goggles, the **Telemetry** panel shows the figures the aircraft sends
+over the link, the same ones the goggles show:
+
+| Field    | Shows                                                                                |
+| -------- | ------------------------------------------------------------------------------------ |
+| Battery  | The aircraft's battery                                                               |
+| Altitude | Height above the takeoff point                                                       |
+| Vertical | Climbing (↑) or descending (↓) speed                                                 |
+| Speed    | Speed over the ground                                                                |
+| GPS      | Satellites, or a GPS level from 0 to 5; **No fix** until the aircraft has a position |
+| Home     | Distance and direction to the home point                                             |
+
+The arrow points home relative to the way the aircraft faces, so up means
+straight ahead. The compass point and degrees beside it are from north.
+
+The panel shows only while an aircraft is reporting. A figure that hasn't
+come for a few seconds goes blank (—) rather than staying on an old value.
+Viewers who aren't logged in see the panel too, but never where the aircraft
+is.
+
+<Admonition type="note">
+  Which figures arrive depends on the air unit. They were worked out on an Avata
+  2 with Goggles 3; other units may leave some blank.
+</Admonition>
+
+#### For ground stations
+
+`GET /api/telemetry` returns the same figures as JSON, with the aircraft's and
+the home point's coordinates too. Polling up to 5 times a second is plenty.
+Anything the aircraft hasn't sent lately is `null`, never `0`. With a
+password set, the request needs a logged-in session, like the rest of the API.
+
+```json
+{
+  "battery_percent": 81,
+  "gps_fix": true,
+  "satellites": 17,
+  "gps_level": null,
+  "lat": 45.000912,
+  "lon": 7.000134,
+  "altitude_m": 21.5,
+  "vertical_speed_mps": -0.5,
+  "horizontal_speed_mps": 4.2,
+  "pitch_deg": 1.3,
+  "roll_deg": -1.2,
+  "yaw_deg": -113.9,
+  "home_set": true,
+  "home_lat": 45.0,
+  "home_lon": 7.0,
+  "home_altitude_m": 240.3,
+  "home_distance_m": 102.0,
+  "home_bearing_deg": 185.9,
+  "rc_signal": 4,
+  "vtx_signal": null
+}
+```
+
+`vertical_speed_mps` is positive when climbing. `home_altitude_m` is the home
+point's GPS altitude, not a height above it. `satellites` comes from O4 units,
+`gps_level` from units that send a level instead. Which of `rc_signal` and
+`vtx_signal` (0 to 5 bars) is the remote's link and which the video's isn't
+confirmed yet.
 
 ### Keyboard shortcuts
 
