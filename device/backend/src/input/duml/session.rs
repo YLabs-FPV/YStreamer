@@ -95,6 +95,10 @@ impl Session {
     }
 
     fn tick(&self) {
+        // DJI Fly registers itself; a second app on the same link would fight it
+        if self.goggles.phone_in_control() {
+            return;
+        }
         {
             let mut st = self.state.lock().unwrap();
 
@@ -250,6 +254,10 @@ impl Session {
     }
 
     fn reply(&self, f: &Frame, payload: &[u8]) {
+        // DJI Fly sees the same requests through the passthrough and answers them
+        if self.goggles.phone_in_control() {
+            return;
+        }
         let frame = encode(f.src, f.seq, FLAGS_RESPONSE, f.cmd_set, f.cmd_id, payload);
         let _ = self.goggles.send(&frame);
     }

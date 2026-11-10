@@ -19,6 +19,8 @@ const POLL_SLICE: Duration = Duration::from_millis(250);
 // A short blip isn't always enough for the goggles to drop the old session
 const REPLUG_OFF: Duration = Duration::from_secs(3);
 const FIRST_BYTES_LOGGED: usize = 32;
+// DJI Fly talks to the goggles several times a second while it's open
+const PHONE_HOLD: Duration = Duration::from_secs(5);
 // Frames waiting for the goggles to collect them
 const SEND_QUEUE: usize = 64;
 
@@ -55,6 +57,8 @@ pub struct Goggles {
     state: Arc<AtomicU8>,
     generation: Arc<AtomicU64>,
     frames: Arc<AtomicU64>,
+    /// When a phone on the passthrough last wrote to the goggles
+    phone: Arc<Mutex<Option<Instant>>>,
 }
 
 impl Goggles {
@@ -68,6 +72,7 @@ impl Goggles {
             state: Arc::new(AtomicU8::new(LinkState::Unplugged as u8)),
             generation: Arc::new(AtomicU64::new(0)),
             frames: Arc::new(AtomicU64::new(0)),
+            phone: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -106,6 +111,21 @@ impl Goggles {
             }
             TrySendError::Disconnected(_) => not_connected(),
         })
+    }
+
+    /// A frame from DJI Fly on a passed-through phone
+    pub fn send_from_phone(&self, frame: &[u8]) -> io::Result<()> {
+        *self.phone.lock().unwrap() = Some(Instant::now());
+        self.send(frame)
+    }
+
+    /// DJI Fly is driving the goggles, so our own app session should stay
+    /// out of its way rather than answer the goggles a second time
+    pub fn phone_in_control(&self) -> bool {
+        self.phone
+            .lock()
+            .unwrap()
+            .is_some_and(|at| at.elapsed() < PHONE_HOLD)
     }
 
     pub fn reset(&self) {

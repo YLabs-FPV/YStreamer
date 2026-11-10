@@ -20,6 +20,7 @@ pub(super) struct InputStatus {
     dji: crate::input::dji::DjiStatus,
     uvc: crate::input::uvc::UvcStatus,
     legacy: crate::input::legacy::LegacyStatus,
+    passthrough: crate::input::passthrough::PassthroughStatus,
 }
 
 pub(super) async fn input_status(State(sv): State<Services>) -> Json<InputStatus> {
@@ -28,6 +29,7 @@ pub(super) async fn input_status(State(sv): State<Services>) -> Json<InputStatus
         dji: sv.input.dji.lock().unwrap().clone(),
         uvc: sv.uvc.status(),
         legacy: sv.legacy.status(),
+        passthrough: sv.passthrough.status(),
     })
 }
 

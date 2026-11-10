@@ -9,6 +9,8 @@ export interface Settings {
       bitrate_kbps: number;
       keyframe_secs: number;
     };
+    /** Pass the goggles' link through to DJI Fly on a phone in USB-A */
+    passthrough: boolean;
   };
   device: { hostname: string; timezone: string };
   wifi: {
