@@ -46,6 +46,8 @@ export interface PassthroughStatus {
   to_phone: number;
   from_phone: number;
   dropped: number;
+  /** What DJI Fly sent that the goggles had no room for */
+  lost: number;
 }
 
 /** The USB-C link: goggles send H.264, an RC-N remote H.265 */

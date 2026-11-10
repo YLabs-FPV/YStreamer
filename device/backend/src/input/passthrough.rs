@@ -1,4 +1,5 @@
 use std::collections::{HashSet, VecDeque};
+use std::io;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
@@ -88,6 +89,8 @@ pub struct PassthroughStatus {
     pub to_phone: u64,
     pub from_phone: u64,
     pub dropped: u64,
+    /// What DJI Fly sent that the goggles had no room for
+    pub lost: u64,
 }
 
 /// The goggles' stream on its way to the phone. Bounded by bytes and
@@ -226,6 +229,7 @@ pub struct Passthrough {
     to_phone: AtomicU64,
     from_phone: AtomicU64,
     dropped: AtomicU64,
+    lost: AtomicU64,
 }
 
 impl Passthrough {
@@ -246,6 +250,7 @@ impl Passthrough {
             to_phone: AtomicU64::new(0),
             from_phone: AtomicU64::new(0),
             dropped: AtomicU64::new(0),
+            lost: AtomicU64::new(0),
         });
         let p = Arc::clone(&this);
         thread::spawn(move || p.run());
@@ -264,6 +269,7 @@ impl Passthrough {
             to_phone: self.to_phone.load(Ordering::Relaxed),
             from_phone: self.from_phone.load(Ordering::Relaxed),
             dropped: self.dropped.load(Ordering::Relaxed),
+            lost: self.lost.load(Ordering::Relaxed),
         }
     }
 
@@ -414,7 +420,14 @@ impl Passthrough {
                     let data = &done.buffer[..done.actual_len];
                     self.from_phone
                         .fetch_add(data.len() as u64, Ordering::Relaxed);
-                    framer.push(data, |frame| self.to_goggles(frame));
+                    // One write per read: a single read can hold many small
+                    // frames, more than the goggles' queue has slots for
+                    let mut whole = Vec::new();
+                    framer.push(data, |frame| {
+                        self.record(frame);
+                        whole.extend_from_slice(frame);
+                    });
+                    self.to_goggles(&whole);
                     last_rx = Some(Instant::now());
                     bus.resets = 0;
                     if self.state() != PassthroughState::DjiFly {
@@ -444,12 +457,24 @@ impl Passthrough {
         end
     }
 
-    fn to_goggles(&self, frame: &[u8]) {
+    fn record(&self, frame: &[u8]) {
         if let Some(f) = Frame::decode(&frame[LINK_HEADER..]) {
             self.monitor.record(&f);
         }
-        // Nothing to do with it while the goggles are unplugged
-        let _ = self.goggles.send_from_phone(frame);
+    }
+
+    /// Whole frames only, so they can't land inside one of our own writes
+    fn to_goggles(&self, frames: &[u8]) {
+        if frames.is_empty() {
+            return;
+        }
+        match self.goggles.send_from_phone(frames) {
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                self.lost.fetch_add(frames.len() as u64, Ordering::Relaxed);
+            }
+            // Nothing to do with it while the goggles are unplugged
+            _ => {}
+        }
     }
 
     /// Drains the queue into the phone until it's gone or `stop` is set.

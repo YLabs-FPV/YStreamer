@@ -274,11 +274,11 @@
       {#if developer.enabled && phone && phone.state !== "off"}
         <Field
           label="Passed through"
-          help="Since the service started. Dropped is what the phone was too slow to take."
+          help="Since the service started. Dropped is what the phone was too slow to take, lost what the goggles had no room for."
         >
           <span class="font-mono text-[12px] text-muted">
             {size(phone.to_phone)} to the phone · {size(phone.from_phone)} back ·
-            {size(phone.dropped)} dropped
+            {size(phone.dropped)} dropped · {size(phone.lost)} lost
           </span>
         </Field>
       {/if}
