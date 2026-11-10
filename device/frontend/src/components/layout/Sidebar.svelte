@@ -53,6 +53,19 @@
     }
   });
 
+  const rtmpStatus = $derived.by(() => {
+    switch (control.rtmp?.state) {
+      case "live":
+        return { text: "RTMP stream", dot: "bg-ok" };
+      case "connected":
+        return { text: "RTMP app, no video", dot: "bg-warn" };
+      case "error":
+        return { text: "RTMP input error", dot: "bg-down" };
+      default:
+        return { text: "No RTMP stream", dot: "bg-faint" };
+    }
+  });
+
   const status = $derived(
     !control.connected
       ? { text: "Offline", dot: "bg-down" }
@@ -60,14 +73,16 @@
         ? uvcStatus
         : control.inputMode === "dji_fpv_legacy"
           ? legacyStatus
-          : control.link === "live"
-            ? {
-                text: control.goggles?.name ?? "Goggles connected",
-                dot: "bg-ok",
-              }
-            : control.link === "connecting"
-              ? { text: "Connecting to goggles", dot: "bg-warn" }
-              : { text: "No goggles", dot: "bg-faint" },
+          : control.inputMode === "rtmp"
+            ? rtmpStatus
+            : control.link === "live"
+              ? {
+                  text: control.goggles?.name ?? "Goggles connected",
+                  dot: "bg-ok",
+                }
+              : control.link === "connecting"
+                ? { text: "Connecting to goggles", dot: "bg-warn" }
+                : { text: "No goggles", dot: "bg-faint" },
   );
 
   $effect(() => {

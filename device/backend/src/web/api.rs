@@ -57,6 +57,7 @@ pub struct Services {
     pub metrics: Arc<crate::system::metrics::Metrics>,
     pub uvc: Arc<crate::input::uvc::UvcSource>,
     pub legacy: Arc<crate::input::legacy::LegacySource>,
+    pub rtmp_input: Arc<crate::input::rtmp::RtmpSource>,
     pub passthrough: Arc<crate::input::passthrough::Passthrough>,
 }
 

@@ -1,4 +1,4 @@
-export type InputMode = "dji_fpv" | "uvc" | "dji_fpv_legacy";
+export type InputMode = "dji_fpv" | "uvc" | "dji_fpv_legacy" | "rtmp";
 
 export type UvcFormat = "h264" | "mjpeg" | "raw";
 
@@ -38,6 +38,19 @@ export interface LegacyStatus {
   captured: number | null;
 }
 
+/** Pushed to the device by OBS, a phone app or DJI Fly */
+export interface RtmpInputStatus {
+  state: "idle" | "waiting" | "connected" | "live" | "error";
+  /** The port listened on */
+  port: number | null;
+  /** Address of the app streaming */
+  publisher: string | null;
+  /** The stream has B-frames, which add delay */
+  reorders: boolean;
+  /** Why the port couldn't be opened, or why the last app was turned away */
+  error: string | null;
+}
+
 /** DJI Fly on an Android phone in a USB-A port */
 export interface PassthroughStatus {
   state: "off" | "no_phone" | "phone" | "dji_fly";
@@ -64,5 +77,6 @@ export interface InputStatus {
   dji: DjiStatus;
   uvc: UvcStatus;
   legacy: LegacyStatus;
+  rtmp: RtmpInputStatus;
   passthrough: PassthroughStatus;
 }
