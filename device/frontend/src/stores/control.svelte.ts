@@ -54,7 +54,12 @@ class ControlStore {
   rtmp = $state<RtmpInputStatus | null>(null);
   overlay = $state<OverlayView | null>(null);
 
-  goggles = $derived(this.devices.find((d) => d.kind === "goggles") ?? null);
+  /** What's on the USB-C link: goggles, or an RC-N remote */
+  goggles = $derived(
+    this.devices.find((d) => d.kind === "goggles") ??
+      this.devices.find((d) => d.kind === "remote") ??
+      null,
+  );
   aircraft = $derived(this.devices.find((d) => d.kind === "aircraft") ?? null);
 
   iso = $state<number | null>(null);
