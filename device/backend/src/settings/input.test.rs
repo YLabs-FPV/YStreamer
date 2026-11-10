@@ -129,3 +129,13 @@ mod rtmp {
         assert!(!r.allows(ip("192.168.1.21")));
     }
 }
+
+#[test]
+fn passthrough_is_on_unless_turned_off() {
+    assert!(InputSettings::default().passthrough);
+    // Settings saved before the field existed
+    let old: InputSettings = serde_json::from_str(r#"{"mode":"dji_fpv"}"#).unwrap();
+    assert!(old.passthrough);
+    let off: InputSettings = serde_json::from_str(r#"{"passthrough":false}"#).unwrap();
+    assert!(!off.passthrough);
+}

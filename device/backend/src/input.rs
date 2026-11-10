@@ -9,6 +9,7 @@ pub mod h264;
 pub mod h265;
 pub mod hevc;
 pub mod legacy;
+pub mod passthrough;
 pub mod rtmp;
 pub mod uvc;
 

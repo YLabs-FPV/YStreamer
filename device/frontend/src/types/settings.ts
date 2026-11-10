@@ -16,6 +16,8 @@ export interface Settings {
       /** IP addresses allowed to stream, comma separated; empty for any */
       allowed_from: string;
     };
+    /** Pass the goggles' link through to DJI Fly on a phone in USB-A */
+    passthrough: boolean;
   };
   device: { hostname: string; timezone: string };
   wifi: {

@@ -159,6 +159,7 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
         if next.input.rtmp != prev.input.rtmp {
             sv.rtmp_input.apply(&next.input.rtmp);
         }
+        sv.passthrough.set_enabled(next.input.passthrough);
     }
 
     // Never refused: an unreachable server is retried in the background
@@ -192,6 +193,7 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
             if next.input.rtmp != prev.input.rtmp {
                 sv.rtmp_input.apply(&prev.input.rtmp);
             }
+            sv.passthrough.set_enabled(prev.input.passthrough);
         }
         if display_changed {
             let _ = sv.player.apply(&prev.display);

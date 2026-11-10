@@ -51,6 +51,18 @@ export interface RtmpInputStatus {
   error: string | null;
 }
 
+/** DJI Fly on an Android phone in a USB-A port */
+export interface PassthroughStatus {
+  state: "off" | "no_phone" | "phone" | "dji_fly";
+  error: string | null;
+  /** Bytes since the service started */
+  to_phone: number;
+  from_phone: number;
+  dropped: number;
+  /** What DJI Fly sent that the goggles had no room for */
+  lost: number;
+}
+
 /** The USB-C link: goggles send H.264, an RC-N remote H.265 */
 export interface DjiStatus {
   /** What the link carries, once worked out */
@@ -66,4 +78,5 @@ export interface InputStatus {
   uvc: UvcStatus;
   legacy: LegacyStatus;
   rtmp: RtmpInputStatus;
+  passthrough: PassthroughStatus;
 }
