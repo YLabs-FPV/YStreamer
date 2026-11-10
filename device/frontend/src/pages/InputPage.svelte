@@ -263,9 +263,6 @@
       {#snippet aside()}
         <Switch bind:checked={input.passthrough} label="DJI Fly passthrough" />
       {/snippet}
-      <p class="bg-warn/10 px-4 py-3 text-[12px] text-fg">
-        Experimental: not tried on real hardware by maintainers
-      </p>
       {#if input.passthrough && phoneSummary}
         <p class="px-4 py-3 text-[12px] {phoneSummary.tone}">
           {phoneSummary.text}
