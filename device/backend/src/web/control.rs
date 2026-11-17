@@ -72,6 +72,7 @@ async fn control_socket(socket: WebSocket, state: AppState, admin: bool) {
         super::devices_msg(&state.services.session.devices()),
         super::input_msg(&state.services),
         super::overlay_msg(&state.services),
+        super::telemetry_msg(state.services.telemetry.snapshot()),
     ];
     for msg in current {
         if sink.send(Message::Text(msg.into())).await.is_err() {

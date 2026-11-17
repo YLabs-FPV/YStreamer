@@ -4,6 +4,7 @@ pub mod devices;
 pub mod link;
 pub mod monitor;
 pub mod session;
+pub mod telemetry;
 
 use std::sync::atomic::{AtomicU16, Ordering};
 
