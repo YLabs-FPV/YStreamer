@@ -135,12 +135,14 @@ HDMI, the browser, the streams and recordings, like the goggles' video does.
 The app must be on the same network as the device: the same Wi-Fi, or joined
 to YStreamer's access point.
 
-1. Pick **RTMP stream** under **Input → Video source** and **Save**. A random
-   stream key is made the first time.
+1. Pick **RTMP stream** under **Input → Video source**. A random stream key
+   is filled in; keep it or change it, then **Save**.
 2. The **RTMP stream** card shows the address to stream to, like
-   `rtmp://192.168.1.50/live/<key>`. **Copy** copies it with the key.
-3. Enter it in the app. Apps that ask for a server and a stream key separately
-   take `rtmp://192.168.1.50/live` as the server and the key on its own.
+   `rtmp://192.168.1.50/live/`, with the stream key below it.
+3. Enter the address in the app's server or URL field and the key in its
+   stream key field. Keep the `/` at the end of the address: some apps, like
+   DJI Fly, add the key straight after it. An app with no key field takes the
+   key at the end of the address: `rtmp://192.168.1.50/live/<key>`.
 
 The card says when an app is connected and when video arrives. The splash
 screen shows until the first keyframe.
@@ -170,7 +172,7 @@ gets in.
 ### OBS
 
 1. **Settings → Stream**: set **Service** to **Custom**, **Server** to
-   `rtmp://192.168.1.50/live` and **Stream Key** to the key.
+   `rtmp://192.168.1.50/live/` and **Stream Key** to the key.
 2. **Settings → Output**, with **Output Mode** on **Advanced**: pick an H.264
    encoder, set **Keyframe Interval** to 1 or 2 s, and for x264 the **Tune**
    to `zerolatency`, which leaves out B-frames.
@@ -179,8 +181,10 @@ gets in.
 ### Phone apps and DJI Fly
 
 Look for a custom RTMP server in the app's streaming settings and enter the
-address from the card. In DJI Fly that's the live streaming option with
-**RTMP**.
+address and key from the card. In DJI Fly that's the live streaming option
+with **RTMP**. DJI Fly adds the key straight after the address, so keep the
+`/` at its end: without it DJI Fly sends no key, and the device turns it away
+as a wrong key.
 
 ### What it takes
 

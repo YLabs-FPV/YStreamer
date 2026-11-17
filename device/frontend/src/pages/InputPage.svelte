@@ -172,6 +172,17 @@
     ).join("");
   }
 
+  // Picking RTMP fills in a key right away, to keep or change before saving.
+  // Picking something else again takes back a key that was never saved, so
+  // the page doesn't count it as a change
+  function pickSource(mode: string) {
+    input.mode = mode as Settings["input"]["mode"];
+    if (mode === "rtmp" && !input.rtmp.key) newKey();
+    else if (mode !== "rtmp" && !settings.saved?.input.rtmp.key) {
+      input.rtmp.key = "";
+    }
+  }
+
   // The saved settings: what the device is listening for right now
   const savedRtmp = $derived(
     settings.saved?.input.mode === "rtmp" && settings.saved.input.rtmp.key
@@ -180,7 +191,7 @@
   );
   const rtmpServer = $derived(
     savedRtmp
-      ? `rtmp://${location.hostname}${savedRtmp.port === RTMP_PORT ? "" : `:${savedRtmp.port}`}/live`
+      ? `rtmp://${location.hostname}${savedRtmp.port === RTMP_PORT ? "" : `:${savedRtmp.port}`}/live/`
       : "",
   );
 
@@ -300,11 +311,7 @@
 <div class="flex flex-col gap-4">
   <Card title="Video source">
     <div class="flex flex-col gap-2 px-4 py-3">
-      <Segmented
-        options={SOURCES}
-        value={input.mode}
-        onchange={(v) => (input.mode = v)}
-      />
+      <Segmented options={SOURCES} value={input.mode} onchange={pickSource} />
       <p class="text-[12px] text-muted">
         {ABOUT[input.mode]}
       </p>
@@ -396,20 +403,23 @@
             <code
               class="min-w-0 flex-1 truncate rounded-md bg-surface-2 px-3 py-1.5 font-mono text-[13px] text-fg select-all"
             >
-              {rtmpServer}/••••
+              {rtmpServer}
             </code>
             <button
               type="button"
               class={btn.plain}
-              onclick={() => copy(`${rtmpServer}/${savedRtmp.key}`, "URL")}
+              onclick={() => copy(rtmpServer, "URL")}
             >
               Copy
             </button>
           </div>
           <p class="text-[12px] text-muted">
-            Apps that ask for a server and a stream key separately: the server
-            is <span class="font-mono text-fg">{rtmpServer}</span>, the key is
-            the one below.
+            Put this in the app's server or URL field and the key below in its
+            stream key field.
+          </p>
+          <p class="text-[12px] text-muted">
+            Keep the <span class="font-mono text-fg">/</span> at the end: some apps,
+            like DJI Fly, add the key straight after it.
           </p>
           {#if rtmpSummary}
             <p class="text-[12px] {rtmpSummary.tone}">{rtmpSummary.text}</p>
@@ -430,7 +440,7 @@
       <Field
         label="Stream key"
         for="rtmp-in-key"
-        help="At least 10 characters. Only an app that knows it can stream here. Made up when you first save."
+        help="At least 10 characters."
       >
         <TextField id="rtmp-in-key" secret mono bind:value={input.rtmp.key} />
         <button type="button" class={btn.plain} onclick={newKey}>New</button>

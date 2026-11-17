@@ -139,12 +139,14 @@ las gafas.
 La app tiene que estar en la misma red que el dispositivo: la misma Wi-Fi, o
 conectada al punto de acceso de YStreamer.
 
-1. Elige **RTMP stream** en **Input → Video source** y pulsa **Save**. La
-   primera vez se crea una clave de stream aleatoria.
+1. Elige **RTMP stream** en **Input → Video source**. Se rellena una clave de
+   stream aleatoria; déjala o cámbiala y pulsa **Save**.
 2. La tarjeta **RTMP stream** muestra la dirección a la que enviar, como
-   `rtmp://192.168.1.50/live/<clave>`. **Copy** la copia con la clave.
-3. Escríbela en la app. Las apps que piden un servidor y una clave por
-   separado llevan `rtmp://192.168.1.50/live` como servidor y la clave aparte.
+   `rtmp://192.168.1.50/live/`, con la clave de stream debajo.
+3. Escribe la dirección en el campo de servidor o URL de la app y la clave en
+   su campo de clave de stream. Deja la `/` al final de la dirección: algunas
+   apps, como DJI Fly, ponen la clave justo después. Una app sin campo para la
+   clave la lleva al final de la dirección: `rtmp://192.168.1.50/live/<clave>`.
 
 La tarjeta indica cuándo hay una app conectada y cuándo llega vídeo. La
 pantalla de inicio se muestra hasta el primer fotograma clave.
@@ -175,7 +177,7 @@ esté rechazada siempre entra.
 ### OBS
 
 1. **Settings → Stream**: pon **Service** en **Custom**, **Server** en
-   `rtmp://192.168.1.50/live` y **Stream Key** con la clave.
+   `rtmp://192.168.1.50/live/` y **Stream Key** con la clave.
 2. **Settings → Output**, con **Output Mode** en **Advanced**: elige un
    codificador H.264, pon **Keyframe Interval** en 1 o 2 s y, con x264, **Tune**
    en `zerolatency`, que no usa fotogramas B.
@@ -184,8 +186,10 @@ esté rechazada siempre entra.
 ### Apps del móvil y DJI Fly
 
 Busca un servidor RTMP personalizado en los ajustes de transmisión de la app y
-escribe la dirección de la tarjeta. En DJI Fly es la opción de transmisión en
-directo con **RTMP**.
+escribe la dirección y la clave de la tarjeta. En DJI Fly es la opción de
+transmisión en directo con **RTMP**. DJI Fly pone la clave justo después de la
+dirección, así que deja la `/` al final: sin ella DJI Fly no envía clave y el
+dispositivo la rechaza como clave incorrecta.
 
 ### Qué necesita
 
