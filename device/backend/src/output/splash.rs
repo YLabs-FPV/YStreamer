@@ -218,6 +218,15 @@ impl Splash {
                 };
                 (InputMode::DjiFpvLegacy, state, None)
             }
+            InputMode::Rtmp => {
+                use crate::input::rtmp::RtmpInputState;
+                let rtmp = self.input.rtmp.lock().unwrap().clone();
+                let state = match rtmp.state {
+                    RtmpInputState::Connected | RtmpInputState::Live => LinkState::Live,
+                    _ => LinkState::Unplugged,
+                };
+                (InputMode::Rtmp, state, rtmp.publisher)
+            }
         }
     }
 

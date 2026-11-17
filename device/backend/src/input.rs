@@ -2,6 +2,7 @@ pub mod aio;
 pub mod codec;
 pub mod dji;
 pub mod duml;
+pub mod flv;
 pub mod gadget;
 pub mod goggles;
 pub mod h264;
@@ -9,6 +10,7 @@ pub mod h265;
 pub mod hevc;
 pub mod legacy;
 pub mod passthrough;
+pub mod rtmp;
 pub mod uvc;
 
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -32,6 +34,7 @@ pub struct InputState {
     pub dji: Mutex<dji::DjiStatus>,
     pub uvc: Mutex<uvc::UvcStatus>,
     pub legacy: Mutex<legacy::LegacyStatus>,
+    pub rtmp: Mutex<rtmp::RtmpInputStatus>,
 }
 
 impl InputState {
@@ -45,6 +48,7 @@ impl InputState {
         match self.mode.load(Ordering::Relaxed) {
             1 => InputMode::Uvc,
             2 => InputMode::DjiFpvLegacy,
+            3 => InputMode::Rtmp,
             _ => InputMode::DjiFpv,
         }
     }
@@ -54,6 +58,7 @@ impl InputState {
             InputMode::DjiFpv => 0,
             InputMode::Uvc => 1,
             InputMode::DjiFpvLegacy => 2,
+            InputMode::Rtmp => 3,
         };
         self.mode.store(v, Ordering::Relaxed);
     }

@@ -1,0 +1,600 @@
+use super::*;
+
+use gstreamer as gst;
+use gstreamer::prelude::*;
+use rml_rtmp::sessions::{
+    ClientSession, ClientSessionConfig, ClientSessionEvent, ClientSessionResult, PublishRequestType,
+};
+use rml_rtmp::time::RtmpTimestamp;
+
+const KEY: &str = "testkey123";
+
+type Received = Arc<Mutex<Vec<Vec<u8>>>>;
+
+fn settings(allowed_from: &str) -> RtmpInputSettings {
+    RtmpInputSettings {
+        // Any free port, so tests can run side by side
+        port: 0,
+        key: KEY.into(),
+        allowed_from: allowed_from.into(),
+    }
+}
+
+/// A listening source and the pictures it hands on
+fn source(cfg: &RtmpInputSettings) -> (Arc<RtmpSource>, Arc<InputState>, Received, u16) {
+    source_with_login(cfg, LOGIN)
+}
+
+fn source_with_login(
+    cfg: &RtmpInputSettings,
+    login: Duration,
+) -> (Arc<RtmpSource>, Arc<InputState>, Received, u16) {
+    let state = InputState::new(InputMode::Rtmp);
+    let received: Received = Arc::default();
+    let sink = Arc::clone(&received);
+    let source = RtmpSource::launch(
+        Arc::clone(&state),
+        cfg,
+        Arc::new(move |au: &[u8]| sink.lock().unwrap().push(au.to_vec())),
+        login,
+    );
+    let port = wait_until(|| source.status().port).expect("the source never listened");
+    (source, state, received, port)
+}
+
+fn wait_until<T>(mut f: impl FnMut() -> Option<T>) -> Option<T> {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline {
+        if let Some(v) = f() {
+            return Some(v);
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    None
+}
+
+fn have(elements: &[&str]) -> bool {
+    gst::init().is_ok()
+        && elements
+            .iter()
+            .all(|e| gst::ElementFactory::find(e).is_some())
+}
+
+/// Streams a few seconds of test picture the way an encoder app would,
+/// noting every state the source went through. Whether it ended cleanly
+fn push_with_gstreamer(source: &RtmpSource, port: u16, key: &str) -> (bool, Vec<RtmpInputState>) {
+    let pipeline = gst::parse::launch(&format!(
+        "videotestsrc is-live=true num-buffers=60 ! video/x-raw,width=320,height=240,framerate=30/1 ! \
+         x264enc tune=zerolatency speed-preset=ultrafast key-int-max=15 ! \
+         flvmux streamable=true ! rtmp2sink location=rtmp://127.0.0.1:{port}/live/{key}"
+    ))
+    .unwrap()
+    .dynamic_cast::<gst::Pipeline>()
+    .unwrap();
+    let bus = pipeline.bus().unwrap();
+    pipeline.set_state(gst::State::Playing).unwrap();
+    let mut seen = Vec::new();
+    let deadline = Instant::now() + Duration::from_secs(15);
+    let ok = loop {
+        let state = source.status().state;
+        if seen.last() != Some(&state) {
+            seen.push(state);
+        }
+        if let Some(msg) = bus.timed_pop_filtered(
+            gst::ClockTime::from_mseconds(20),
+            &[gst::MessageType::Eos, gst::MessageType::Error],
+        ) {
+            break matches!(msg.view(), gst::MessageView::Eos(_));
+        }
+        if Instant::now() > deadline {
+            break false;
+        }
+    };
+    pipeline.set_state(gst::State::Null).unwrap();
+    (ok, seen)
+}
+
+#[test]
+fn takes_a_stream_from_an_encoder() {
+    if !have(&["videotestsrc", "x264enc", "flvmux", "rtmp2sink"]) {
+        eprintln!("skipped: GStreamer's x264enc, flvmux or rtmp2sink isn't installed");
+        return;
+    }
+    let (source, _state, received, port) = source(&settings(""));
+    let (ok, seen) = push_with_gstreamer(&source, port, KEY);
+    assert!(ok, "the push failed");
+    assert!(seen.contains(&RtmpInputState::Live), "never live: {seen:?}");
+
+    let pictures = received.lock().unwrap().clone();
+    assert!(pictures.len() > 40, "only {} pictures", pictures.len());
+    let kinds = |au: &[u8]| {
+        crate::input::h264::nals(au)
+            .map(|n| n.kind)
+            .collect::<Vec<_>>()
+    };
+    // The first picture is a keyframe that a decoder can start at
+    let first = kinds(&pictures[0]);
+    assert_eq!(&first[..2], &[crate::input::h264::SPS, 8], "{first:?}");
+    assert!(first.contains(&crate::input::h264::IDR));
+    for au in &pictures {
+        assert!(au.ends_with(&[0, 0, 0, 1, 0x09, 0xf0]));
+        let k = kinds(au);
+        assert_eq!(
+            k.iter().filter(|&&k| k == crate::input::h264::AUD).count(),
+            1
+        );
+        if k.contains(&crate::input::h264::IDR) {
+            assert!(k.contains(&crate::input::h264::SPS));
+        }
+    }
+
+    // Back to waiting for the next one once the app stops
+    assert!(
+        wait_until(|| (source.status().state == RtmpInputState::Waiting).then_some(())).is_some()
+    );
+    assert_eq!(source.status().publisher, None);
+}
+
+#[test]
+fn turns_away_a_wrong_key() {
+    if !have(&["videotestsrc", "x264enc", "flvmux", "rtmp2sink"]) {
+        eprintln!("skipped: GStreamer's x264enc, flvmux or rtmp2sink isn't installed");
+        return;
+    }
+    let (source, _state, received, port) = source(&settings(""));
+    let (ok, seen) = push_with_gstreamer(&source, port, "guessed");
+    assert!(!ok);
+    assert!(!seen.contains(&RtmpInputState::Live));
+    assert!(received.lock().unwrap().is_empty());
+    let error = source.status().error.unwrap_or_default();
+    assert!(error.contains("wrong stream key"), "{error}");
+}
+
+/// A publisher made from the library's own client side, for sending tags
+/// no encoder here can make
+struct Client {
+    stream: TcpStream,
+    session: ClientSession,
+    buf: Vec<u8>,
+}
+
+impl Client {
+    /// None if the server hangs up during the handshake
+    fn connect(port: u16) -> Option<Self> {
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        let mut handshake = Handshake::new(PeerType::Client);
+        stream
+            .write_all(&handshake.generate_outbound_p0_and_p1().unwrap())
+            .unwrap();
+        let mut buf = vec![0u8; 16 * 1024];
+        let rest = loop {
+            let n = match stream.read(&mut buf) {
+                Ok(0) | Err(_) => return None,
+                Ok(n) => n,
+            };
+            match handshake.process_bytes(&buf[..n]).unwrap() {
+                HandshakeProcessResult::InProgress { response_bytes } => {
+                    stream.write_all(&response_bytes).unwrap()
+                }
+                HandshakeProcessResult::Completed {
+                    response_bytes,
+                    remaining_bytes,
+                } => {
+                    stream.write_all(&response_bytes).unwrap();
+                    break remaining_bytes;
+                }
+            }
+        };
+        let (session, _) = ClientSession::new(ClientSessionConfig::new()).unwrap();
+        let mut client = Self {
+            stream,
+            session,
+            buf,
+        };
+        let results = client.session.handle_input(&rest).unwrap();
+        client.send_all(results);
+        Some(client)
+    }
+
+    fn send_all(&mut self, results: Vec<ClientSessionResult>) -> Vec<ClientSessionEvent> {
+        let mut events = Vec::new();
+        for r in results {
+            match r {
+                ClientSessionResult::OutboundResponse(p) => {
+                    let _ = self.stream.write_all(&p.bytes);
+                }
+                ClientSessionResult::RaisedEvent(e) => events.push(e),
+                _ => {}
+            }
+        }
+        events
+    }
+
+    /// Reads until the session raises `want`; false if the server hangs up
+    fn wait_for(&mut self, want: fn(&ClientSessionEvent) -> bool) -> bool {
+        loop {
+            let n = match self.stream.read(&mut self.buf) {
+                Ok(0) | Err(_) => return false,
+                Ok(n) => n,
+            };
+            let Ok(results) = self.session.handle_input(&self.buf[..n]) else {
+                return false;
+            };
+            if self.send_all(results).iter().any(want) {
+                return true;
+            }
+        }
+    }
+
+    /// Connected and publishing under `key`, or None if turned away
+    fn publish(port: u16, key: &str) -> Option<Self> {
+        let mut c = Self::connect(port)?;
+        let r = c.session.request_connection("live".into()).unwrap();
+        c.send_all(vec![r]);
+        if !c.wait_for(|e| matches!(e, ClientSessionEvent::ConnectionRequestAccepted)) {
+            return None;
+        }
+        let r = c
+            .session
+            .request_publishing(key.into(), PublishRequestType::Live)
+            .unwrap();
+        c.send_all(vec![r]);
+        c.wait_for(|e| matches!(e, ClientSessionEvent::PublishRequestAccepted))
+            .then_some(c)
+    }
+
+    fn video(&mut self, tag: &[u8]) {
+        let r = self
+            .session
+            .publish_video_data(tag.to_vec().into(), RtmpTimestamp::new(0), false)
+            .unwrap();
+        self.send_all(vec![r]);
+    }
+
+    /// Whether the server closes the connection within the read timeout
+    fn hung_up(&mut self) -> bool {
+        matches!(self.stream.read(&mut self.buf), Ok(0))
+            || matches!(self.stream.read(&mut self.buf), Ok(0))
+    }
+}
+
+#[test]
+fn turns_away_h265_by_name() {
+    let (source, _state, received, port) = source(&settings(""));
+    let mut client = Client::publish(port, KEY).expect("publishing was refused");
+    assert_eq!(source.status().state, RtmpInputState::Connected);
+    assert_eq!(source.status().publisher.as_deref(), Some("127.0.0.1"));
+
+    // An Enhanced RTMP H.265 sequence header, as OBS sends it
+    let mut tag = vec![0x90];
+    tag.extend(b"hvc1");
+    tag.extend([1, 2, 3]);
+    client.video(&tag);
+    assert!(client.hung_up());
+    assert!(received.lock().unwrap().is_empty());
+
+    let status = wait_until(|| {
+        let s = source.status();
+        (s.state == RtmpInputState::Waiting).then_some(s)
+    })
+    .unwrap();
+    assert!(status.error.unwrap().contains("H.265"));
+}
+
+#[test]
+fn one_app_streams_at_a_time() {
+    let (source, _state, _received, port) = source(&settings(""));
+    let first = Client::publish(port, KEY).expect("publishing was refused");
+    assert!(Client::publish(port, KEY).is_none());
+    assert!(source.status().error.unwrap().contains("already streaming"));
+
+    // Free again once the first hangs up
+    drop(first);
+    assert!(
+        wait_until(|| (source.status().state == RtmpInputState::Waiting).then_some(())).is_some()
+    );
+    assert!(Client::publish(port, KEY).is_some());
+}
+
+#[test]
+fn turns_away_addresses_not_allowed() {
+    let (source, _state, _received, port) = source(&settings("192.0.2.7"));
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let mut buf = [0u8; 16];
+    assert!(matches!(stream.read(&mut buf), Ok(0) | Err(_)));
+    let error = source.status().error.unwrap_or_default();
+    assert!(error.contains("not one of the allowed"), "{error}");
+}
+
+#[test]
+fn a_new_key_drops_the_app_streaming() {
+    let (source, _state, _received, port) = source(&settings(""));
+    let mut client = Client::publish(port, KEY).expect("publishing was refused");
+    source.apply(&RtmpInputSettings {
+        key: "otherkey12".into(),
+        ..settings("")
+    });
+    assert!(client.hung_up());
+    assert!(Client::publish(port, KEY).is_none());
+}
+
+#[test]
+fn closes_the_port_when_another_input_is_picked() {
+    let (source, state, _received, port) = source(&settings(""));
+    let client = Client::publish(port, KEY).expect("publishing was refused");
+    state.set_mode(InputMode::Uvc);
+    assert!(wait_until(|| (source.status().state == RtmpInputState::Idle).then_some(())).is_some());
+    drop(client);
+    thread::sleep(POLL * 3);
+    assert!(TcpStream::connect(("127.0.0.1", port)).is_err());
+}
+
+/// Connected and sending a byte now and then, never finishing the handshake
+fn dribblers(port: u16, n: usize) -> Vec<TcpStream> {
+    (0..n)
+        .map(|_| {
+            let s = TcpStream::connect(("127.0.0.1", port)).unwrap();
+            s.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+            s
+        })
+        .collect()
+}
+
+fn dribble(streams: &mut [TcpStream]) {
+    for s in streams {
+        let _ = s.write_all(&[3]);
+    }
+}
+
+/// Whether the server has hung up, past whatever it sent first
+fn closed(s: &mut TcpStream) -> bool {
+    let mut buf = [0u8; 4096];
+    loop {
+        match s.read(&mut buf) {
+            Ok(0) => return true,
+            Ok(_) => {}
+            Err(e) => return !matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut),
+        }
+    }
+}
+
+#[test]
+fn slow_clients_are_dropped_at_the_login_deadline() {
+    let (_source, _state, _received, port) =
+        source_with_login(&settings(""), Duration::from_secs(1));
+    let mut slow = dribblers(port, MAX_PENDING);
+    thread::sleep(Duration::from_millis(300));
+    // Every slot is taken, so the next one is turned away at once
+    let mut extra = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    extra
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    assert!(closed(&mut extra));
+
+    // A byte every 250 ms never trips the idle limit, the deadline still holds
+    for _ in 0..6 {
+        dribble(&mut slow);
+        thread::sleep(Duration::from_millis(250));
+    }
+    for s in &mut slow {
+        assert!(closed(s), "a slow client outlived the login deadline");
+    }
+    assert!(Client::publish(port, KEY).is_some());
+}
+
+#[test]
+fn the_app_streaming_isnt_held_to_the_deadline_or_the_pending_slots() {
+    let (source, _state, _received, port) =
+        source_with_login(&settings(""), Duration::from_secs(1));
+    let _app = Client::publish(port, KEY).expect("publishing was refused");
+    let mut slow = dribblers(port, MAX_PENDING);
+    for _ in 0..6 {
+        dribble(&mut slow);
+        thread::sleep(Duration::from_millis(250));
+    }
+    let status = source.status();
+    assert_eq!(status.state, RtmpInputState::Connected);
+    assert_eq!(status.publisher.as_deref(), Some("127.0.0.1"));
+}
+
+#[test]
+fn repeated_wrong_keys_turn_the_address_away() {
+    let (source, _state, _received, port) = source(&settings(""));
+    for _ in 0..MAX_STRIKES {
+        assert!(Client::publish(port, "guessing12").is_none());
+    }
+    // Even the right key, for now
+    assert!(Client::publish(port, KEY).is_none());
+    let error = source.status().error.unwrap_or_default();
+    assert!(error.contains("too many wrong keys"), "{error}");
+}
+
+/// Every slot in the table holds an active ban
+fn fill_with_bans(s: &mut Strikes, now: Instant) {
+    for n in 0..MAX_TRACKED as u32 {
+        let ip = IpAddr::from(std::net::Ipv4Addr::from(0xc612_0000 + n));
+        s.by_ip.insert(
+            ip,
+            Record {
+                wrong: MAX_STRIKES,
+                last: now,
+                banned_until: Some(now + MAX_BAN),
+            },
+        );
+    }
+}
+
+#[test]
+fn the_right_key_gets_in_with_the_table_full_of_bans_and_the_budget_spent() {
+    let (source, _state, _received, port) = source(&settings(""));
+    {
+        let mut strikes = source.strikes.lock().unwrap();
+        fill_with_bans(&mut strikes, Instant::now());
+        strikes.budget = 0;
+    }
+    assert!(
+        Client::publish(port, KEY).is_some(),
+        "the right key was turned away"
+    );
+}
+
+#[test]
+fn a_wrong_key_is_answered_late_once_the_budget_is_spent() {
+    let (source, _state, _received, port) = source(&settings(""));
+    let quick = Instant::now();
+    assert!(Client::publish(port, "guessing12").is_none());
+    assert!(
+        quick.elapsed() < SLOW_ANSWER,
+        "answered late with budget left"
+    );
+
+    source.strikes.lock().unwrap().budget = 0;
+    let slow = Instant::now();
+    assert!(Client::publish(port, "guessing12").is_none());
+    assert!(
+        slow.elapsed() >= SLOW_ANSWER,
+        "answered after {:?}",
+        slow.elapsed()
+    );
+    // Two wrong keys: slowed down, not banned, so the right key still works
+    assert!(Client::publish(port, KEY).is_some());
+}
+
+mod strikes {
+    use super::*;
+
+    fn ip(n: u32) -> IpAddr {
+        IpAddr::from(std::net::Ipv4Addr::from(0x0a00_0000 + n))
+    }
+
+    fn v6(s: &str) -> IpAddr {
+        s.parse().unwrap()
+    }
+
+    #[test]
+    fn bans_after_a_few_wrong_keys_and_doubles_each_time() {
+        let t = Instant::now();
+        let mut s = Strikes::new(t);
+        assert_eq!(s.strike(ip(1), t).ban, None);
+        assert_eq!(s.strike(ip(1), t).ban, None);
+        assert_eq!(s.strike(ip(1), t).ban, Some(FIRST_BAN));
+        assert!(s.banned(ip(1), t).is_some());
+        assert!(s.banned(ip(2), t).is_none());
+
+        let later = t + FIRST_BAN + Duration::from_secs(1);
+        assert!(s.banned(ip(1), later).is_none());
+        assert_eq!(s.strike(ip(1), later).ban, Some(FIRST_BAN * 2));
+        assert_eq!(s.strike(ip(1), later).ban, Some(FIRST_BAN * 4));
+        for _ in 0..20 {
+            s.strike(ip(1), later);
+        }
+        assert_eq!(s.strike(ip(1), later).ban, Some(MAX_BAN));
+    }
+
+    #[test]
+    fn the_right_key_and_time_forgive() {
+        let t = Instant::now();
+        let mut s = Strikes::new(t);
+        s.strike(ip(1), t);
+        s.strike(ip(1), t);
+        s.forget(ip(1));
+        assert_eq!(s.strike(ip(1), t).ban, None);
+
+        let mut s = Strikes::new(t);
+        s.strike(ip(1), t);
+        s.strike(ip(1), t);
+        assert_eq!(s.strike(ip(1), t + STRIKE_MEMORY).ban, None);
+    }
+
+    #[test]
+    fn ipv6_counts_by_64_and_ipv4_by_address() {
+        let t = Instant::now();
+        let mut s = Strikes::new(t);
+        for host in ["2001:db8:1:2::1", "2001:db8:1:2::2", "2001:db8:1:2:abcd::3"] {
+            s.strike(v6(host), t);
+        }
+        assert!(s.banned(v6("2001:db8:1:2:ffff::9"), t).is_some());
+        assert!(s.banned(v6("2001:db8:1:3::1"), t).is_none());
+
+        for n in 1..=3 {
+            s.strike(ip(n), t);
+        }
+        assert!(s.banned(ip(1), t).is_none());
+        // An IPv4 address written as IPv6 is still that IPv4 address
+        for _ in 0..MAX_STRIKES {
+            s.strike(v6("::ffff:10.0.0.9"), t);
+        }
+        assert!(s.banned(ip(9), t).is_some());
+    }
+
+    #[test]
+    fn remembers_a_bounded_number_of_addresses() {
+        let t = Instant::now();
+        let mut s = Strikes::new(t);
+        for n in 0..1000 {
+            s.strike(ip(n), t + Duration::from_millis(n as u64));
+        }
+        assert!(s.by_ip.len() <= MAX_TRACKED);
+        // The newest are the ones kept
+        assert!(s.by_ip.contains_key(&ip(999)));
+    }
+
+    #[test]
+    fn making_room_never_drops_a_ban_and_never_turns_a_newcomer_away() {
+        let t = Instant::now();
+        let mut s = Strikes::new(t);
+        fill_with_bans(&mut s, t);
+        let banned: Vec<IpAddr> = s.by_ip.keys().copied().collect();
+        // The newcomer's wrong key goes unrecorded, and it isn't banned
+        assert_eq!(s.strike(ip(1000), t).ban, None);
+        assert!(!s.by_ip.contains_key(&ip(1000)));
+        assert!(s.banned(ip(1000), t).is_none());
+        for b in banned {
+            assert!(s.banned(b, t).is_some(), "the ban on {b} was dropped");
+        }
+    }
+
+    #[test]
+    fn an_unbanned_address_makes_room_before_a_banned_one() {
+        let t = Instant::now();
+        let mut s = Strikes::new(t);
+        fill_with_bans(&mut s, t);
+        let lapsed = *s.by_ip.keys().next().unwrap();
+        s.by_ip.get_mut(&lapsed).unwrap().banned_until = Some(t);
+        let soon = t + Duration::from_secs(1);
+        s.strike(ip(1000), soon);
+        assert!(!s.by_ip.contains_key(&lapsed));
+        assert!(s.by_ip.contains_key(&ip(1000)));
+        assert_eq!(s.by_ip.len(), MAX_TRACKED);
+    }
+
+    #[test]
+    fn the_shared_budget_only_slows_wrong_keys() {
+        let t = Instant::now();
+        let mut s = Strikes::new(t);
+        for n in 0..GLOBAL_BUDGET {
+            assert!(!s.strike(ip(n), t).slow);
+        }
+        // Spent: answers wait, but one wrong key still bans nobody
+        let next = s.strike(ip(100), t);
+        assert_eq!(
+            next,
+            Strike {
+                ban: None,
+                slow: true
+            }
+        );
+        assert!(s.banned(ip(0), t).is_none());
+        assert!(s.banned(ip(100), t).is_none());
+
+        // And it comes back a little at a time
+        assert!(!s.strike(ip(0), t + GLOBAL_REFILL).slow);
+        assert!(s.strike(ip(1), t + GLOBAL_REFILL).slow);
+    }
+}
