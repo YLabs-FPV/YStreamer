@@ -19,6 +19,11 @@ export interface Settings {
     /** Pass the goggles' link through to DJI Fly on a phone in USB-A */
     passthrough: boolean;
   };
+  /** Off leaves the radios as DJI's apps last set them */
+  radio_region: {
+    enabled: boolean;
+    region: import("@/types/input").RadioRegion;
+  };
   device: { hostname: string; timezone: string };
   wifi: {
     mode: WifiMode;
