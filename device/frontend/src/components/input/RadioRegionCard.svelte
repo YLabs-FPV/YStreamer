@@ -81,13 +81,13 @@
     }
     if (status.enabled) {
       return {
-        text: "Waiting for the goggles. The region goes out once they're connected.",
+        text: "Waiting for the remote or goggles. The region goes out once one is connected.",
         tone: "text-muted",
       };
     }
     if (status.applied) {
       return {
-        text: "CE goes back to the radios when the goggles and aircraft are next connected.",
+        text: "CE goes back to the radios when the remote or goggles and the aircraft are next connected.",
         tone: "text-warn",
       };
     }
@@ -97,7 +97,7 @@
 
 <Card
   title="Radio region"
-  description="The transmit limits the goggles and aircraft follow, the region DJI's own apps set by country."
+  description="The transmit limits the aircraft follows while connected, the region DJI Fly sets by country. Mainly for an RC-N remote: goggles already get FCC from ham_cfg_support, and this doesn't conflict with it."
 >
   {#snippet aside()}
     {#if status?.enabled}
@@ -123,7 +123,7 @@
   <Field
     label="Set the radio region"
     for="radio-region"
-    help="Off leaves the radios as DJI's apps last set them. Turning it off after this unit set a region puts CE back."
+    help="Off leaves the radios as DJI Fly last set them. Turning it off after this unit set a region puts CE back."
   >
     <Switch
       id="radio-region"

@@ -1,10 +1,12 @@
 //! The radio region: CE or FCC transmit limits, the choice DJI's own apps
-//! make by country. The region goes to the goggles' transceiver and the
-//! aircraft's, and never to the flight controller: writing its parameters
-//! can hold up the GPS lock or leave the aircraft in ATTI.
+//! make by country, held only while connected. It's mainly for aircraft on an
+//! RC-N remote; goggles already get FCC from a ham_cfg_support file, which this
+//! doesn't conflict with. The region goes to the ground transceiver (remote or
+//! goggles) and the aircraft's, and never to the flight controller: writing its
+//! parameters can hold up the GPS lock or leave the aircraft in ATTI.
 //!
 //! The frames follow tw-streamer's notes on the transceivers, worked out from
-//! the goggles' and aircraft's own firmware. They haven't been flight-tested.
+//! the ground units' and aircraft's own firmware. They haven't been flight-tested.
 
 use std::fs;
 use std::io;
@@ -217,13 +219,13 @@ pub struct RegionStatus {
     pub enabled: bool,
     /// This unit changed the region and hasn't put CE back yet
     pub applied: bool,
-    /// What the goggles connected now were last given in full
+    /// What the remote or goggles connected now were last given in full
     pub active: Option<RadioRegion>,
     pub sent_ms_ago: Option<u64>,
 }
 
-/// Keeps the radios on the region from the settings while the goggles are
-/// connected
+/// Keeps the radios on the region from the settings while the remote or
+/// goggles are connected
 pub struct Applier {
     goggles: Goggles,
     session: Arc<Session>,

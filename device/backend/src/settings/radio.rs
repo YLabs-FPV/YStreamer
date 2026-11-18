@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-/// The transmit limits the goggles and aircraft radios follow, the same
-/// choice DJI's own apps make by country
+/// The transmit limits the aircraft's radios follow while connected, mainly
+/// with an RC-N remote, the same choice DJI Fly makes by country
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum RadioRegion {
@@ -27,7 +27,7 @@ impl RadioRegion {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[serde(default)]
 pub struct RadioRegionSettings {
-    /// Off leaves the radios as DJI's apps last set them
+    /// Off leaves the radios as DJI Fly last set them
     pub enabled: bool,
     pub region: RadioRegion,
 }

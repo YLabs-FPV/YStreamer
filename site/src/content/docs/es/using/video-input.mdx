@@ -34,40 +34,6 @@ alguna de vez en cuando) se ve un momento y se corrige sola.
   las gafas, en Settings → Camera → Advanced Camera Settings.
 </Admonition>
 
-### Región de radio
-
-**Input → Radio region** fija los límites de transmisión que siguen las gafas
-y la aeronave, la misma elección de región por país que hacen las propias
-apps de DJI: **FCC** (como en Estados Unidos), **CE** (como en Europa, el
-ajuste de fábrica de las radios) o **Indonesia**.
-
-<Admonition type="warning" title="Las normas de radio de tu país">
-  Los límites de potencia de transmisión cambian según el país. Eres responsable
-  de cumplir las normas de radio locales en la región que elijas. Al activar el
-  ajuste se te pide que lo confirmes.
-</Admonition>
-
-Viene desactivado, y desactivado deja las radios como las dejaron por última
-vez las apps de DJI. Con el ajuste activado:
-
-- La región va a los transceptores de las gafas y de la aeronave cada vez que
-  se conectan las gafas, y otra vez cuando se enlaza una aeronave. Nunca se
-  envía a la controladora de vuelo.
-- Le sigue una repetición corta cada 2 segundos mientras las gafas están
-  conectadas, porque sin ella las radios vuelven a CE. CE no necesita
-  repetición.
-- **Send again** envía el conjunto completo otra vez, por ejemplo después de
-  cambiar de aeronave.
-
-Al desactivarlo se vuelve a CE, pero solo si esta unidad fijó antes una
-región. Una región fijada de otra forma no se toca. Si la aeronave no está
-enlazada en ese momento, recibe CE la próxima vez que lo esté.
-
-<Admonition type="info" title="Aún sin probar en vuelo">
-  Esta forma de fijar la región aún no se ha probado en vuelo. Comprueba el
-  alcance de la transmisión en tierra antes de confiar en ella.
-</Admonition>
-
 ## Passthrough a DJI Fly
 
 Con la fuente **DJI goggles / RC-N**, un teléfono Android con **DJI Fly** puede
@@ -113,6 +79,43 @@ envía H.265, que se convierte a H.264 como se explica arriba.
   YStreamer pide a la aeronave una imagen nueva desde la que empezar, como hace
   DJI Fly, así que el mando puede conectarse antes o después de enlazar con la
   aeronave, y desconectarse y volver a conectarse.
+</Admonition>
+
+### Región de radio
+
+**Input → Radio region** fija los límites de transmisión que siguen el mando
+y la aeronave, la misma elección de región por país que hace DJI Fly: **FCC** (como en Estados Unidos), **CE** (como en Europa, el
+ajuste de fábrica de las radios) o **Indonesia**. Está pensado para aeronaves que
+se vuelan con un RC-N2 / RC-N3, como la serie Mavic o Mini. Las gafas ya toman
+FCC de un archivo `ham_cfg_support`, y este ajuste no entra en conflicto con él.
+La región se mantiene solo mientras la aeronave está conectada a través de
+YStreamer, no para siempre.
+
+<Admonition type="warning" title="Las normas de radio de tu país">
+  Los límites de potencia de transmisión cambian según el país. Eres responsable
+  de cumplir las normas de radio locales en la región que elijas. Al activar el
+  ajuste se te pide que lo confirmes.
+</Admonition>
+
+Viene desactivado, y desactivado deja las radios como las dejó por última
+vez DJI Fly. Con el ajuste activado:
+
+- La región va a los transceptores del mando y de la aeronave cada vez que
+  se conecta el mando, y otra vez cuando se enlaza una aeronave. Nunca se
+  envía a la controladora de vuelo.
+- Le sigue una repetición corta cada 2 segundos mientras el mando está
+  conectado, porque sin ella las radios vuelven a CE. CE no necesita
+  repetición.
+- **Send again** envía el conjunto completo otra vez, por ejemplo después de
+  cambiar de aeronave.
+
+Al desactivarlo se vuelve a CE, pero solo si esta unidad fijó antes una
+región. Una región fijada de otra forma no se toca. Si la aeronave no está
+enlazada en ese momento, recibe CE la próxima vez que lo esté.
+
+<Admonition type="info" title="Aún sin probar en vuelo">
+  Esta forma de fijar la región aún no se ha probado en vuelo. Comprueba el
+  alcance de la transmisión en tierra antes de confiar en ella.
 </Admonition>
 
 ## FPV Goggles V1 / V2
