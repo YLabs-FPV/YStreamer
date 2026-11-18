@@ -4,7 +4,7 @@ export const AUTHOR = "YarosFPV";
 // English fallback description. Per-locale copy lives in src/i18n/locales/*.json
 // (site.description) and is what the pages actually render.
 export const SITE_DESCRIPTION =
-  "Raspberry Pi 4 software that takes the live feed from DJI FPV goggles or a USB camera and sends it to HDMI, any browser, RTSP/SRT/RTMP/UDP streams and recordings.";
+  "Raspberry Pi 4 software that takes the live feed from DJI FPV goggles or a USB camera and sends it to HDMI, any browser, RTSP/SRT/RTMP/UDP streams, NDI and OMT, and recordings.";
 
 export const SITE_URL = "https://ystreamer.yarosfpv.com";
 export const GITHUB_URL = "https://github.com/YLabs-FPV/YStreamer";

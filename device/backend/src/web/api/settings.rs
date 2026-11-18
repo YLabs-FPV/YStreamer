@@ -5,7 +5,9 @@ use axum::{
 };
 use serde::Serialize;
 
-use crate::settings::{Settings, validate_hostname, validate_timezone};
+use crate::settings::{
+    InputMode, RtmpInputSettings, Settings, validate_hostname, validate_timezone,
+};
 use crate::system;
 
 use super::display::overlay_changed;
@@ -59,6 +61,13 @@ pub(super) fn validate(s: &Settings) -> Result<(), String> {
     validate_hostname(&s.device.hostname)?;
     validate_timezone(&s.device.timezone)?;
     s.input.uvc.validate()?;
+    s.input.rtmp.validate()?;
+    if s.input.mode == InputMode::Rtmp && s.rtsp.enabled && s.rtsp.port == s.input.rtmp.port {
+        return Err(format!(
+            "Port {} is the RTSP server's; pick another for the RTMP input",
+            s.rtsp.port
+        ));
+    }
     s.overlay.validate()?;
     s.wifi.validate()?;
     s.ethernet.validate()?;
@@ -66,13 +75,19 @@ pub(super) fn validate(s: &Settings) -> Result<(), String> {
     s.srt.validate()?;
     s.rtmp.validate()?;
     s.udp.validate()?;
+    s.ndi.validate("NDI")?;
+    s.omt.validate("OMT")?;
     s.recording.validate()?;
     Ok(())
 }
 
 pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>, ApiError> {
     // Also covers reset and import, which bring "System" modes along
-    let next = next.for_install();
+    let mut next = next.for_install();
+    // Picking RTMP makes up its key, so the input is never open to anyone
+    if next.input.mode == InputMode::Rtmp && next.input.rtmp.key.is_empty() {
+        next.input.rtmp.key = RtmpInputSettings::new_key();
+    }
     validate(&next).map_err(bad)?;
     let prev = sv.store.get();
     let mut notice = None;
@@ -107,9 +122,44 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
         return Err(failed(format!("UDP: {e}")));
     }
 
+    // Both refuse to start without what they need on the device: the NDI
+    // runtime, or a free port for OMT
+    let undo_streams = |sv: &Services| {
+        if next.rtsp != prev.rtsp {
+            let _ = sv.rtsp.apply(&prev.rtsp);
+        }
+        if next.srt != prev.srt {
+            let _ = sv.srt.apply(&prev.srt);
+        }
+        if next.udp != prev.udp {
+            let _ = sv.udp.apply(&prev.udp);
+        }
+    };
+    if next.ndi != prev.ndi
+        && let Err(e) = sv.ndi.apply(&next.ndi)
+    {
+        undo_streams(sv);
+        let _ = sv.ndi.apply(&prev.ndi);
+        return Err(failed(format!("NDI: {e}")));
+    }
+    if next.omt != prev.omt
+        && let Err(e) = sv.omt.apply(&next.omt)
+    {
+        undo_streams(sv);
+        if next.ndi != prev.ndi {
+            let _ = sv.ndi.apply(&prev.ndi);
+        }
+        let _ = sv.omt.apply(&prev.omt);
+        return Err(failed(format!("OMT: {e}")));
+    }
+
     if next.input != prev.input {
         sv.input.set_mode(next.input.mode);
         sv.uvc.apply(&next.input.uvc);
+        if next.input.rtmp != prev.input.rtmp {
+            sv.rtmp_input.apply(&next.input.rtmp);
+        }
+        sv.passthrough.set_enabled(next.input.passthrough);
     }
 
     // Never refused: an unreachable server is retried in the background
@@ -131,9 +181,19 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
         if next.udp != prev.udp {
             let _ = sv.udp.apply(&prev.udp);
         }
+        if next.ndi != prev.ndi {
+            let _ = sv.ndi.apply(&prev.ndi);
+        }
+        if next.omt != prev.omt {
+            let _ = sv.omt.apply(&prev.omt);
+        }
         if next.input != prev.input {
             sv.input.set_mode(prev.input.mode);
             sv.uvc.apply(&prev.input.uvc);
+            if next.input.rtmp != prev.input.rtmp {
+                sv.rtmp_input.apply(&prev.input.rtmp);
+            }
+            sv.passthrough.set_enabled(prev.input.passthrough);
         }
         if display_changed {
             let _ = sv.player.apply(&prev.display);

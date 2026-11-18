@@ -23,6 +23,8 @@ use crate::input::duml::session::Session;
 use crate::input::goggles::Goggles;
 use crate::net::network::Network;
 use crate::output::hdmi::GstPlayer;
+use crate::output::ndi::NdiOutput;
+use crate::output::omt::OmtOutput;
 use crate::output::recording::Recorder;
 use crate::output::rtmp::RtmpOutput;
 use crate::output::rtsp::RtspServer;
@@ -41,6 +43,8 @@ pub struct Services {
     pub srt: Arc<SrtOutput>,
     pub rtmp: Arc<RtmpOutput>,
     pub udp: Arc<UdpOutput>,
+    pub ndi: Arc<NdiOutput>,
+    pub omt: Arc<OmtOutput>,
     pub player: Arc<GstPlayer>,
     pub recorder: Arc<Recorder>,
     pub transfers: Arc<crate::output::transfer::Transfers>,
@@ -55,6 +59,8 @@ pub struct Services {
     pub metrics: Arc<crate::system::metrics::Metrics>,
     pub uvc: Arc<crate::input::uvc::UvcSource>,
     pub legacy: Arc<crate::input::legacy::LegacySource>,
+    pub rtmp_input: Arc<crate::input::rtmp::RtmpSource>,
+    pub passthrough: Arc<crate::input::passthrough::Passthrough>,
 }
 
 pub fn router<S>(services: Services) -> Router<S> {
@@ -130,6 +136,19 @@ pub fn router<S>(services: Services) -> Router<S> {
         .route("/srt", get(streaming::srt_status))
         .route("/rtmp", get(streaming::rtmp_status))
         .route("/udp", get(streaming::udp_status))
+        .route("/ndi", get(streaming::ndi_status))
+        .route("/ndi/runtime", get(streaming::ndi_runtime))
+        .route(
+            "/ndi/runtime/download",
+            post(streaming::ndi_runtime_download),
+        )
+        // The upload is streamed and its size checked as it's written
+        .route(
+            "/ndi/runtime/package",
+            put(streaming::ndi_runtime_upload).delete(streaming::ndi_runtime_discard),
+        )
+        .route("/ndi/runtime/install", post(streaming::ndi_runtime_install))
+        .route("/omt", get(streaming::omt_status))
         .route("/display", get(display::display_status))
         .route("/input", get(streaming::input_status))
         .route("/radio-region", get(radio::region_status))

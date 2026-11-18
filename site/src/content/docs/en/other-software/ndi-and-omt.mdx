@@ -1,0 +1,134 @@
+---
+title: NDI and OMT
+description: Bring the video into vMix, OBS or TriCaster as a source they find on the network.
+order: 25
+---
+
+import Admonition from "../../../../components/docs/Admonition.astro";
+
+NDI and OMT put the device on the local network as a source that mixers list
+by themselves: no address to type in. The device shows as
+**HOSTNAME (YStreamer)**, for example `YSTREAMER (YStreamer)`.
+
+|               | NDI                                           | OMT                         |
+| ------------- | --------------------------------------------- | --------------------------- |
+| Receivers     | vMix, OBS with DistroAV, TriCaster, many more | vMix, software built on OMT |
+| On the device | NDI's runtime, which you install              | Nothing extra               |
+| Licence       | NDI's own, for their runtime                  | Open (MIT)                  |
+
+Both need the video decoded: neither takes the H.264 from the goggles as it
+is. The device decodes it and compresses each picture again, in software, only
+while a receiver is connected.
+
+<Admonition type="info" title="Bandwidth">
+  Each picture is compressed on its own, so these take far more bandwidth than
+  RTSP or SRT: tens of megabits per second at 720p, more at 1080p. Connect the
+  device and the mixer by Ethernet, on the same network. For a mixer on Wi-Fi or
+  somewhere else, use [SRT](/docs/other-software/obs) instead.
+</Admonition>
+
+## Picture size and frame rate
+
+Both cards have the same settings:
+
+| Setting      | What it does                                                                         |
+| ------------ | ------------------------------------------------------------------------------------ |
+| Source name  | The name after the hostname. `YStreamer` by default.                                 |
+| Picture size | Larger video is scaled down to this height: 480p, 540p, 720p (the default) or 1080p. |
+| Frame rate   | At most 30 (the default) or 60 frames per second.                                    |
+
+The Pi does the compressing on its processor, alongside everything else, so
+start with 720p at 30 frames per second. Raise them one at a time and keep an
+eye on **Performance**: if the processor runs flat out, the mixer gets fewer
+frames than it should.
+
+## OMT into vMix
+
+OMT (Open Media Transport) is an open protocol from the makers of vMix.
+
+1. On the device, go to **Streaming → OMT**, turn **OMT** on and **Save**.
+2. In vMix, click **Add Input**, choose the OMT source type and pick
+   **HOSTNAME (YStreamer)** from the list.
+
+The card shows the address too, such as `omt://ystreamer.local:6400`, for
+software that takes one. The device announces itself with `avahi-daemon`; if
+the card says it isn't announced, that's what to check.
+
+## NDI
+
+### Install the NDI runtime on the device
+
+YStreamer doesn't include NDI: the runtime is NDI's own software, under NDI's
+licence. The device fetches it from NDI when you ask, and installs it only
+after you accept NDI's licence.
+
+1. On the device, go to **Streaming → NDI** and click **Download from NDI**.
+   It takes a minute or two: the download is about 60 MB.
+
+   Without internet on the device, download the **NDI SDK for Linux** from
+   [ndi.video](https://ndi.video/) on a computer, then click **Upload file…**
+   and choose it. Either the `.tar.gz` file as it comes or the `.sh` file
+   inside it works.
+
+2. The card shows the download's progress, then NDI's licence opens in a
+   window, taken from the package you downloaded. Read it. **Decline** deletes
+   the download and installs nothing. If you close the window, the download
+   waits on the card under **Read NDI's licence**.
+3. Click **Accept and install**. The runtime goes into `/usr/local/lib/`, and
+   NDI's licence into `/usr/local/share/doc/ndi/`.
+4. Turn **NDI** on and **Save**. There's no need to restart.
+
+Removing YStreamer leaves the runtime in place: you installed it under NDI's
+licence, and other software may use it. To remove it, run
+`sudo rm /usr/local/lib/libndi.so.6* && sudo ldconfig`.
+
+#### Installing it by hand
+
+You can also copy the runtime over yourself:
+
+1. Unpack the **NDI SDK for Linux** on a computer and find the 64-bit ARM
+   library for the Raspberry Pi: `libndi.so.6` and the files next to it, in a
+   folder under `lib/` whose name starts with `aarch64`.
+2. Copy those files to `/usr/local/lib/` on the device (for example with
+   `scp`), then run:
+
+   ```sh
+   sudo ldconfig
+   ```
+
+YStreamer also looks in the folder named by `NDI_RUNTIME_DIR_V6`, if it's set
+for the service.
+
+### NDI into vMix or TriCaster
+
+Both list NDI sources by themselves. In vMix, click **Add Input**, choose
+**NDI / Desktop Capture** and pick **HOSTNAME (YStreamer)**. On a TriCaster,
+pick it from the network sources of any input.
+
+### NDI into OBS
+
+OBS needs the **DistroAV** plugin, and NDI's runtime on the computer, which
+DistroAV's installer explains.
+
+1. In OBS, add a source: **+ → NDI Source**.
+2. In **Source name**, pick **HOSTNAME (YStreamer)**.
+3. Set **Latency** to **Low** for the least delay.
+
+## Why NDI isn't NDI|HX
+
+NDI|HX would send the goggles' H.264 as it is, with no decoding and far less
+bandwidth. Sending it that way needs NDI's Advanced SDK, which NDI licenses
+separately; it isn't part of the runtime anyone can download. So YStreamer
+sends full NDI: it decodes the video, and NDI's runtime compresses each picture.
+
+## About the NDI runtime and the name
+
+- YStreamer doesn't ship the NDI runtime or link to it when it's built. The
+  device downloads it from NDI only when you ask, keeps nothing of NDI's beyond
+  that, and installs it only after you accept NDI's licence. It opens the
+  library only if it finds it installed.
+- NDI's licence covers the runtime; read it before you accept it, especially
+  before passing the runtime on, for example on an SD card image you share.
+- NDI® is a registered trademark of Vizrt NDI AB. YStreamer uses the name only
+  to say which protocol the output speaks; it isn't affiliated with or
+  endorsed by NDI.

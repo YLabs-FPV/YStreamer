@@ -18,6 +18,7 @@
   const RED = "var(--color-down)";
   const PURPLE = "#a855f7";
   const TEAL = "#14b8a6";
+  const PINK = "#ec4899";
   const PALETTE = [BLUE, ORANGE, GREEN, PURPLE, TEAL, RED];
 
   let windowSecs = $state(readRange());
@@ -104,6 +105,8 @@
       ["viewers_rtsp", "RTSP", GREEN],
       ["viewers_srt", "SRT", ORANGE],
       ["udp_destinations", "UDP destinations", PURPLE],
+      ["viewers_ndi", "NDI", TEAL],
+      ["viewers_omt", "OMT", PINK],
       ["recording", "Recording", RED],
     ]),
   );

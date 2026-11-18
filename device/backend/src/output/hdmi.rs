@@ -1,25 +1,25 @@
 use gstreamer as gst;
 use gstreamer::prelude::*;
 use gstreamer_app::AppSrc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use super::decoded::{SharedDecoder, Subscription};
 use super::display::{Display, ModeInfo};
-use crate::input::h264::{self, AccessUnitAssembler};
+use super::hotplug;
+use crate::input::h264;
 use crate::output::overlay::{self, Overlay, Rect};
 use crate::settings::{DisplaySettings, Scaling};
 
-// kmssink takes the decoder's YUV dmabufs straight onto a display plane. A
-// v4l2convert here turned every frame into 32-bit RGB first, which capped
-// HDMI at ~20 fps once the goggles went to 60 fps. vc4 is an atomic driver
-// whose commit already waits for vblank; without skip-vsync kmssink waited a
-// second time, 30 fps at most
-const PIPELINE: &str = "appsrc name=src is-live=true block=false max-bytes=2000000 format=time ! \
-    h264parse config-interval=-1 ! \
-    v4l2h264dec ! \
-    queue max-size-buffers=1 leaky=downstream ! \
+// kmssink takes the shared decoder's YUV dmabufs straight onto a display
+// plane. A v4l2convert here turned every frame into 32-bit RGB first, which
+// capped HDMI at ~20 fps once the goggles went to 60 fps. vc4 is an atomic
+// driver whose commit already waits for vblank; without skip-vsync kmssink
+// waited a second time, 30 fps at most. Only the newest picture waits for
+// the screen, so the decoder never does
+const PIPELINE: &str = "appsrc name=src is-live=true block=false format=time \
+    leaky-type=downstream max-buffers=1 ! \
     {crop}kmssink name=sink sync=false skip-vsync=true";
 
 // DRM plane rotation bits
@@ -29,11 +29,22 @@ const REFLECT_X: i32 = 0x10;
 
 struct Running {
     pipeline: gst::Pipeline,
-    appsrc: AppSrc,
     sink: gst::Element,
+    /// Dropped before the pipeline stops, so nothing is handed to it
+    subscription: Option<Subscription>,
+}
+
+impl Running {
+    fn stop(mut self) {
+        self.subscription.take();
+        let _ = self.pipeline.set_state(gst::State::Null);
+    }
 }
 
 struct State {
+    /// What the settings ask for, kept while there's no screen to show it on
+    wanted: DisplaySettings,
+    /// What the screen was last set up with
     cfg: DisplaySettings,
     display: Option<Display>,
     running: Option<Running>,
@@ -41,17 +52,22 @@ struct State {
 
 pub struct GstPlayer {
     overlay: Arc<Overlay>,
+    decoder: Arc<SharedDecoder>,
     state: Mutex<State>,
-    enabled: AtomicBool,
-    assembler: Mutex<AccessUnitAssembler>,
 }
 
 impl GstPlayer {
-    pub fn new(cfg: &DisplaySettings, overlay: Arc<Overlay>) -> anyhow::Result<Arc<Self>> {
+    pub fn new(
+        cfg: &DisplaySettings,
+        overlay: Arc<Overlay>,
+        decoder: Arc<SharedDecoder>,
+    ) -> anyhow::Result<Arc<Self>> {
         gst::init()?;
         let this = Arc::new(Self {
             overlay,
+            decoder,
             state: Mutex::new(State {
+                wanted: cfg.clone(),
                 cfg: DisplaySettings {
                     hdmi_output: false,
                     ..cfg.clone()
@@ -59,10 +75,13 @@ impl GstPlayer {
                 display: None,
                 running: None,
             }),
-            enabled: AtomicBool::new(false),
-            assembler: Mutex::new(AccessUnitAssembler::new()),
         });
-        // No screen at boot isn't fatal; saving the settings retries
+        // Watching before the first look, so a screen plugged in meanwhile
+        // isn't missed
+        let watcher = Arc::clone(&this);
+        if let Err(e) = hotplug::watch(move || watcher.hotplug()) {
+            eprintln!("[hdmi] screens plugged in later won't be noticed: {e}");
+        }
         if let Err(e) = this.apply(cfg) {
             eprintln!("[hdmi] not started: {e}");
         }
@@ -94,14 +113,54 @@ impl GstPlayer {
     }
 
     /// Everything but a mode change is instant; a mode change also rebuilds
-    /// the pipeline, so the picture returns with the next keyframe
+    /// the pipeline, so the picture returns with the next keyframe. With no
+    /// screen plugged in, the output starts once one is
     pub fn apply(&self, cfg: &DisplaySettings) -> Result<(), String> {
         let mut st = self.state.lock().unwrap();
+        st.wanted = cfg.clone();
+        self.show(&mut st)
+    }
+
+    /// A screen came or went somewhere: let go of ours if it's gone or was
+    /// swapped for another, then show on whatever is plugged in now
+    fn hotplug(&self) {
+        let mut st = self.state.lock().unwrap();
+        if !st.wanted.hdmi_output {
+            return;
+        }
+        if let Some(display) = &st.display {
+            let found = display.probe();
+            if found
+                .as_ref()
+                .is_some_and(|modes| *modes == display.modes())
+            {
+                return;
+            }
+            if let Some(r) = st.running.take() {
+                r.stop();
+            }
+            st.display = None;
+            eprintln!(
+                "[hdmi] screen {}",
+                if found.is_some() {
+                    "changed"
+                } else {
+                    "unplugged"
+                }
+            );
+        }
+        if let Err(e) = self.show(&mut st) {
+            eprintln!("[hdmi] {e}");
+        }
+    }
+
+    /// Bring the screen in line with what the settings ask for
+    fn show(&self, st: &mut State) -> Result<(), String> {
+        let cfg = &st.wanted.clone();
 
         if !cfg.hdmi_output {
-            self.enabled.store(false, Ordering::SeqCst);
             if let Some(r) = st.running.take() {
-                let _ = r.pipeline.set_state(gst::State::Null);
+                r.stop();
                 eprintln!("[hdmi] output off");
             }
             // Hands the screen back to the console
@@ -120,36 +179,50 @@ impl GstPlayer {
             return Ok(());
         }
 
-        self.enabled.store(false, Ordering::SeqCst);
         if let Some(r) = st.running.take() {
-            let _ = r.pipeline.set_state(gst::State::Null);
+            r.stop();
         }
 
         let fresh = st.display.is_none();
         if fresh {
-            st.display = Some(Display::open()?);
+            let Some(display) = Display::open()? else {
+                eprintln!("[hdmi] no screen connected, waiting for one");
+                return Ok(());
+            };
+            st.display = Some(display);
         }
         let mode_changed = fresh || st.cfg.mode != cfg.mode;
         let display = st.display.as_mut().expect("opened above");
-        if mode_changed {
-            display.set_mode(&cfg.mode)?;
+        if mode_changed && let Err(e) = display.set_mode(&cfg.mode) {
+            // Otherwise the next try would take the mode as already set
+            st.display = None;
+            return Err(e);
         }
         let mode = display
             .current()
             .cloned()
             .ok_or("The screen has no active mode")?;
 
-        let running = build(cfg, &mode, display.fd())?;
-        running
-            .pipeline
-            .set_state(gst::State::Playing)
-            .map_err(|e| format!("Couldn't start HDMI output: {e}"))?;
+        let (mut running, appsrc) = build(cfg, &mode, display.fd())?;
+        if let Err(e) = running.pipeline.set_state(gst::State::Playing) {
+            running.stop();
+            return Err(format!("Couldn't start HDMI output: {e}"));
+        }
+        // Carries the caps along, so the screen follows a change of size
+        match self.decoder.subscribe(move |sample| {
+            let _ = appsrc.push_sample(sample);
+        }) {
+            Ok(s) => running.subscription = Some(s),
+            Err(e) => {
+                running.stop();
+                return Err(format!("Couldn't start HDMI output: {e}"));
+            }
+        }
         if st.cfg.hdmi_output != cfg.hdmi_output || fresh {
             eprintln!("[hdmi] output on");
         }
         st.running = Some(running);
         st.cfg = cfg.clone();
-        self.enabled.store(true, Ordering::SeqCst);
         Ok(())
     }
 
@@ -160,8 +233,9 @@ impl GstPlayer {
             return Ok((d.modes(), d.current().cloned()));
         }
         drop(st);
-        // Output is off: look without taking the screen from the console
-        let d = Display::open()?;
+        // Output is off, or waiting: look without taking the screen from the
+        // console
+        let d = Display::open()?.ok_or("No screen connected to HDMI")?;
         Ok((d.modes(), None))
     }
 
@@ -171,6 +245,7 @@ impl GstPlayer {
             cfg,
             display,
             running,
+            ..
         } = &mut *st;
         let Some(display) = display.as_mut() else {
             return;
@@ -224,42 +299,6 @@ impl GstPlayer {
         let st = self.state.lock().unwrap();
         st.running.as_ref().map(|r| r.sink.clone())
     }
-
-    /// Raw chunks from the goggles, cut into pictures here
-    pub fn push(&self, data: &[u8]) -> anyhow::Result<()> {
-        if !self.enabled.load(Ordering::Relaxed) {
-            return Ok(());
-        }
-        let mut assembler = self.assembler.lock().unwrap();
-        assembler.push(data);
-        while let Some(au) = assembler.next_au() {
-            self.push_au(au)?;
-        }
-        Ok(())
-    }
-
-    /// One complete picture, e.g. from the splash screen
-    pub fn push_au(&self, mut owned: Vec<u8>) -> anyhow::Result<()> {
-        if owned.len() < 10 || !self.enabled.load(Ordering::Relaxed) {
-            return Ok(());
-        }
-        let Some(appsrc) = self
-            .state
-            .lock()
-            .unwrap()
-            .running
-            .as_ref()
-            .map(|r| r.appsrc.clone())
-        else {
-            return Ok(());
-        };
-
-        patch_sps_level(&mut owned);
-        appsrc
-            .push_buffer(gst::Buffer::from_mut_slice(owned))
-            .map_err(|e| anyhow::anyhow!("push_buffer failed: {:?}", e))?;
-        Ok(())
-    }
 }
 
 fn plane_rotation(cfg: &DisplaySettings) -> i32 {
@@ -302,7 +341,7 @@ fn video_area(screen: (u32, u32), video: (u32, u32), scaling: Scaling) -> Rect {
     }
 }
 
-fn build(cfg: &DisplaySettings, mode: &ModeInfo, fd: i32) -> Result<Running, String> {
+fn build(cfg: &DisplaySettings, mode: &ModeInfo, fd: i32) -> Result<(Running, AppSrc), String> {
     // Fill crops in the display hardware: aspectratiocrop only attaches crop
     // metadata, which kmssink turns into the plane's source rectangle
     let crop = match cfg.scaling {
@@ -322,16 +361,7 @@ fn build(cfg: &DisplaySettings, mode: &ModeInfo, fd: i32) -> Result<Running, Str
         .expect("Failed to find appsrc")
         .dynamic_cast::<AppSrc>()
         .expect("Failed to cast to AppSrc");
-    // Whole pictures: with a bare byte stream h264parse only knows a
-    // picture is complete once the next one starts, a frame of latency
-    let caps = gst::Caps::builder("video/x-h264")
-        .field("stream-format", "byte-stream")
-        .field("alignment", "au")
-        .build();
-    appsrc.set_caps(Some(&caps));
     appsrc.set_stream_type(gstreamer_app::AppStreamType::Stream);
-    appsrc.set_max_bytes(4_000_000);
-    appsrc.set_block(false);
     appsrc.set_latency(gst::ClockTime::ZERO, gst::ClockTime::NONE);
 
     let sink = pipeline.by_name("sink").expect("Failed to find kmssink");
@@ -360,15 +390,18 @@ fn build(cfg: &DisplaySettings, mode: &ModeInfo, fd: i32) -> Result<Running, Str
         });
     }
 
-    Ok(Running {
-        pipeline,
+    Ok((
+        Running {
+            pipeline,
+            sink,
+            subscription: None,
+        },
         appsrc,
-        sink,
-    })
+    ))
 }
 
 /// Patch SPS level for the Raspberry Pi 4's H.264 decoder, which is limited to level 4.2
-fn patch_sps_level(data: &mut [u8]) {
+pub(crate) fn patch_sps_level(data: &mut [u8]) {
     let Some(sps) = h264::nals(data).find(|nal| nal.kind == h264::SPS) else {
         return;
     };
@@ -382,7 +415,7 @@ fn patch_sps_level(data: &mut [u8]) {
 impl Drop for GstPlayer {
     fn drop(&mut self) {
         if let Some(r) = self.state.lock().unwrap().running.take() {
-            let _ = r.pipeline.set_state(gst::State::Null);
+            r.stop();
         }
     }
 }

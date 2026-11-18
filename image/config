@@ -10,6 +10,9 @@ FIRST_USER_NAME=ystreamer
 FIRST_USER_PASS=ystreamer
 DISABLE_FIRST_BOOT_USER_RENAME=1
 ENABLE_SSH=0
+# Imager offers no setup options for a custom image, and the stage purges
+# cloud-init, so its files on the boot partition would only mislead
+ENABLE_CLOUD_INIT=0
 
 LOCALE_DEFAULT=en_US.UTF-8
 KEYBOARD_KEYMAP=us

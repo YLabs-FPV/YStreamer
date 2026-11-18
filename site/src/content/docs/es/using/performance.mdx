@@ -23,6 +23,7 @@ lo reempaquetan:
 | RTMP                      | Bajo     | Lo mismo, más una pequeña pista de audio en silencio si está activada |
 | HDMI                      | Moderado | El decodificador por hardware de la Pi convierte el vídeo en imagen   |
 | Cada navegador que mira   | Moderado | Cada espectador recibe su propia copia del stream                     |
+| NDI, OMT                  | Alto     | Cada imagen se vuelve a comprimir en el procesador: cerca de un núcleo a 720p30, más a 1080p. Solo mientras hay un receptor conectado |
 
 Con una **cámara USB**, YStreamer primero tiene que comprimir su imagen, que es
 el trabajo más pesado de todos. Normalmente lo hace el codificador por
@@ -38,6 +39,8 @@ hardware de la Pi. Sin él, lo hace la CPU, limitada a 720p. Ver
 - **Limita los espectadores del navegador** en
   **Streaming → Browser → Viewer limit**. Para mucho público, envía el stream
   a un servidor o a una plataforma y deja que lo sirvan ellos.
+- **Deja NDI y OMT en 720p a 30 imágenes por segundo**, lo que viene por
+  defecto. A 1080p, una Pi 4 no llega del todo a 30 con NDI. Ver [NDI y OMT](/docs/other-software/ndi-and-omt).
 - **Usa una buena fuente de alimentación.** Una que se queda corta hace que la
   Pi vaya más lenta y corta el enlace USB con las gafas. La página Performance
   avisa cuando la tensión ha caído. Ver [qué necesitas](/docs/getting-started/requirements).

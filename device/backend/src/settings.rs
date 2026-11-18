@@ -46,6 +46,8 @@ pub struct Settings {
     pub srt: SrtSettings,
     pub rtmp: RtmpSettings,
     pub udp: UdpSettings,
+    pub ndi: NetworkSourceSettings,
+    pub omt: NetworkSourceSettings,
     pub recording: RecordingSettings,
     #[serde(alias = "webrtc")]
     pub viewer: ViewerSettings,

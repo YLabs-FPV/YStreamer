@@ -193,12 +193,12 @@ impl Splash {
         match self.input.mode() {
             InputMode::DjiFpv => {
                 // The model arrives a moment after the link comes up
-                let name = self
-                    .session
-                    .devices()
-                    .into_iter()
-                    .find(|d| d.kind == Kind::Goggles)
-                    .map(|d| d.name);
+                // Goggles, or an RC-N remote when that's what is plugged in
+                let devices = self.session.devices();
+                let name = [Kind::Goggles, Kind::Remote]
+                    .iter()
+                    .find_map(|kind| devices.iter().find(|d| d.kind == *kind))
+                    .map(|d| d.name.clone());
                 (InputMode::DjiFpv, self.goggles.state(), name)
             }
             InputMode::Uvc => {
@@ -217,6 +217,15 @@ impl Splash {
                     _ => LinkState::Unplugged,
                 };
                 (InputMode::DjiFpvLegacy, state, None)
+            }
+            InputMode::Rtmp => {
+                use crate::input::rtmp::RtmpInputState;
+                let rtmp = self.input.rtmp.lock().unwrap().clone();
+                let state = match rtmp.state {
+                    RtmpInputState::Connected | RtmpInputState::Live => LinkState::Live,
+                    _ => LinkState::Unplugged,
+                };
+                (InputMode::Rtmp, state, rtmp.publisher)
             }
         }
     }

@@ -22,6 +22,7 @@ only repackage it:
 | RTMP                           | Low      | The same, plus a small silent audio track if it's on |
 | HDMI                           | Moderate | The Pi's hardware decoder turns the video into a picture |
 | Each browser watching          | Moderate | Every viewer gets their own copy of the stream    |
+| NDI, OMT                       | High     | Every picture is compressed again on the processor: about one core at 720p30, more at 1080p. Only while a receiver is connected |
 
 With a **USB camera**, YStreamer first has to compress its picture, which is
 the heaviest job of all. The Pi's hardware encoder normally does it. Without
@@ -35,6 +36,8 @@ it, the CPU does it and is limited to 720p. See [video input](/docs/using/video-
   frees the decoder.
 - **Cap the browser viewers** under **Streaming → Browser → Viewer limit**.
   For a crowd, stream to a server or platform and let it serve them instead.
+- **Keep NDI and OMT at 720p and 30 frames per second**, the default. At
+  1080p a Pi 4 can't quite keep NDI at 30. See [NDI and OMT](/docs/other-software/ndi-and-omt).
 - **Use a strong power supply.** An undersized one makes the Pi slow down and
   drops the USB link to the goggles. The Performance page warns when the
   voltage dipped. See [what you need](/docs/getting-started/requirements).

@@ -1,4 +1,4 @@
-export type InputMode = "dji_fpv" | "uvc" | "dji_fpv_legacy";
+export type InputMode = "dji_fpv" | "uvc" | "dji_fpv_legacy" | "rtmp";
 
 /** FCC (United States), CE (the radios' factory setting) or Indonesia */
 export type RadioRegion = "us" | "eu" | "id";
@@ -44,12 +44,51 @@ export interface UvcStatus {
 export interface LegacyStatus {
   state: "idle" | "no_device" | "waiting" | "live" | "error";
   error: string | null;
+  /** What to check when the goggles were found but send no video */
+  hint: string | null;
   /** Bytes of the raw stream saved so far, while or after capturing */
   captured: number | null;
 }
 
+/** Pushed to the device by OBS, a phone app or DJI Fly */
+export interface RtmpInputStatus {
+  state: "idle" | "waiting" | "connected" | "live" | "error";
+  /** The port listened on */
+  port: number | null;
+  /** Address of the app streaming */
+  publisher: string | null;
+  /** The stream has B-frames, which add delay */
+  reorders: boolean;
+  /** Why the port couldn't be opened, or why the last app was turned away */
+  error: string | null;
+}
+
+/** DJI Fly on an Android phone in a USB-A port */
+export interface PassthroughStatus {
+  state: "off" | "no_phone" | "phone" | "dji_fly";
+  error: string | null;
+  /** Bytes since the service started */
+  to_phone: number;
+  from_phone: number;
+  dropped: number;
+  /** What DJI Fly sent that the goggles had no room for */
+  lost: number;
+}
+
+/** The USB-C link: goggles send H.264, an RC-N remote H.265 */
+export interface DjiStatus {
+  /** What the link carries, once worked out */
+  codec: "h264" | "h265" | null;
+  /** How H.265 is turned into H.264, while it is */
+  converter: "hardware" | null;
+  error: string | null;
+}
+
 export interface InputStatus {
   mode: InputMode;
+  dji: DjiStatus;
   uvc: UvcStatus;
   legacy: LegacyStatus;
+  rtmp: RtmpInputStatus;
+  passthrough: PassthroughStatus;
 }

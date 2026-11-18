@@ -20,6 +20,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      site: ${{ steps.filter.outputs.site }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -37,6 +38,9 @@ jobs:
             frontend:
               - *shared
               - device/frontend/**
+            site:
+              - *shared
+              - site/**
 
   backend:
     name: Backend
@@ -76,3 +80,45 @@ jobs:
       - run: mise run frontend:check
       - name: Build
         run: mise run frontend:build
+
+  site:
+    name: Site
+    needs: changes
+    if: needs.changes.outputs.site == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - run: mise run site:install
+      - name: Build
+        run: mise run site:build
+
+      # Fork PRs get no secrets, so previews only run for branches in this repo
+      - name: Upload preview version
+        id: preview
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        working-directory: site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.ndjson
+        run: |
+          pnpm wrangler versions upload             --preview-alias "pr-${{ github.event.pull_request.number }}"             --message "PR #${{ github.event.pull_request.number }} @ ${GITHUB_SHA::7}"
+          url=$(jq -r 'select(.type == "version-upload") | .preview_alias_url // .preview_url // empty' "$WRANGLER_OUTPUT_FILE_PATH")
+          if [ -z "$url" ]; then
+            echo "::error::Cloudflare returned no preview URL; turn on Preview URLs in the Worker's Domains & Routes settings."
+            exit 1
+          fi
+          echo "url=$url" >>"$GITHUB_OUTPUT"
+
+      - name: Comment the preview URL
+        if: steps.preview.outputs.url
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: site-preview
+          message: |
+            Site preview: ${{ steps.preview.outputs.url }}
+            Commit: ${{ github.event.pull_request.head.sha }}

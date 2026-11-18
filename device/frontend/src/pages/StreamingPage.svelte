@@ -12,27 +12,37 @@
   import SrtCard from "@/components/streaming/SrtCard.svelte";
   import RtmpCard from "@/components/streaming/RtmpCard.svelte";
   import UdpCard from "@/components/streaming/UdpCard.svelte";
+  import NdiCard from "@/components/streaming/NdiCard.svelte";
+  import OmtCard from "@/components/streaming/OmtCard.svelte";
   let {
     rtsp = $bindable(),
     srt = $bindable(),
     rtmp = $bindable(),
     udp = $bindable(),
+    ndi = $bindable(),
+    omt = $bindable(),
     viewer = $bindable(),
     saved,
     savedSrt,
     savedRtmp,
     savedUdp,
+    savedNdi,
+    savedOmt,
     tab,
   }: {
     rtsp: Settings["rtsp"];
     srt: Settings["srt"];
     rtmp: Settings["rtmp"];
     udp: Settings["udp"];
+    ndi: Settings["ndi"];
+    omt: Settings["omt"];
     viewer: Settings["viewer"];
     saved: Settings["rtsp"];
     savedSrt: Settings["srt"];
     savedRtmp: Settings["rtmp"];
     savedUdp: Settings["udp"];
+    savedNdi: Settings["ndi"];
+    savedOmt: Settings["omt"];
     tab: string;
   } = $props();
 
@@ -147,6 +157,10 @@
     <RtmpCard bind:rtmp saved={savedRtmp} />
   {:else if tab === "udp"}
     <UdpCard bind:udp saved={savedUdp} />
+  {:else if tab === "ndi"}
+    <NdiCard bind:ndi saved={savedNdi} />
+  {:else if tab === "omt"}
+    <OmtCard bind:omt saved={savedOmt} />
   {:else if tab === "browser"}
     <Card title="Browser viewing">
       <Field

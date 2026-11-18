@@ -15,15 +15,25 @@
     { label: "Fill", value: "fill" },
   ];
 
+  const POLL_MS = 3000;
+
   let status = $state<DisplayStatus | null>(null);
   let loadError = $state<string | null>(null);
 
-  onMount(async () => {
+  async function poll() {
+    if (document.hidden) return;
     try {
       status = await api.display();
+      loadError = null;
     } catch (e) {
       loadError = message(e);
     }
+  }
+
+  onMount(() => {
+    poll();
+    const timer = setInterval(poll, POLL_MS);
+    return () => clearInterval(timer);
   });
 
   const hz = (r: number) =>
@@ -61,7 +71,7 @@
   <Field
     label="Show video on HDMI"
     for="hdmi"
-    help="Turn off when nothing is plugged in. Frees the decoder and some CPU for streaming."
+    help="Screens can be plugged in and out at any time. With none connected, HDMI uses no decoder or CPU."
   >
     <Switch id="hdmi" bind:checked={display.hdmi_output} />
   </Field>

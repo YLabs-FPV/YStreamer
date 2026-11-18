@@ -279,10 +279,15 @@ pub async fn rollback() -> Result<(), String> {
 /// Install `deb`, then give the version it brings a minute to answer. One
 /// that doesn't would leave no web interface to fix it from, so the package
 /// that was running goes back on. `keep` files the packages once it's
-/// settled
+/// settled. The SD card image ships without apt's package lists, so a
+/// release that needs a package not yet installed fetches them and tries
+/// once more
 fn script(dir: &str, deb: &str, version: &str, port: u16, keep: &str) -> String {
     format!(
-        r#"apt-get install -y --allow-downgrades {dir}/{deb} >{LOG} 2>&1
+        r#"apt-get install -y --allow-downgrades {dir}/{deb} >{LOG} 2>&1 || {{
+    apt-get update >>{LOG} 2>&1
+    apt-get install -y --allow-downgrades {dir}/{deb} >>{LOG} 2>&1
+}}
 code=$?
 if [ $code != 0 ]; then
     echo $code >{RESULT}

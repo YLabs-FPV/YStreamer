@@ -1,6 +1,6 @@
 ---
 title: Video input
-description: Choose the video source - DJI goggles, the first FPV goggles or a USB camera.
+description: Choose the video source - DJI goggles, the first FPV goggles, a USB camera or an RTMP stream.
 order: 20
 ---
 
@@ -18,6 +18,15 @@ quality.
 
 The video is the goggles' own H.264 stream. YStreamer passes it on as it is,
 without encoding it again.
+
+Some links carry H.265 instead. YStreamer works out which one it gets, and
+converts H.265 to H.264 once, on the Pi's hardware decoder and encoder, so
+every output keeps working. **Input → Video source** shows which codec
+arrived and how it's converted. It needs the Pi 4's hardware H.265 decoder;
+the CPU is too slow for a live H.265 stream. The converted video runs at up
+to 30 pictures a second: a 60 stream comes out at 30, as the Pi's H.264
+encoder can't keep up with 1080p60. A picture damaged on the way (the radio
+link drops one now and then) shows for a moment and clears up on its own.
 
 <Admonition type="tip" title="No OSD in the feed">
   To keep the OSD out of the video, turn off **Camera View Recording** in the
@@ -55,6 +64,51 @@ moment, CE goes to it the next time it is.
 <Admonition type="info" title="Not flight-tested yet">
   This way of setting the region hasn't been flight-tested yet. Check the
   transmission range on the ground before relying on it.
+</Admonition>
+
+## DJI Fly passthrough
+
+With the **DJI goggles / RC-N** source, an Android phone running **DJI Fly** can
+go in one of the Pi's **USB-A** ports. YStreamer passes the goggles' link
+through to it, so you keep DJI Fly's camera settings, maps and flight view while
+YStreamer streams and records. What you change in DJI Fly goes back to the
+goggles.
+
+It's on by default, under **Input → DJI Fly passthrough**, and does nothing
+until an Android phone is plugged in.
+
+1. Plug the phone into a USB-A port with a data cable.
+2. The phone asks which app should open the accessory. Choose **DJI Fly**.
+3. The card says **DJI Fly is connected.**
+
+The card shows what it sees:
+
+- **No phone**: plug in an Android phone with DJI Fly.
+- **Phone connected, waiting for DJI Fly**: open DJI Fly, or answer the dialog
+  on the phone. If the phone was locked when you plugged it in, YStreamer
+  offers it to the phone again after about half a minute.
+- **DJI Fly is connected.**
+
+If you plug phones into the Pi just to charge them, turn the switch off and
+**Save**: while it's on, an Android phone is switched into accessory mode and
+asks to open DJI Fly. A phone sharing its internet over USB is left alone.
+
+<Admonition type="info" title="Android only">
+  iPhone isn't supported: accessories for it need Apple's licensed MFi program.
+</Admonition>
+
+## DJI RC-N2 / RC-N3 remote
+
+For aircraft flown with DJI Fly and an **RC-N2 or RC-N3** remote, such as the
+Neo 2 or the Mini series. Connect the remote's USB-C port (the one a phone
+uses) to the Pi's **USB-C** port, and keep the **DJI goggles / RC-N** source.
+YStreamer stands in for the phone and shows the live view. The remote sends
+H.265, which is converted to H.264 as described above.
+
+<Admonition type="tip" title="Plug in in any order">
+  YStreamer asks the aircraft for a fresh picture to start from, as DJI Fly
+  does, so the remote can go in before or after it links to the aircraft, and
+  can be unplugged and plugged back in.
 </Admonition>
 
 ## FPV Goggles V1 / V2
@@ -104,3 +158,79 @@ bitrate applies.
   width={1554}
   height={928}
 />
+
+## RTMP stream
+
+Another device streams to YStreamer over the network: OBS, a phone app such
+as Larix Broadcaster, or DJI Fly's live streaming. Its video then goes to
+HDMI, the browser, the streams and recordings, like the goggles' video does.
+
+The app must be on the same network as the device: the same Wi-Fi, or joined
+to YStreamer's access point.
+
+1. Pick **RTMP stream** under **Input → Video source**. A random stream key
+   is filled in; keep it or change it, then **Save**.
+2. The **RTMP stream** card shows the address to stream to, like
+   `rtmp://192.168.1.50/live/`, with the stream key below it.
+3. Enter the address in the app's server or URL field and the key in its
+   stream key field. Keep the `/` at the end of the address: some apps, like
+   DJI Fly, add the key straight after it. An app with no key field takes the
+   key at the end of the address: `rtmp://192.168.1.50/live/<key>`.
+
+The card says when an app is connected and when video arrives. The splash
+screen shows until the first keyframe.
+
+| Setting    | What it does                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| Stream key | At least 10 characters. Only an app that knows it can stream here. **New** makes another; save to use it. |
+| Port       | 1935, what apps expect when the address has none. Or 1024 to 65535.                                       |
+| Only from  | IP addresses allowed to stream, comma separated. Empty lets in any device with the key.                   |
+
+One app streams at a time; a second one is turned away until the first stops.
+Changing the key or **Only from** drops the app streaming now.
+
+An app has 10 seconds from connecting to start streaming with the right key.
+After 3 wrong keys from one address, that address is turned away for a
+minute, and for twice as long after each further wrong key, up to 15 minutes.
+An IPv6 address counts together with the rest of its /64. Past about 6 wrong
+keys a minute from all addresses together, each wrong key is answered only
+after 2 seconds. The right key from an address that isn't turned away always
+gets in.
+
+<Admonition type="tip" title="Use the IP address">
+  Many phone apps can't find `ystreamer.local`. Open the web interface by the
+  device's IP address, and the card shows the address with it.
+</Admonition>
+
+### OBS
+
+1. **Settings → Stream**: set **Service** to **Custom**, **Server** to
+   `rtmp://192.168.1.50/live/` and **Stream Key** to the key.
+2. **Settings → Output**, with **Output Mode** on **Advanced**: pick an H.264
+   encoder, set **Keyframe Interval** to 1 or 2 s, and for x264 the **Tune**
+   to `zerolatency`, which leaves out B-frames.
+3. **Start Streaming**.
+
+### Phone apps and DJI Fly
+
+Look for a custom RTMP server in the app's streaming settings and enter the
+address and key from the card. In DJI Fly that's the live streaming option
+with **RTMP**. DJI Fly adds the key straight after the address, so keep the
+`/` at its end: without it DJI Fly sends no key, and the device turns it away
+as a wrong key.
+
+### What it takes
+
+- **H.264**, up to 1080p. H.265, AV1 and the rest are turned away, and the card
+  says which codec the app sent. Set the app to H.264.
+- **No B-frames**, for the least delay. They still play, but decoders hold
+  pictures back. The card warns when the stream has them.
+- **Short keyframe intervals**, 1 to 2 s. Players and the splash screen wait
+  for a keyframe.
+- The app's **sound is left out**: no output carries it.
+
+<Admonition type="info" title="Ports">
+  The RTMP input listens on TCP port 1935, only while it's the selected source.
+  It doesn't collide with the RTSP server (554), SRT (9000) or the RTMP
+  _output_, which connects out to a server and opens no port.
+</Admonition>

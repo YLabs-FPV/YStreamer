@@ -9,6 +9,8 @@ use serde::Serialize;
 
 use crate::input::h264;
 use crate::output::hdmi::GstPlayer;
+use crate::output::ndi::NdiOutput;
+use crate::output::omt::OmtOutput;
 use crate::output::recording::Recorder;
 use crate::output::rtmp::{RtmpOutput, RtmpState};
 use crate::output::rtsp::RtspServer;
@@ -37,6 +39,8 @@ pub struct Sources {
     pub srt: Arc<SrtOutput>,
     pub rtmp: Arc<RtmpOutput>,
     pub udp: Arc<UdpOutput>,
+    pub ndi: Arc<NdiOutput>,
+    pub omt: Arc<OmtOutput>,
     pub recorder: Arc<Recorder>,
 }
 
@@ -305,6 +309,14 @@ impl Sampler {
         let udp = self.sources.udp.status();
         if udp.active {
             put("udp_destinations", udp.destinations as f32);
+        }
+        let ndi = self.sources.ndi.status();
+        if ndi.active {
+            put("viewers_ndi", ndi.receivers as f32);
+        }
+        let omt = self.sources.omt.status();
+        if omt.active {
+            put("viewers_omt", omt.receivers as f32);
         }
         let rtmp = self.sources.rtmp.status();
         if rtmp.state != RtmpState::Off {
