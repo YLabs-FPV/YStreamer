@@ -201,3 +201,45 @@ as a wrong key.
   It doesn't collide with the RTSP server (554), SRT (9000) or the RTMP
   _output_, which connects out to a server and opens no port.
 </Admonition>
+
+## Switching between two inputs
+
+If you fly with more than one source, for example DJI goggles and a USB HDMI
+capture card, you can swap between two of them without opening the web
+interface: with a button or switch on the GPIO header, or over the API. The
+change is saved, as if it had been made on the Input page.
+
+Under **Input → Input button**, pick the **First input** and **Second input**.
+
+### With a button or switch
+
+Wire it between a free GPIO pin and any ground pin, like the
+[record button](/docs/using/record-button). It uses GPIO27 (pin 13) by default.
+
+| Setting                | What it does                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------- |
+| Use a button or switch | Turns it on.                                                                                   |
+| Type                   | **Push button**: each press swaps the input. **Switch**: open is the first, closed the second. |
+| Pin                    | The GPIO the button is on. It can't share the record button's pins.                            |
+
+With a **switch**, its position at power-on picks the input.
+
+### Over the API
+
+From a script, a Stream Deck or anything that can make an HTTP request:
+
+```sh
+# Swap between the first and second input
+curl -X POST http://ystreamer.local/api/input/toggle
+```
+
+It replies with the input now in use, like `{"mode":"uvc"}`, and works
+without a button wired up.
+
+If the web interface has a password, log in first and send the cookie along:
+
+```sh
+curl -c cookie.txt -X POST http://ystreamer.local/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"password":"your password"}'
+curl -b cookie.txt -X POST http://ystreamer.local/api/input/toggle
+```

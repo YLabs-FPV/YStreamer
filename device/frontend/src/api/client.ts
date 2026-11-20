@@ -176,6 +176,7 @@ export const api = {
   input: () => request<InputStatus>("GET", "/input"),
   /** Probes every device; not for polling */
   inputDevices: () => request<UvcDevice[]>("GET", "/input/devices"),
+  inputButton: () => request<ButtonStatus>("GET", "/input/button"),
   startLegacyCapture: () => request<void>("POST", "/input/legacy/capture"),
   legacyCaptureUrl: "/api/input/legacy/capture",
   duml: () => request<DumlStatus>("GET", "/duml"),

@@ -59,7 +59,14 @@ fn run() -> anyhow::Result<()> {
     let recorder = Arc::new(Recorder::new(cfg.recording.clone()));
     // What a transfer onto the card left behind if the power went mid-copy
     output::transfer::clear_unfinished(&recorder.dir());
-    let button = button::RecordButton::start(&cfg.recording.button, Arc::clone(&recorder));
+    let button = button::RecordButton::start(
+        (&cfg.recording.button).into(),
+        button::Record(Arc::clone(&recorder)),
+    );
+    // The web server saves what the input button asks for
+    let (input_tx, input_rx) = tokio::sync::mpsc::unbounded_channel();
+    let input_button =
+        button::InputButton::start((&cfg.input.button).into(), button::SwitchInput(input_tx));
 
     input::gadget::ensure();
     let goggles = Goggles::new();
@@ -143,6 +150,7 @@ fn run() -> anyhow::Result<()> {
         recorder: Arc::clone(&recorder),
         transfers: output::transfer::Transfers::new(),
         button,
+        input_button,
         goggles: goggles.clone(),
         session: Arc::clone(&session),
         monitor: Arc::clone(&monitor),
@@ -156,7 +164,7 @@ fn run() -> anyhow::Result<()> {
         overlay: Arc::clone(&overlay),
     };
 
-    web::start(listener, services, web_rx, state_rx);
+    web::start(listener, services, web_rx, state_rx, input_rx);
 
     let camera_poller = duml::camera::Poller::start(goggles.clone(), Arc::clone(&session));
     let mut aircraft_recorder = duml::aircraft_recorder::Tracker::new();

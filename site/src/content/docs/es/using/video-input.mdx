@@ -207,3 +207,45 @@ dispositivo la rechaza como clave incorrecta.
   elegida. No choca con el servidor RTSP (554), SRT (9000) ni la _salida_ RTMP,
   que se conecta a un servidor y no abre ningún puerto.
 </Admonition>
+
+## Cambiar entre dos entradas
+
+Si vuelas con más de una fuente, por ejemplo unas gafas DJI y una capturadora
+HDMI USB, puedes alternar entre dos de ellas sin abrir la interfaz web: con un
+botón o interruptor en el conector GPIO, o por la API. El cambio se guarda,
+igual que si lo hicieras en la página Input.
+
+En **Input → Input button**, elige la **First input** y la **Second input**.
+
+### Con un botón o interruptor
+
+Conéctalo entre un pin GPIO libre y cualquier pin de tierra, como el
+[botón de grabación](/docs/using/record-button). Por defecto usa GPIO27 (pin 13).
+
+| Ajuste                 | Qué hace                                                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------------------- |
+| Use a button or switch | Lo activa.                                                                                                |
+| Type                   | **Push button**: cada pulsación cambia la entrada. **Switch**: abierto es la primera, cerrado la segunda. |
+| Pin                    | El GPIO del botón. No puede compartir los pines del botón de grabación.                                   |
+
+Con un **interruptor**, su posición al encender elige la entrada.
+
+### Por la API
+
+Desde un script, un Stream Deck o cualquier cosa que haga peticiones HTTP:
+
+```sh
+# Alterna entre la primera y la segunda entrada
+curl -X POST http://ystreamer.local/api/input/toggle
+```
+
+Responde con la entrada en uso, como `{"mode":"uvc"}`, y funciona aunque no
+haya ningún botón conectado.
+
+Si la interfaz web tiene contraseña, inicia sesión primero y envía la cookie:
+
+```sh
+curl -c cookie.txt -X POST http://ystreamer.local/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"password":"tu contraseña"}'
+curl -b cookie.txt -X POST http://ystreamer.local/api/input/toggle
+```

@@ -6,9 +6,10 @@ use std::time::Duration;
 use gpiocdev::Request;
 use gpiocdev::line::{Bias, EdgeDetection, EdgeKind, Value};
 use serde::Serialize;
+use tokio::sync::mpsc;
 
 use crate::output::recording::Recorder;
-use crate::settings::{ButtonKind, ButtonSettings};
+use crate::settings::{ButtonKind, ButtonSettings, InputButtonSettings};
 
 pub(super) const CHIP: &str = "/dev/gpiochip0";
 const DEBOUNCE: Duration = Duration::from_millis(50);
@@ -22,30 +23,81 @@ pub struct ButtonStatus {
     pub presses: u64,
 }
 
-pub struct RecordButton {
-    cfg: Mutex<ButtonSettings>,
+/// The part of a button's settings that says how it's wired
+#[derive(Clone, PartialEq)]
+pub struct Wiring {
+    pub enabled: bool,
+    pub kind: ButtonKind,
+    pub pin: u8,
+    pub led_pin: Option<u8>,
+}
+
+impl From<&ButtonSettings> for Wiring {
+    fn from(cfg: &ButtonSettings) -> Self {
+        Self {
+            enabled: cfg.enabled,
+            kind: cfg.kind,
+            pin: cfg.pin,
+            led_pin: cfg.led_pin,
+        }
+    }
+}
+
+impl From<&InputButtonSettings> for Wiring {
+    fn from(cfg: &InputButtonSettings) -> Self {
+        Self {
+            enabled: cfg.enabled,
+            kind: cfg.kind,
+            pin: cfg.pin,
+            led_pin: None,
+        }
+    }
+}
+
+/// What a button does when it's used
+pub trait Action: Send + Sync + 'static {
+    /// For the logs and the GPIO consumer name
+    const NAME: &'static str;
+    /// A push button pressed
+    fn pressed(&self);
+    /// A switch flipped, or found in this position when the pin opens
+    fn switched(&self, closed: bool);
+    /// Whether the light should be on
+    fn lit(&self) -> bool {
+        false
+    }
+}
+
+pub struct Button<A: Action> {
+    cfg: Mutex<Wiring>,
     /// Bumped on every settings change, so the thread reopens its pins
     generation: AtomicU64,
     status: Mutex<ButtonStatus>,
-    recorder: Arc<Recorder>,
+    action: A,
 }
 
-impl RecordButton {
-    pub fn start(cfg: &ButtonSettings, recorder: Arc<Recorder>) -> Arc<Self> {
+pub type RecordButton = Button<Record>;
+pub type InputButton = Button<SwitchInput>;
+
+impl<A: Action> Button<A> {
+    pub fn start(cfg: Wiring, action: A) -> Arc<Self> {
         let this = Arc::new(Self {
-            cfg: Mutex::new(cfg.clone()),
+            cfg: Mutex::new(cfg),
             generation: AtomicU64::new(0),
             status: Mutex::new(ButtonStatus::default()),
-            recorder,
+            action,
         });
         let worker = Arc::clone(&this);
         thread::spawn(move || worker.run());
         this
     }
 
-    pub fn configure(&self, cfg: &ButtonSettings) {
-        *self.cfg.lock().unwrap() = cfg.clone();
-        self.generation.fetch_add(1, Ordering::Relaxed);
+    pub fn configure(&self, cfg: Wiring) {
+        let mut current = self.cfg.lock().unwrap();
+        if *current != cfg {
+            *current = cfg;
+            self.generation.fetch_add(1, Ordering::Relaxed);
+        }
     }
 
     pub fn status(&self) -> ButtonStatus {
@@ -86,22 +138,28 @@ impl RecordButton {
     }
 
     /// Returns once the settings change
-    fn watch(&self, cfg: &ButtonSettings, unchanged: &dyn Fn() -> bool) -> Result<(), String> {
+    fn watch(&self, cfg: &Wiring, unchanged: &dyn Fn() -> bool) -> Result<(), String> {
         let button = Request::builder()
             .on_chip(CHIP)
-            .with_consumer("ystreamer-record")
+            .with_consumer(format!("ystreamer-{}", A::NAME))
             .with_line(cfg.pin as u32)
             .as_input()
             .with_bias(Bias::PullUp)
             .with_edge_detection(EdgeDetection::BothEdges)
             .with_debounce_period(DEBOUNCE)
             .request()
-            .map_err(|e| format!("GPIO{} can't be used for the button: {e}", cfg.pin))?;
+            .map_err(|e| {
+                format!(
+                    "GPIO{} can't be used for the {} button: {e}",
+                    cfg.pin,
+                    A::NAME
+                )
+            })?;
         let led = match cfg.led_pin {
             Some(pin) => Some((
                 Request::builder()
                     .on_chip(CHIP)
-                    .with_consumer("ystreamer-record-led")
+                    .with_consumer(format!("ystreamer-{}-led", A::NAME))
                     .with_line(pin as u32)
                     .as_output(Value::Inactive)
                     .request()
@@ -110,15 +168,15 @@ impl RecordButton {
             )),
             None => None,
         };
-        println!("[button] record button on GPIO{}", cfg.pin);
+        println!("[button] {} button on GPIO{}", A::NAME, cfg.pin);
         self.set_state(true, None);
 
-        // A switch that's already closed means record, as after a power cut.
+        // A switch's position counts from the start, as after a power cut.
         // The pull-up has only just been turned on, so let the pin settle
         if cfg.kind == ButtonKind::Switch {
             thread::sleep(DEBOUNCE * 2);
             let level = button.value(cfg.pin as u32).map_err(|e| e.to_string())?;
-            self.record(level == Value::Inactive);
+            self.action.switched(level == Value::Inactive);
         }
 
         let mut lit = false;
@@ -129,43 +187,86 @@ impl RecordButton {
                 match cfg.kind {
                     ButtonKind::Push if closed => {
                         self.status.lock().unwrap().presses += 1;
-                        self.record(!self.recorder.is_active());
+                        self.action.pressed();
                     }
                     ButtonKind::Push => {}
                     ButtonKind::Switch => {
                         self.status.lock().unwrap().presses += 1;
-                        self.record(closed);
+                        self.action.switched(closed);
                     }
                 }
             }
-            let active = self.recorder.is_active();
+            let on = self.action.lit();
             if let Some((led, pin)) = &led
-                && active != lit
+                && on != lit
             {
-                let value = if active {
-                    Value::Active
-                } else {
-                    Value::Inactive
-                };
+                let value = if on { Value::Active } else { Value::Inactive };
                 led.set_value(*pin, value).map_err(|e| e.to_string())?;
-                lit = active;
+                lit = on;
             }
         }
         Ok(())
     }
+}
 
+/// Starts and stops recording
+pub struct Record(pub Arc<Recorder>);
+
+impl Record {
     fn record(&self, on: bool) {
-        if on == self.recorder.is_active() {
+        if on == self.0.is_active() {
             return;
         }
         let result = if on {
-            self.recorder.start().map(|_| "started")
+            self.0.start().map(|_| "started")
         } else {
-            self.recorder.stop().map(|_| "stopped")
+            self.0.stop().map(|_| "stopped")
         };
         match result {
             Ok(what) => println!("[button] recording {what}"),
             Err(e) => eprintln!("[button] {e}"),
         }
+    }
+}
+
+impl Action for Record {
+    const NAME: &'static str = "record";
+
+    fn pressed(&self) {
+        self.record(!self.0.is_active());
+    }
+
+    fn switched(&self, closed: bool) {
+        self.record(closed);
+    }
+
+    fn lit(&self) -> bool {
+        self.0.is_active()
+    }
+}
+
+/// What the input button asks for. The web server saves it, like a change
+/// made on the Input page
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum InputRequest {
+    Toggle,
+    /// A switch's position
+    Switch {
+        closed: bool,
+    },
+}
+
+/// Swaps between the two inputs in the settings
+pub struct SwitchInput(pub mpsc::UnboundedSender<InputRequest>);
+
+impl Action for SwitchInput {
+    const NAME: &'static str = "input";
+
+    fn pressed(&self) {
+        let _ = self.0.send(InputRequest::Toggle);
+    }
+
+    fn switched(&self, closed: bool) {
+        let _ = self.0.send(InputRequest::Switch { closed });
     }
 }

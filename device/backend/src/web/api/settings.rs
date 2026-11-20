@@ -15,10 +15,14 @@ use super::{ApiError, Services, bad, failed};
 
 #[derive(Serialize)]
 pub(super) struct Saved {
-    settings: Settings,
+    pub(super) settings: Settings,
     /// Something the user should know, e.g. that WiFi is reconnecting
     notice: Option<String>,
 }
+
+/// Held from reading the settings to saving them, so a change from the input
+/// button can't land between and be lost, or lose the page's
+pub(super) static SAVING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 pub(super) async fn get_settings(State(sv): State<Services>) -> Json<Settings> {
     Json(sv.store.get())
@@ -28,10 +32,12 @@ pub(super) async fn put_all(
     State(sv): State<Services>,
     Json(next): Json<Settings>,
 ) -> Result<Json<Saved>, ApiError> {
+    let _saving = SAVING.lock().await;
     commit(&sv, next).await
 }
 
 pub(super) async fn reset(State(sv): State<Services>) -> Result<Json<Saved>, ApiError> {
+    let _saving = SAVING.lock().await;
     commit(&sv, Settings::default()).await
 }
 
@@ -40,6 +46,7 @@ pub(super) async fn put_section(
     Path(section): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<Saved>, ApiError> {
+    let _saving = SAVING.lock().await;
     // Splice the section into the current settings as JSON and parse the
     // whole thing back, so every section shares one code path
     let mut all = serde_json::to_value(sv.store.get()).expect("settings serialize");
@@ -62,6 +69,17 @@ pub(super) fn validate(s: &Settings) -> Result<(), String> {
     validate_timezone(&s.device.timezone)?;
     s.input.uvc.validate()?;
     s.input.rtmp.validate()?;
+    s.input.button.validate()?;
+    let record = &s.recording.button;
+    if s.input.button.enabled
+        && record.enabled
+        && (record.pin == s.input.button.pin || record.led_pin == Some(s.input.button.pin))
+    {
+        return Err(format!(
+            "GPIO{} is already the record button's; pick another for the input button",
+            s.input.button.pin
+        ));
+    }
     if s.input.mode == InputMode::Rtmp && s.rtsp.enabled && s.rtsp.port == s.input.rtmp.port {
         return Err(format!(
             "Port {} is the RTSP server's; pick another for the RTMP input",
@@ -227,10 +245,14 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
         failed(e)
     })?;
 
+    if saved.input.button != prev.input.button {
+        sv.input_button.configure((&saved.input.button).into());
+    }
+
     if saved.recording != prev.recording {
         sv.recorder.configure(&saved.recording);
         if saved.recording.button != prev.recording.button {
-            sv.button.configure(&saved.recording.button);
+            sv.button.configure((&saved.recording.button).into());
         }
     }
 
@@ -269,3 +291,7 @@ pub(super) async fn commit(sv: &Services, next: Settings) -> Result<Json<Saved>,
         notice,
     }))
 }
+
+#[cfg(test)]
+#[path = "settings.test.rs"]
+mod tests;

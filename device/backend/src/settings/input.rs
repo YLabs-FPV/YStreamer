@@ -3,6 +3,8 @@ use std::net::IpAddr;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
+use super::{ButtonKind, ButtonSettings};
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum InputMode {
@@ -26,6 +28,7 @@ pub struct InputSettings {
     /// Pass the goggles' link through to DJI Fly on a phone in a USB-A port.
     /// On by default: nothing happens until an Android phone is plugged in
     pub passthrough: bool,
+    pub button: InputButtonSettings,
 }
 
 impl Default for InputSettings {
@@ -35,7 +38,59 @@ impl Default for InputSettings {
             uvc: UvcSettings::default(),
             rtmp: RtmpInputSettings::default(),
             passthrough: true,
+            button: InputButtonSettings::default(),
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct InputButtonSettings {
+    pub enabled: bool,
+    /// Push: each press swaps. Switch: open is `first`, closed `second`
+    pub kind: ButtonKind,
+    pub pin: u8,
+    pub first: InputMode,
+    pub second: InputMode,
+}
+
+impl Default for InputButtonSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            kind: ButtonKind::Push,
+            // Next to the record button's GPIO17 on the header
+            pin: 27,
+            first: InputMode::DjiFpv,
+            second: InputMode::Uvc,
+        }
+    }
+}
+
+impl InputButtonSettings {
+    pub fn validate(&self) -> Result<(), String> {
+        if !ButtonSettings::PINS.contains(&self.pin) {
+            return Err("That GPIO pin can't be used for the input button".into());
+        }
+        if self.first == self.second {
+            return Err("The input button needs two different inputs".into());
+        }
+        Ok(())
+    }
+
+    /// The input a toggle moves to from `current`: the other of the two,
+    /// or the first when it's on neither
+    pub fn toggled(&self, current: InputMode) -> InputMode {
+        if current == self.first {
+            self.second
+        } else {
+            self.first
+        }
+    }
+
+    /// The input a switch in this position stands for
+    pub fn for_switch(&self, closed: bool) -> InputMode {
+        if closed { self.second } else { self.first }
     }
 }
 
