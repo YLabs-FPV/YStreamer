@@ -1,5 +1,6 @@
 mod access;
 mod display;
+mod input;
 mod network;
 mod recording;
 mod settings;
@@ -7,6 +8,8 @@ mod streaming;
 mod system;
 
 use std::sync::Arc;
+
+pub use input::input_button_requests;
 
 use axum::{
     Json, Router,
@@ -48,6 +51,7 @@ pub struct Services {
     pub recorder: Arc<Recorder>,
     pub transfers: Arc<crate::output::transfer::Transfers>,
     pub button: Arc<crate::system::button::RecordButton>,
+    pub input_button: Arc<crate::system::button::InputButton>,
     pub goggles: Goggles,
     pub session: Arc<Session>,
     pub monitor: Arc<Monitor>,
@@ -150,6 +154,8 @@ pub fn router<S>(services: Services) -> Router<S> {
         .route("/display", get(display::display_status))
         .route("/input", get(streaming::input_status))
         .route("/input/devices", get(streaming::input_devices))
+        .route("/input/toggle", post(input::toggle))
+        .route("/input/button", get(input::button_status))
         .route(
             "/input/legacy/capture",
             get(streaming::legacy_capture_download).post(streaming::legacy_capture_start),

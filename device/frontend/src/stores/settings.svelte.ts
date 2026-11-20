@@ -72,6 +72,22 @@ class SettingsStore {
     return notices;
   }
 
+  /** Take a section changed elsewhere, e.g. by the input button, keeping
+   * any edits made to it here */
+  async refresh(section: Section) {
+    if (!this.saved || this.saving) return;
+    const edited = this.dirty.includes(section);
+    try {
+      const fresh = await api.settings();
+      this.saved = fresh;
+      if (this.draft && !edited) {
+        this.draft[section] = clone(fresh[section]) as never;
+      }
+    } catch {
+      // Picked up on the next load
+    }
+  }
+
   replace(res: Saved) {
     this.#accept(res.settings);
   }

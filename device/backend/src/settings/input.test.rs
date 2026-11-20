@@ -139,3 +139,53 @@ fn passthrough_is_on_unless_turned_off() {
     let off: InputSettings = serde_json::from_str(r#"{"passthrough":false}"#).unwrap();
     assert!(!off.passthrough);
 }
+
+fn input_button(first: InputMode, second: InputMode) -> InputButtonSettings {
+    InputButtonSettings {
+        first,
+        second,
+        ..Default::default()
+    }
+}
+
+#[test]
+fn the_input_button_defaults_are_valid() {
+    assert!(InputButtonSettings::default().validate().is_ok());
+}
+
+#[test]
+fn the_input_button_needs_two_different_inputs() {
+    let same = input_button(InputMode::Uvc, InputMode::Uvc);
+    assert!(same.validate().is_err());
+}
+
+#[test]
+fn the_input_button_stays_off_unusable_pins() {
+    for pin in [0, 2, 3, 14, 15, 21, 28, 40] {
+        let button = InputButtonSettings {
+            pin,
+            ..Default::default()
+        };
+        assert!(button.validate().is_err(), "input button on {pin}");
+    }
+}
+
+#[test]
+fn a_toggle_swaps_between_the_two_inputs() {
+    let button = input_button(InputMode::DjiFpv, InputMode::Uvc);
+    assert_eq!(button.toggled(InputMode::DjiFpv), InputMode::Uvc);
+    assert_eq!(button.toggled(InputMode::Uvc), InputMode::DjiFpv);
+}
+
+#[test]
+fn a_toggle_from_neither_input_goes_to_the_first() {
+    let button = input_button(InputMode::DjiFpv, InputMode::Uvc);
+    assert_eq!(button.toggled(InputMode::Rtmp), InputMode::DjiFpv);
+}
+
+#[test]
+fn a_switch_picks_by_its_position() {
+    let button = input_button(InputMode::Rtmp, InputMode::DjiFpvLegacy);
+    assert_eq!(button.for_switch(false), InputMode::Rtmp);
+    assert_eq!(button.for_switch(true), InputMode::DjiFpvLegacy);
+}

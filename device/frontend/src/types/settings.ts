@@ -18,6 +18,16 @@ export interface Settings {
     };
     /** Pass the goggles' link through to DJI Fly on a phone in USB-A */
     passthrough: boolean;
+    /** Swaps between `first` and `second`; so does POST /api/input/toggle */
+    button: {
+      enabled: boolean;
+      /** Switch: open is `first`, closed `second` */
+      kind: "push" | "switch";
+      /** GPIO number, not the position on the header */
+      pin: number;
+      first: import("@/types/input").InputMode;
+      second: import("@/types/input").InputMode;
+    };
   };
   device: { hostname: string; timezone: string };
   wifi: {

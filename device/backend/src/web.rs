@@ -57,6 +57,7 @@ pub fn start(
     services: crate::web::api::Services,
     chunk_rx: mpsc::UnboundedReceiver<Vec<u8>>,
     state_rx: mpsc::UnboundedReceiver<CameraState>,
+    input_rx: mpsc::UnboundedReceiver<crate::system::button::InputRequest>,
 ) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_multi_thread()
@@ -105,6 +106,10 @@ pub fn start(
             crate::system::ensure_hostname(&services.store.get().device.hostname).await;
             crate::system::adopt_timezone(&services.store);
             tokio::spawn(link_watch(services.clone(), control_tx.clone()));
+            tokio::spawn(crate::web::api::input_button_requests(
+                services.clone(),
+                input_rx,
+            ));
             tokio::spawn(crate::system::drives::watch());
             tokio::spawn(crate::system::update::watch(Arc::clone(&services.store)));
             tokio::spawn(finish_recording_on_exit(Arc::clone(&services.recorder)));
@@ -206,6 +211,9 @@ pub(crate) fn input_msg(services: &crate::web::api::Services) -> String {
     serde_json::json!({
         "type": "input",
         "mode": services.input.mode(),
+        // Changes when the input button or the API switches, so open pages
+        // can pick up the saved settings
+        "saved_mode": services.store.get().input.mode,
         "uvc": services.uvc.status(),
         "legacy": services.legacy.status(),
         "rtmp": services.rtmp_input.status(),
