@@ -8,6 +8,7 @@ import type {
 } from "@/types/input";
 import type { OverlayView } from "@/types/settings";
 import { snackbar } from "@/stores/snackbar.svelte";
+import { settings } from "@/stores/settings.svelte";
 
 // The camera takes a moment to apply a change and keeps reporting the old
 // value meanwhile; a new resolution or frame rate restarts its pipeline
@@ -127,6 +128,9 @@ class ControlStore {
         } else if (msg.type === "overlay") this.overlay = msg;
         else if (msg.type === "input") {
           this.inputMode = msg.mode;
+          // Switched by the input button or the API
+          if (settings.saved && msg.saved_mode !== settings.saved.input.mode)
+            settings.refresh("input");
           this.uvc = msg.uvc;
           this.legacy = msg.legacy;
           this.rtmp = msg.rtmp;

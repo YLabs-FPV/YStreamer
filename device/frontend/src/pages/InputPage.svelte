@@ -9,6 +9,7 @@
   import Select from "@/components/ui/Select.svelte";
   import Segmented from "@/components/ui/Segmented.svelte";
   import Switch from "@/components/ui/Switch.svelte";
+  import InputButtonCard from "@/components/input/InputButtonCard.svelte";
   import { btn } from "@/components/ui/buttons";
   import { snackbar } from "@/stores/snackbar.svelte";
   import { developer } from "@/stores/developer.svelte";
@@ -558,4 +559,6 @@
       </Field>
     </Card>
   {/if}
+
+  <InputButtonCard bind:button={input.button} sources={SOURCES} />
 </div>
