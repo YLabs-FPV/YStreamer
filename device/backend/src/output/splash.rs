@@ -8,7 +8,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::input::InputState;
-use crate::input::duml::devices::Kind;
+use crate::input::duml::devices::on_link;
 use crate::input::duml::session::Session;
 use crate::input::goggles::{Goggles, LinkState};
 use crate::input::h264;
@@ -100,7 +100,7 @@ impl Splash {
             if sps.is_none() {
                 return;
             }
-            println!("[video] goggles stream started");
+            println!("[video] input stream started");
         }
         feed.live = Some(Instant::now());
 
@@ -192,14 +192,9 @@ impl Splash {
     fn source_status(&self) -> (InputMode, LinkState, Option<String>) {
         match self.input.mode() {
             InputMode::DjiFpv => {
-                // The model arrives a moment after the link comes up
-                // Goggles, or an RC-N remote when that's what is plugged in
-                let devices = self.session.devices();
-                let name = [Kind::Goggles, Kind::Remote]
-                    .iter()
-                    .find_map(|kind| devices.iter().find(|d| d.kind == *kind))
-                    .map(|d| d.name.clone());
-                (InputMode::DjiFpv, self.goggles.state(), name)
+                let codec = self.input.dji.lock().unwrap().codec;
+                let on_link = on_link(&self.session.devices(), codec);
+                (InputMode::DjiFpv, self.goggles.state(), Some(on_link.name))
             }
             InputMode::Uvc => {
                 let uvc = self.input.uvc.lock().unwrap().clone();
@@ -333,7 +328,7 @@ impl Splash {
             // Decoding takes a second or two; meanwhile HDMI holds its last
             // picture and video() can resume the stream
             if let Some(gop) = lost {
-                println!("[video] goggles stream stopped, showing splash");
+                println!("[video] input stream stopped, showing splash");
                 frozen = None;
                 if cfg.freeze_last_frame && !gop.is_empty() {
                     match freeze(&gop, cfg.grayscale_freeze) {

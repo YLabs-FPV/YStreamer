@@ -1,5 +1,5 @@
 import { recording } from "@/stores/recording.svelte";
-import type { AircraftRecorder, LinkedDevice } from "@/types/duml";
+import type { AircraftRecorder, LinkedDevice, OnLink } from "@/types/duml";
 import type {
   InputMode,
   LegacyStatus,
@@ -55,12 +55,7 @@ class ControlStore {
   rtmp = $state<RtmpInputStatus | null>(null);
   overlay = $state<OverlayView | null>(null);
 
-  /** What's on the USB-C link: goggles, or an RC-N remote */
-  goggles = $derived(
-    this.devices.find((d) => d.kind === "goggles") ??
-      this.devices.find((d) => d.kind === "remote") ??
-      null,
-  );
+  onLink = $state<OnLink | null>(null);
   aircraft = $derived(this.devices.find((d) => d.kind === "aircraft") ?? null);
 
   iso = $state<number | null>(null);
@@ -101,6 +96,7 @@ class ControlStore {
       this.connected = false;
       this.link = null;
       this.devices = [];
+      this.onLink = null;
       this.gogglesBattery = null;
       this.aircraftRecorder = null;
       this.linkQuality = null;
@@ -121,6 +117,7 @@ class ControlStore {
           }
         } else if (msg.type === "devices") {
           this.devices = msg.devices;
+          this.onLink = msg.on_link ?? null;
           if (!this.aircraft) {
             this.aircraftRecorder = null;
             this.linkQuality = null;

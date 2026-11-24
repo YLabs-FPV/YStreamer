@@ -111,7 +111,7 @@
   });
 
   const SOURCE_NAMES: Record<string, string> = {
-    dji_fpv: "DJI goggles",
+    dji_fpv: "DJI goggles / RC-N",
     dji_fpv_legacy: "DJI FPV Goggles V1/V2",
     uvc: "USB camera",
     rtmp: "RTMP stream",
@@ -120,7 +120,10 @@
   const hardware = $derived.by(() => {
     switch (settings.saved?.input.mode) {
       case "dji_fpv":
-        return [control.goggles?.name, control.aircraft?.name]
+        return [
+          control.link === "live" ? control.onLink?.name : null,
+          control.aircraft?.name,
+        ]
           .filter(Boolean)
           .join(" + ");
       case "dji_fpv_legacy":

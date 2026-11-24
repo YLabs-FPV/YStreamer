@@ -256,8 +256,12 @@ async fn overlay_image(
     }
 }
 
-pub(crate) fn devices_msg(devices: &[crate::input::duml::devices::Device]) -> String {
-    serde_json::json!({ "type": "devices", "devices": devices }).to_string()
+/// Every device on the link, and what's at the other end of the USB-C cable
+pub(crate) fn devices_msg(services: &crate::web::api::Services) -> String {
+    let devices = services.session.devices();
+    let codec = services.input.dji.lock().unwrap().codec;
+    let on_link = crate::input::duml::devices::on_link(&devices, codec);
+    serde_json::json!({ "type": "devices", "devices": devices, "on_link": on_link }).to_string()
 }
 
 /// Tell browsers when the goggles and air unit come and go, so they drop
@@ -273,9 +277,9 @@ async fn link_watch(services: crate::web::api::Services, control_tx: broadcast::
             let _ = control_tx.send(link_msg(state));
             last_state = Some(state);
         }
-        let devices = services.session.devices();
+        let devices = devices_msg(&services);
         if last_devices.as_ref() != Some(&devices) {
-            let _ = control_tx.send(devices_msg(&devices));
+            let _ = control_tx.send(devices.clone());
             last_devices = Some(devices);
         }
         let input = input_msg(&services);

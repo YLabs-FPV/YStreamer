@@ -1,8 +1,10 @@
 <script lang="ts">
   interface Props {
     percent: number | null;
+    /** Whose battery: the goggles or the remote */
+    device?: string;
   }
-  let { percent }: Props = $props();
+  let { percent, device }: Props = $props();
 
   const p = $derived(
     percent === null ? 0 : Math.min(100, Math.max(0, percent)),
@@ -14,8 +16,8 @@
 {#if percent !== null}
   <div
     class="flex items-center gap-1.5"
-    title="Goggles battery {p}%"
-    aria-label="Goggles battery {p}%"
+    title="{device ?? 'Goggles'} battery {p}%"
+    aria-label="{device ?? 'Goggles'} battery {p}%"
   >
     <span
       class="relative flex h-3 w-6 items-center rounded-[3px] border border-line-strong p-[1.5px]"

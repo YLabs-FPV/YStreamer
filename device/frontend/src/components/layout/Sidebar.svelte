@@ -77,12 +77,12 @@
             ? rtmpStatus
             : control.link === "live"
               ? {
-                  text: control.goggles?.name ?? "Goggles connected",
+                  text: control.onLink?.name ?? "DJI device",
                   dot: "bg-ok",
                 }
               : control.link === "connecting"
-                ? { text: "Connecting to goggles", dot: "bg-warn" }
-                : { text: "No goggles", dot: "bg-faint" },
+                ? { text: "DJI device found, connecting", dot: "bg-warn" }
+                : { text: "No goggles or remote", dot: "bg-faint" },
   );
 
   $effect(() => {
@@ -176,8 +176,7 @@
     <div class="flex min-w-0 flex-col gap-0.5">
       <span class="flex items-center gap-2 text-[12px] text-muted">
         <span class="h-1.5 w-1.5 shrink-0 rounded-full {status.dot}"></span>
-        <span class="truncate" title={control.goggles?.code}>{status.text}</span
-        >
+        <span class="truncate" title={control.onLink?.code}>{status.text}</span>
       </span>
       {#if control.inputMode === "dji_fpv" && control.link === "live"}
         <span
@@ -192,7 +191,7 @@
     </div>
     <div class="flex shrink-0 flex-col items-end gap-1.5">
       <SignalBars quality={control.aircraft ? control.linkQuality : null} />
-      <Battery percent={control.gogglesBattery} />
+      <Battery percent={control.gogglesBattery} device={control.onLink?.name} />
     </div>
   </div>
 </div>

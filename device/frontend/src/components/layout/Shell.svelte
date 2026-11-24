@@ -71,7 +71,10 @@
       <Brand small />
       <div class="mr-2 ml-auto flex items-center gap-3">
         <SignalBars quality={control.aircraft ? control.linkQuality : null} />
-        <Battery percent={control.gogglesBattery} />
+        <Battery
+          percent={control.gogglesBattery}
+          device={control.onLink?.name}
+        />
       </div>
     </div>
 

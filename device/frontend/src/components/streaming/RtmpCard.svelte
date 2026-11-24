@@ -123,7 +123,7 @@
   <Field
     label="Silent audio track"
     for="rtmp-audio"
-    help="The goggles send no sound, but some platforms refuse or flag streams without audio."
+    help="The goggles and RC-N remotes send no sound, but some platforms refuse or flag streams without audio."
     disabled={!rtmp.enabled}
   >
     <Switch

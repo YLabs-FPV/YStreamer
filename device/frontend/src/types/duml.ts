@@ -12,6 +12,12 @@ export interface LinkedDevice {
   address: number;
 }
 
+export interface OnLink {
+  kind: "goggles" | "remote" | "unknown";
+  name: string;
+  code: string | null;
+}
+
 export interface DumlFrame {
   src: number;
   dst: number;

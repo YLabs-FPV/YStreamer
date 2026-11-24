@@ -45,7 +45,7 @@ fn band_over_an_image_keeps_what_is_needed_to_get_in() {
         .over_image("data:image/png;base64,AAAA", Scaling::Fit);
 
     assert!(svg.contains(r#"href="data:image/png;base64,AAAA""#));
-    assert!(svg.contains("Connect the goggles to the USB-C port"));
+    assert!(svg.contains("Connect the goggles or RC-N remote to the USB-C port"));
     assert!(svg.contains("10.42.0.1"));
     assert!(svg.contains("192.168.1.20"));
     assert!(svg.contains("flyfast123"));
