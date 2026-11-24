@@ -59,6 +59,7 @@ const KNOWN: &[(&str, &str, Kind)] = &[
     ("PM431", "Matrice 350 RTK", Kind::Aircraft),
     ("R400", "D-RTK GNSS", Kind::Other),
     ("RC151", "RC-N2", Kind::Remote),
+    ("RC151B", "RC-N3", Kind::Remote),
     ("RC151B-WA150", "RC-N3", Kind::Remote),
     ("RC221", "RC Motion 3", Kind::Remote),
     ("RC331", "DJI RC 2", Kind::Remote),
@@ -132,10 +133,23 @@ const KNOWN: &[(&str, &str, Kind)] = &[
     ("ZV811", "OcuSync Air System", Kind::Aircraft),
 ];
 
+/// From a device announcing itself (`00/81`, `00/82`)
 pub fn from_identity(address: u8, record: &[u8]) -> Option<Device> {
     let raw = record.get(..32)?;
     let end = raw.iter().position(|&b| b == 0).unwrap_or(raw.len());
-    let code = std::str::from_utf8(&raw[..end]).ok()?.trim();
+    named(address, std::str::from_utf8(&raw[..end]).ok()?.trim())
+}
+
+/// From a device's answer to "get version" (`00/01`): two bytes, then its
+/// hardware name
+pub fn from_version(address: u8, reply: &[u8]) -> Option<Device> {
+    let raw = reply.get(2..)?;
+    let end = raw.iter().position(|&b| b == 0)?;
+    let hardware = std::str::from_utf8(&raw[..end]).ok()?;
+    named(address, hardware.split_whitespace().next()?)
+}
+
+fn named(address: u8, code: &str) -> Option<Device> {
     if code.is_empty() || !code.bytes().all(|b| b.is_ascii_graphic()) {
         return None;
     }
@@ -150,6 +164,37 @@ pub fn from_identity(address: u8, record: &[u8]) -> Option<Device> {
         kind,
         address,
     })
+}
+
+/// What's on the USB-C link
+#[derive(serde::Serialize, Clone, Debug, PartialEq, Eq)]
+pub struct OnLink {
+    pub kind: Kind,
+    pub name: String,
+    /// DJI's product code
+    pub code: Option<String>,
+}
+
+pub fn on_link(devices: &[Device], codec: Option<crate::input::codec::Codec>) -> OnLink {
+    if let Some(d) = [Kind::Goggles, Kind::Remote]
+        .iter()
+        .find_map(|kind| devices.iter().find(|d| d.kind == *kind))
+    {
+        return OnLink {
+            kind: d.kind,
+            name: d.name.clone(),
+            code: Some(d.code.clone()),
+        };
+    }
+    let (kind, name) = match codec {
+        Some(crate::input::codec::Codec::H265) => (Kind::Remote, "RC-N remote"),
+        _ => (Kind::Unknown, "DJI device"),
+    };
+    OnLink {
+        kind,
+        name: name.to_string(),
+        code: None,
+    }
 }
 
 #[cfg(test)]

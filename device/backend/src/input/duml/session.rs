@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::devices::{self, Device};
+use super::devices::{self, Device, Kind};
 use super::{FLAGS_REQUEST, FLAGS_RESPONSE, Frame, encode, next_seq};
 use crate::input::goggles::{Goggles, LinkState};
 
@@ -11,6 +11,7 @@ const REGISTRAR: u8 = 0x3C;
 const TOPIC_HOST: u8 = 0x28;
 
 const CMD_GENERAL: u8 = 0x00;
+const CMD_VERSION: u8 = 0x01;
 const CMD_IDENTITY: u8 = 0x81;
 const CMD_IDENTITY_ACK: u8 = 0x82;
 const CMD_LINK: u8 = 0x88;
@@ -23,6 +24,8 @@ const OP_HEARTBEAT_ACK: u8 = 0x1a;
 const OP_VERSION: u8 = 0x1d;
 
 const APP_VERSION: &str = "1.21.1";
+/// What sits at the other end of the USB-C cable
+const ON_LINK: [Kind; 2] = [Kind::Goggles, Kind::Remote];
 
 const RETRY_INTERVAL: Duration = Duration::from_secs(1);
 const WARN_AFTER_ATTEMPTS: u32 = 5;
@@ -31,6 +34,10 @@ const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(5);
 const TICK: Duration = Duration::from_millis(250);
 // Linked devices repeat their identity about once a second
 const DEVICE_TIMEOUT: Duration = Duration::from_secs(5);
+/// Where an RC-N remote and the goggles answer "get version". The remote
+/// never announces itself, and the goggles only once registered, so they're
+/// asked, about once a second until one answers
+const ASK_VERSION: [u8; 2] = [0x0e, 0xbc];
 
 #[derive(serde::Serialize, Clone, Default)]
 pub struct SessionStatus {
@@ -49,6 +56,9 @@ struct State {
     warned_no_heartbeat: bool,
     warned_link_response: bool,
     devices: HashMap<u8, (Device, Instant)>,
+    /// What answered "get version", for as long as the link lasts
+    answered: HashMap<u8, Device>,
+    last_version_ask: Option<Instant>,
 }
 
 /// The app side of the DUML conversation
@@ -90,6 +100,11 @@ impl Session {
             .filter(|(_, seen)| seen.elapsed() < DEVICE_TIMEOUT)
             .map(|(d, _)| d.clone())
             .collect();
+        for d in st.answered.values() {
+            if !out.iter().any(|o| o.address == d.address) {
+                out.push(d.clone());
+            }
+        }
         out.sort_by_key(|d| (d.kind, d.address));
         out
     }
@@ -108,6 +123,19 @@ impl Session {
                     generation,
                     ..State::default()
                 };
+            }
+
+            let named = st.answered.values().any(|d| ON_LINK.contains(&d.kind))
+                || st.devices.values().any(|(d, _)| ON_LINK.contains(&d.kind));
+            if !named
+                && st
+                    .last_version_ask
+                    .is_none_or(|t| t.elapsed() >= RETRY_INTERVAL)
+            {
+                st.last_version_ask = Some(Instant::now());
+                for dst in ASK_VERSION {
+                    let _ = self.request(dst, CMD_VERSION, &[]);
+                }
             }
 
             if st.status.registered {
@@ -173,6 +201,8 @@ impl Session {
         if f.is_response() {
             if f.src == REGISTRAR && f.cmd_id == CMD_LINK {
                 self.on_link_response(f.payload);
+            } else if f.cmd_id == CMD_VERSION && ASK_VERSION.contains(&f.src) {
+                self.on_version(f.src, f.payload);
             }
             return;
         }
@@ -251,6 +281,20 @@ impl Session {
             );
         }
         st.devices.insert(src, (device, Instant::now()));
+    }
+
+    fn on_version(&self, src: u8, payload: &[u8]) {
+        let Some(device) = devices::from_version(src, payload) else {
+            return;
+        };
+        let mut st = self.state.lock().unwrap();
+        if st.answered.get(&src) != Some(&device) {
+            eprintln!(
+                "[duml] Linked: {} ({}) at {:#04x}, asked",
+                device.name, device.code, src
+            );
+            st.answered.insert(src, device);
+        }
     }
 
     fn reply(&self, f: &Frame, payload: &[u8]) {

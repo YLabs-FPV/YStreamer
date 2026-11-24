@@ -251,11 +251,12 @@ fn ipv4(iface: &InterfaceStatus) -> Option<String> {
 impl Screen {
     fn status(&self) -> (&'static str, String) {
         match (self.source, self.goggles) {
-            (InputMode::DjiFpv, LinkState::Unplugged) => {
-                (MUTED, "Connect the goggles to the USB-C port".to_string())
-            }
+            (InputMode::DjiFpv, LinkState::Unplugged) => (
+                MUTED,
+                "Connect the goggles or RC-N remote to the USB-C port".to_string(),
+            ),
             (InputMode::DjiFpv, LinkState::Connecting) => {
-                (WARN_SOFT, "Goggles found, connecting".to_string())
+                (WARN_SOFT, "DJI device found, connecting".to_string())
             }
             (InputMode::DjiFpvLegacy, LinkState::Unplugged) => {
                 (MUTED, "Connect the goggles to a USB-A port".to_string())
@@ -283,7 +284,8 @@ impl Screen {
                 format!(
                     "{} connected, waiting for video",
                     self.goggles_name.as_deref().unwrap_or(match source {
-                        InputMode::DjiFpv | InputMode::DjiFpvLegacy => "Goggles",
+                        InputMode::DjiFpv => "DJI device",
+                        InputMode::DjiFpvLegacy => "Goggles",
                         InputMode::Uvc => "USB camera",
                         InputMode::Rtmp => "RTMP app",
                     })

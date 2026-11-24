@@ -113,6 +113,13 @@
 
   const noGoggles = $derived(!control.connected || control.link !== "live");
   const off = $derived(noGoggles || !control.aircraft);
+  const linkedTo = $derived(
+    control.onLink?.kind === "remote"
+      ? "remote"
+      : control.onLink?.kind === "goggles"
+        ? "goggles"
+        : "goggles or remote",
+  );
   const locked = $derived(off || !auth.admin);
 
   const exposureSummary = $derived(
@@ -162,8 +169,8 @@
   {#if off}
     <p class="border-b border-line px-4 py-2.5 text-[12px] text-muted">
       {noGoggles
-        ? "Connect the goggles to change camera settings."
-        : "Waiting for the aircraft. Its camera can be set up once it's linked to the goggles."}
+        ? "Connect the goggles or RC-N remote to change camera settings."
+        : `Waiting for the aircraft. Its camera can be set up once it's linked to the ${linkedTo}.`}
     </p>
   {/if}
 

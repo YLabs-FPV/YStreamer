@@ -101,14 +101,20 @@ impl Goggles {
     }
 
     pub fn send(&self, bytes: &[u8]) -> io::Result<()> {
-        let not_connected = || io::Error::new(io::ErrorKind::NotConnected, "goggles not connected");
+        let not_connected = || {
+            io::Error::new(
+                io::ErrorKind::NotConnected,
+                "no goggles or remote connected",
+            )
+        };
         if !self.open.load(Ordering::Relaxed) {
             return Err(not_connected());
         }
         self.outbox.try_send(bytes.to_vec()).map_err(|e| match e {
-            TrySendError::Full(_) => {
-                io::Error::new(io::ErrorKind::WouldBlock, "goggles aren't taking data")
-            }
+            TrySendError::Full(_) => io::Error::new(
+                io::ErrorKind::WouldBlock,
+                "the goggles or remote aren't taking data",
+            ),
             TrySendError::Disconnected(_) => not_connected(),
         })
     }
@@ -150,7 +156,7 @@ impl Goggles {
 
             match self.run_session(&mut on_data, &inbox, quiet) {
                 SessionEnd::LinkDown => {
-                    eprintln!("[usb] Goggles disconnected");
+                    eprintln!("[usb] DJI link disconnected");
                     quiet = false;
                     // Let the gadget settle before trusting the state again
                     thread::sleep(Duration::from_millis(500));
@@ -162,7 +168,7 @@ impl Goggles {
                 }
                 SessionEnd::NoAnswer => {
                     if !quiet {
-                        eprintln!("[usb] Goggles not talking, reconnecting the USB link");
+                        eprintln!("[usb] DJI device not talking, reconnecting the USB link");
                     }
                     quiet = true;
                     if !replug() {
@@ -445,9 +451,9 @@ fn wait_for_link() {
     if link_up() {
         return;
     }
-    eprintln!("[usb] Waiting for goggles");
+    eprintln!("[usb] Waiting for the goggles or remote");
     while !link_up() {
         thread::sleep(Duration::from_millis(100));
     }
-    eprintln!("[usb] Goggles connected");
+    eprintln!("[usb] DJI link connected");
 }

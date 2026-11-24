@@ -69,7 +69,7 @@ async fn control_socket(socket: WebSocket, state: AppState, admin: bool) {
     // Broadcasts only carry changes, so a new browser needs the current state
     let current = [
         super::link_msg(state.services.goggles.state()),
-        super::devices_msg(&state.services.session.devices()),
+        super::devices_msg(&state.services),
         super::input_msg(&state.services),
         super::overlay_msg(&state.services),
     ];
