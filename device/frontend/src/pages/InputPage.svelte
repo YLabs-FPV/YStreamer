@@ -13,10 +13,15 @@
   import { btn } from "@/components/ui/buttons";
   import { snackbar } from "@/stores/snackbar.svelte";
   import { developer } from "@/stores/developer.svelte";
+  import RadioRegionCard from "@/components/input/RadioRegionCard.svelte";
   import { settings } from "@/stores/settings.svelte";
   import { copyText } from "@/lib/clipboard";
 
-  let { input = $bindable() }: { input: Settings["input"] } = $props();
+  let {
+    input = $bindable(),
+    radioRegion = $bindable(),
+  }: { input: Settings["input"]; radioRegion: Settings["radio_region"] } =
+    $props();
 
   const SOURCES = [
     { label: "DJI goggles / RC-N", value: "dji_fpv" },
@@ -331,6 +336,8 @@
   </Card>
 
   {#if input.mode === "dji_fpv"}
+    <RadioRegionCard bind:region={radioRegion} />
+
     <Card
       title="DJI Fly passthrough"
       description="Keep using DJI Fly on an Android phone in a USB-A port while YStreamer streams. iPhone isn't supported."

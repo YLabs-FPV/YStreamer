@@ -2,6 +2,7 @@ mod device;
 mod display;
 mod ethernet;
 mod input;
+mod radio;
 mod recording;
 mod streaming;
 mod wifi;
@@ -10,6 +11,7 @@ pub use device::*;
 pub use display::*;
 pub use ethernet::*;
 pub use input::*;
+pub use radio::*;
 pub use recording::*;
 pub use streaming::*;
 pub use wifi::*;
@@ -36,6 +38,7 @@ const VERSION: u64 = 1;
 #[serde(default)]
 pub struct Settings {
     pub input: InputSettings,
+    pub radio_region: RadioRegionSettings,
     pub device: DeviceSettings,
     pub wifi: WifiSettings,
     pub ethernet: EthernetSettings,

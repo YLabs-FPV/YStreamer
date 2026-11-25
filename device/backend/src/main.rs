@@ -71,6 +71,8 @@ fn run() -> anyhow::Result<()> {
     input::gadget::ensure();
     let goggles = Goggles::new();
     let session = Session::start(goggles.clone());
+    let region =
+        duml::region::Applier::start(goggles.clone(), Arc::clone(&session), Arc::clone(&store));
     let monitor = Arc::new(Monitor::new());
 
     let network = network::Network::new();
@@ -153,6 +155,7 @@ fn run() -> anyhow::Result<()> {
         input_button,
         goggles: goggles.clone(),
         session: Arc::clone(&session),
+        region,
         monitor: Arc::clone(&monitor),
         splash: Arc::clone(&splash),
         input: Arc::clone(&input),

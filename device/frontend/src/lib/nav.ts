@@ -39,7 +39,7 @@ export const SETTINGS_PAGES: NavPage[] = [
   {
     id: "input",
     label: "Input",
-    sections: ["input"],
+    sections: ["input", "radio_region"],
     icon: Cable,
   },
   {
